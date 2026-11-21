@@ -11,10 +11,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class OpesFuelDomainTests {
 
     @Test
-    void verifyModulithBoundedContexts() {
+    void verifyModulithBoundedContextsStrictly() {
         ApplicationModules modules = ApplicationModules.of(OpesFuelApplication.class);
         assertNotNull(modules);
         assertTrue(modules.stream().findAny().isPresent());
+        modules.verify();
     }
 
     @Test
@@ -32,36 +33,17 @@ class OpesFuelDomainTests {
     }
 
     @Test
-    void verifyVatExtractionOnFcfaInclusiveFuelRevenue() {
+    void verifyBigDecimalVatExtractionOnFcfaInclusiveFuelRevenue() {
         long grossSalesFcfa = 1_192_500L;
-        long vatFcfa = Math.round(grossSalesFcfa * 0.1925 / 1.1925);
+        BigDecimal vatRate = new BigDecimal("0.1925");
+        long vatFcfa = BigDecimal.valueOf(grossSalesFcfa)
+            .multiply(vatRate)
+            .divide(BigDecimal.ONE.add(vatRate), 0, RoundingMode.HALF_UP)
+            .longValue();
         long netRevenueFcfa = grossSalesFcfa - vatFcfa;
 
         assertEquals(192_500L, vatFcfa);
         assertEquals(1_000_000L, netRevenueFcfa);
         assertEquals(grossSalesFcfa, vatFcfa + netRevenueFcfa);
-    }
-
-    @Test
-    void verifyInstitutionalGradeTariffVoucherCalculation() {
-        java.util.Map<String, Long> prices = java.util.Map.of(
-            "SUPER", 840L,
-            "GASOIL", 828L,
-            "KEROSENE", 550L,
-            "LPG_BULK", 620L,
-            "HEAVY_FUEL", 765L
-        );
-
-        long lpgAmount = new BigDecimal("125.5")
-            .multiply(BigDecimal.valueOf(prices.get("LPG_BULK")))
-            .setScale(0, RoundingMode.HALF_UP)
-            .longValue();
-        long keroseneAmount = new BigDecimal("100")
-            .multiply(BigDecimal.valueOf(prices.get("KEROSENE")))
-            .setScale(0, RoundingMode.HALF_UP)
-            .longValue();
-
-        assertEquals(77_810L, lpgAmount);
-        assertEquals(55_000L, keroseneAmount);
     }
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ChevronRight, Download, FileSpreadsheet, FileText, Printer, Trash2 } from 'lucide-react';
-import { CHART_OF_ACCOUNTS } from '../../api/opesfuelClient';
+import { CHART_OF_ACCOUNTS, OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { formatFcfa, formatShortDate } from '../../domain/formatters';
 import {
@@ -11,8 +11,10 @@ import {
   UserRole,
 } from '../../domain/types';
 import { exportAccountingExcel, exportAccountingPdf } from '../../utils/exportReports';
+import { AccountingAdvancedPanel } from './AccountingAdvancedPanel';
 
 interface AccountingSectionProps {
+  engine: OpesFuelApiEngine;
   role: UserRole;
   stationId: string;
   defaultStationId: string;
@@ -36,9 +38,11 @@ interface AccountingSectionProps {
     amountFcfa: number;
   }) => void;
   onDeleteDeposit: (depositId: string) => void;
+  onNotify: (type: 'success' | 'error', message: string) => void;
 }
 
 export const AccountingSection: React.FC<AccountingSectionProps> = ({
+  engine,
   role,
   stationId,
   defaultStationId,
@@ -50,6 +54,7 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
   onDeleteExpense,
   onRecordDeposit,
   onDeleteDeposit,
+  onNotify,
 }) => {
   const canPost = canPerformAction(role, 'RECORD_EXPENSE_DEPOSIT');
   const effectiveStation = stationId === 'ALL' ? defaultStationId : stationId;
@@ -739,6 +744,16 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
           </div>
         </div>
       </div>
+
+      <AccountingAdvancedPanel
+        engine={engine}
+        role={role}
+        stationId={stationId}
+        effectiveStationId={effectiveStation}
+        report={report}
+        journals={visibleJournals}
+        onNotify={onNotify}
+      />
     </div>
   );
 };

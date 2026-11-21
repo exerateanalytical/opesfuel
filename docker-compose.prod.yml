@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-opesfuel}
+      POSTGRES_USER: ${POSTGRES_USER:-opesfuel_app}
+      POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
+    volumes:
+      - opesfuel_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-opesfuel_app} -d ${POSTGRES_DB:-opesfuel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  opesfuel-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-opesfuel}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-opesfuel_app}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
+      AUTH0_ISSUER_URI: ${AUTH0_ISSUER_URI:?AUTH0_ISSUER_URI is required}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPESFUEL_AI_MODEL: ${OPESFUEL_AI_MODEL:-gemini-2.5-flash}
+      OPESFUEL_VAT_RATE: ${OPESFUEL_VAT_RATE:-0.1925}
+      OPESFUEL_ENCRYPTION_KEY: ${OPESFUEL_ENCRYPTION_KEY:?OPESFUEL_ENCRYPTION_KEY is required}
+      OPESFUEL_CORS_ALLOWED_ORIGINS: ${OPESFUEL_CORS_ALLOWED_ORIGINS:?OPESFUEL_CORS_ALLOWED_ORIGINS is required}
+      OPESFUEL_ALERTS_WEBHOOK_URL: ${OPESFUEL_ALERTS_WEBHOOK_URL:-}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  opesfuel-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-https://api.opesfuel.com}
+        VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN:-}
+        VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID:-}
+        VITE_AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      OPESFUEL_BACKEND_URL: http://opesfuel-backend:8080
+      OPESFUEL_AI_MODEL: ${OPESFUEL_AI_MODEL:-gemini-2.5-flash}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      opesfuel-backend:
+        condition: service_healthy
+
+volumes:
+  opesfuel_pgdata:

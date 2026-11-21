@@ -40,6 +40,15 @@ interface PublicSiteProps {
   report: FinancialReportBundle;
   onNavigate: (page: PublicPage) => void;
   onOpenConsole: () => void;
+  onLeadSubmitted?: (lead: {
+    referenceId: string;
+    fullName: string;
+    stationName: string;
+    email: string;
+    phone: string;
+    pumpCount: number;
+    selectedPlan: string;
+  }) => void;
 }
 
 const HERO_IMG = '/src/assets/images/opesfuel_hero_forecourt_black_1795293395675.jpg';
@@ -89,6 +98,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   report,
   onNavigate,
   onOpenConsole,
+  onLeadSubmitted,
 }) => {
   // Pricing interactive state
   const [annualBilling, setAnnualBilling] = useState(false);
@@ -105,6 +115,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
     selectedPlan: 'Starter Station (25 000 FCFA/mo)',
   });
   const [leadError, setLeadError] = useState<string | null>(null);
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
   const [leadReceipt, setLeadReceipt] = useState<string | null>(null);
 
   const recommendedPlan =
@@ -133,33 +144,45 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
       return;
     }
 
+    setLeadSubmitting(true);
     let refId = `LEAD-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-    if (apiBase) {
-      try {
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+    const payload = {
+      fullName: leadForm.fullName.trim(),
+      stationName: leadForm.stationName.trim(),
+      email: leadForm.email.trim(),
+      phone: leadForm.phone.trim(),
+      pumpCount: Number(leadForm.pumpCount) || 6,
+      selectedPlan: leadForm.selectedPlan,
+    };
+
+    try {
+      if (apiBase) {
         const res = await fetch(`${apiBase}/api/v1/public/leads`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fullName: leadForm.fullName.trim(),
-            stationName: leadForm.stationName.trim(),
-            email: leadForm.email.trim(),
-            phone: leadForm.phone.trim(),
-            pumpCount: Number(leadForm.pumpCount) || 6,
-            selectedPlan: leadForm.selectedPlan,
-          }),
+          body: JSON.stringify(payload),
         });
-        if (res.ok) {
-          const data = (await res.json()) as { referenceId?: string };
-          if (data.referenceId) {
-            refId = data.referenceId;
-          }
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(
+            res.status === 429
+              ? 'Too many requests from this network. Please wait a minute and try again.'
+              : `Unable to submit request (${res.status}): ${errText.slice(0, 140)}`
+          );
         }
-      } catch {
-        // Fallback to local receipt reference when remote Spring Boot server is unreachable
+        const data = (await res.json()) as { referenceId?: string };
+        if (data.referenceId) {
+          refId = data.referenceId;
+        }
       }
+      onLeadSubmitted?.({ referenceId: refId, ...payload });
+      setLeadReceipt(refId);
+    } catch (err) {
+      setLeadError(err instanceof Error ? err.message : 'Unable to submit onboarding request.');
+    } finally {
+      setLeadSubmitting(false);
     }
-    setLeadReceipt(refId);
   };
 
   if (page === 'platform') {
@@ -167,51 +190,63 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
       {
         num: '01',
         title: 'Forecourt Pumps & Shift Reconciliation',
-        desc: 'Track mechanical and electronic totalizers across Super, Gasoil, and Kerosene nozzles. Compute expected FCFA against Cash, Orange Money, MTN MoMo, Card, and Fleet vouchers in seconds.',
-        meta: 'Forecourt Context · ShiftClosedEvent',
+        desc: 'Track mechanical and electronic totalizers across Super, Gasoil, Kerosene, and LPG nozzles. Reconcile expected FCFA against Cash, Orange Money, MTN MoMo, Card, and Fleet vouchers in seconds with immutable void reversals.',
+        meta: 'Forecourt Module · ShiftClosedEvent',
       },
       {
         num: '02',
-        title: 'Underground Tank Inventory & Tanker Receiving',
-        desc: 'Monitor book stock vs. physical morning and evening dipsticks. Compare supplier bill-of-lading volumes against actual tanker receipts and catch evaporation or leakage early.',
-        meta: 'Inventory Context · DipstickVarianceFlaggedEvent',
+        title: 'Underground Tank Inventory, Shrinkage & ATG 15°C IoT',
+        desc: 'Monitor book stock vs. physical dipsticks and automated tank gauge probes with ASTM 15°C thermal expansion compensation. Reconcile supplier BoLs, manage depot suppliers, and post shrinkage adjustments to the ledger.',
+        meta: 'Inventory Module · DipstickVarianceFlaggedEvent',
       },
       {
         num: '03',
-        title: 'Corporate Fleet Credit & Lubricants POS',
-        desc: 'Issue postpaid fuel vouchers by vehicle plate and driver, enforce FCFA credit limits, settle corporate Accounts Receivable, and ring up lubricants and LPG cylinders.',
-        meta: 'Fleet & Shop Context · FleetAccountSettledEvent',
+        title: 'Corporate Fleet Credit, Vehicle Whitelists & Shop POS',
+        desc: 'Issue postpaid fuel vouchers by whitelisted vehicle plate and driver, toggle ACTIVE/HOLD credit controls, generate corporate statements, and sell lubricants/LPG with real WAC COGS tracking.',
+        meta: 'Fleet & Shop Modules · FleetAccountSettledEvent',
       },
       {
         num: '04',
-        title: 'Employee Roster, Attendance & Payroll Variance',
-        desc: 'Assign attendants to pump islands, track shift clock-in/clock-out times, and maintain an auditable employee variance ledger tied directly to monthly FCFA payroll.',
-        meta: 'Workforce Context · Auth0 RBAC',
+        title: 'Employee Roster, Timesheets & Shortage-Only Payroll',
+        desc: 'Track attendant clock-in/clock-out audit logs, link staff to Auth0 accounts via 7-day invitations, inspect individual payslips, and execute monthly payroll runs posting DR 6100 Salaries automatically.',
+        meta: 'Workforce & Identity Modules · Auth0 RS256',
       },
       {
         num: '05',
-        title: 'Automated Double-Entry Accounting & Treasury',
-        desc: 'Every closed shift, fuel delivery, safe-to-bank deposit, and station expense posts balanced Debit/Credit lines automatically—generating P&L, Balance Sheet, Trial Balance, and VAT summaries.',
-        meta: 'Accounting Context · SYSCOHADA & IFRS',
+        title: 'SYSCOHADA Double-Entry Accounting & Fiscal Period Locks',
+        desc: 'Every closed shift, tanker receipt, AP payment, VAT (19.25%) remittance, and manual journal posts balanced integer FCFA lines—generating P&L, Balance Sheet, Trial Balance, Daily Z-Reports, and locked fiscal periods.',
+        meta: 'Accounting & Reporting Modules · SYSCOHADA & IFRS',
       },
       {
         num: '06',
-        title: 'Mobile App (Android & iPhone) & OpenAPI Platform',
-        desc: 'Equip attendants and station owners with an offline-resilient mobile app for Android and iPhone and expose every station workflow through versioned REST endpoints and HMAC webhooks.',
-        meta: 'Mobile & API Context · OpenAPI 3.1',
+        title: 'AI Operations Copilot, SaaS Billing & Real-Time Alerts',
+        desc: 'Run Gemini-powered financial diagnostics with persisted audit trails, automate monthly SaaS invoicing with Orange Money / MTN MoMo settlement, and receive instant low-stock and variance notifications.',
+        meta: 'AI, Billing & Notifications Modules',
+      },
+      {
+        num: '07',
+        title: 'Mobile App (Android & iPhone) & OpenAPI 3.1 Platform',
+        desc: 'Equip attendants and managers with an offline-resilient mobile app protected by Auth0 PKCE and UUID idempotency keys, plus 88 versioned REST endpoints, scoped X-API-Keys, and AES-256-GCM HMAC webhooks.',
+        meta: 'API Platform & Mobile · OpenAPI 3.1',
+      },
+      {
+        num: '08',
+        title: 'Multi-Tenant SaaS Control Plane (Super-Admin)',
+        desc: 'Built for petroleum network operators and SaaS founders: monitor global MRR across all customer tenants, manage tenant lifecycle status, and track inbound enterprise licensing and onboarding leads.',
+        meta: 'Tenant & Platform Admin Module · Multi-Tenant Isolation',
       },
     ];
 
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         <div className="max-w-3xl space-y-4">
-          <div className="text-sm font-medium text-amber-700">Platform Modules</div>
+          <div className="text-sm font-medium text-amber-700">Production Platform Architecture</div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-            Seven bounded domains engineered for zero fuel or cash leakage.
+            15 Java 25 Spring Boot modules engineered for zero fuel or cash leakage.
           </h1>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            Built on a Java 25 Spring Boot modular monolith and PostgreSQL, OpesFuel keeps physical
-            forecourt operations and financial accounting locked in a single source of truth.
+            Built on a verified Spring Modulith modular monolith and PostgreSQL 17, OpesFuel locks physical
+            forecourt operations, underground tank telemetry, and SYSCOHADA accounting in a single ACID source of truth.
           </p>
         </div>
 
@@ -234,7 +269,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                   onClick={onOpenConsole}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-700 hover:text-amber-800"
                 >
-                  Test module in live console <ChevronRight className="w-4 h-4" />
+                  Open module in station portal <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -478,22 +513,25 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   if (page === 'api') {
     const endpoints = [
       { method: 'POST', path: '/api/v1/forecourt/shifts/{id}/close', scope: 'forecourt:write', desc: 'Closes shift, deducts tank volume, emits ShiftClosedEvent, and posts balanced revenue + VAT + COGS journals.' },
-      { method: 'POST', path: '/api/v1/inventory/deliveries', scope: 'inventory:write', desc: 'Records supplier tanker delivery against BoL volume and posts Inventory/AP ledger entry.' },
-      { method: 'POST', path: '/api/v1/inventory/dipsticks', scope: 'inventory:write', desc: 'Logs physical tank dipstick reading and raises DipstickVarianceFlaggedEvent on shrinkage.' },
-      { method: 'GET', path: '/api/v1/accounting/reports', scope: 'accounting:read', desc: 'CQRS read projection returning P&L, Trial Balance, Balance Sheet, and VAT payable in FCFA.' },
-      { method: 'POST', path: '/api/v1/platform/webhooks', scope: 'platform:admin', desc: 'Subscribes external ERPs and fleet systems to signed HMAC domain events.' },
+      { method: 'POST', path: '/api/v1/inventory/tanks/{id}/atg-telemetry', scope: 'inventory:write', desc: 'Ingests ATG IoT probe readings with ASTM 15°C thermal expansion compensation and variance detection.' },
+      { method: 'POST', path: '/api/v1/inventory/tanks/{id}/reconcile-shrinkage', scope: 'inventory:write', desc: 'Posts dipstick shrinkage/gain adjustment journals and aligns book stock with physical measurements.' },
+      { method: 'GET', path: '/api/v1/accounting/reports', scope: 'accounting:read', desc: 'SQL-aggregated CQRS projection returning P&L, Trial Balance, Balance Sheet, and VAT (19.25%) in integer FCFA.' },
+      { method: 'GET', path: '/api/v1/reporting/z-report', scope: 'accounting:read', desc: 'Generates end-of-day station Z-Report breakdown across Cash, Orange Money, MTN MoMo, Card, and Fleet AR.' },
+      { method: 'POST', path: '/api/v1/billing/invoices/generate', scope: 'billing:write', desc: 'Generates monthly multi-station FCFA subscription invoices with Orange Money, MoMo, Bank, and Card settlement.' },
+      { method: 'POST', path: '/api/v1/platform/webhooks', scope: 'platform:admin', desc: 'Subscribes external ERPs to AES-256-GCM encrypted HMAC-SHA256 signed domain events with delivery logs.' },
+      { method: 'GET', path: '/api/v1/platform-admin/overview', scope: 'ROLE_PLATFORM_ADMIN', desc: 'SaaS Super-Admin control plane returning global MRR, multi-tenant lifecycle status, and inbound lead pipeline.' },
     ];
 
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
         <div className="max-w-3xl space-y-4">
-          <div className="text-sm font-medium text-amber-700">API-as-a-Product · OpenAPI 3.1</div>
+          <div className="text-sm font-medium text-amber-700">API-as-a-Product · OpenAPI 3.1 (88 Endpoints)</div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-            Contract-first REST APIs backed by Java 25 Spring Boot &amp; PostgreSQL.
+            Contract-first REST APIs backed by Java 25 Spring Boot &amp; PostgreSQL 17.
           </h1>
           <p className="text-base text-slate-600 leading-relaxed">
             Every capability in OpesFuel is specified in <span className="font-mono text-slate-900">openapi/opesfuel-api.yaml</span> before
-            implementation. Protected by Auth0 RS256 JWTs, scoped tenant API keys, and UUID
+            implementation. Protected by Auth0 RS256 OIDC PKCE JWTs, SHA-256 hashed scoped tenant API keys, and UUID
             idempotency keys.
           </p>
         </div>
@@ -506,7 +544,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               onClick={onOpenConsole}
               className="px-3.5 py-1.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
             >
-              Try Live API Explorer in Console
+              Open API Explorer in Portal
             </button>
           </div>
           <div className="divide-y divide-slate-200">
@@ -534,26 +572,26 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-10">
         <div className="space-y-3">
-          <div className="text-sm font-medium text-amber-700">Station Onboarding</div>
+          <div className="text-sm font-medium text-amber-700">Enterprise Station Onboarding</div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-            Schedule a live station walkthrough.
+            Deploy OpesFuel across your petrol station network.
           </h1>
           <p className="text-base text-slate-600">
-            Tell us about your petrol station pumps and accounting requirements. Onboarding starts at
-            25 000 FCFA/month with zero hardware lock-in.
+            Tell us about your petrol station pumps, underground tanks, and accounting requirements. Production SaaS
+            plans start at 25 000 FCFA/month with zero hardware lock-in and same-day deployment.
           </p>
         </div>
 
         {leadReceipt ? (
           <div className="bg-white border border-emerald-300 rounded-xl p-8 space-y-4">
-            <div className="text-sm font-semibold text-emerald-700">Request Confirmed</div>
+            <div className="text-sm font-semibold text-emerald-700">Onboarding Request Confirmed</div>
             <h2 className="font-display text-2xl font-bold text-slate-900">
               Reference {leadReceipt}
             </h2>
             <p className="text-sm text-slate-600">
-              Thank you, {leadForm.fullName}. Our engineering and onboarding team will reach out to{' '}
+              Thank you, {leadForm.fullName}. Our solutions engineering team has logged your request and will contact{' '}
               <span className="font-medium text-slate-900">{leadForm.email}</span> regarding{' '}
-              <span className="font-medium text-slate-900">{leadForm.stationName}</span>.
+              <span className="font-medium text-slate-900">{leadForm.stationName}</span> within 1 business day.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <button
@@ -561,7 +599,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 onClick={onOpenConsole}
                 className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold"
               >
-                Explore Live Console Now
+                Open Station Portal
               </button>
               <button
                 type="button"
@@ -641,15 +679,17 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                   <option>Starter Station (25 000 FCFA/mo)</option>
                   <option>Multi-Pump Pro (55 000 FCFA/mo)</option>
                   <option>Network Enterprise (120 000 FCFA/mo)</option>
+                  <option>Perpetual Self-Hosted License (5 000 000 FCFA/yr)</option>
                 </select>
               </div>
             </div>
 
             <button
               type="submit"
-              className="px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors"
+              disabled={leadSubmitting}
+              className="px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
             >
-              Submit Onboarding Request
+              {leadSubmitting ? 'Submitting Request…' : 'Submit Onboarding Request'}
             </button>
           </form>
         )}
@@ -660,29 +700,33 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   if (page === 'legal') {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
-        <h1 className="font-display text-3xl font-bold text-slate-900">Terms of Service &amp; Data Privacy</h1>
+        <h1 className="font-display text-3xl font-bold text-slate-900">Terms of Service, SLA &amp; Data Privacy</h1>
         <div className="bg-white border border-slate-200 rounded-xl p-8 space-y-6 text-sm text-slate-700 leading-relaxed">
           <section className="space-y-2">
             <h2 className="font-display text-lg font-bold text-slate-900">1. Tenant Financial Ledger Integrity</h2>
             <p>
               All station sales, tank deliveries, and double-entry accounting journals recorded in OpesFuel
-              are stored in isolated tenant schemas in PostgreSQL using integer FCFA precision and immutable
-              audit logs.
+              are stored in strictly isolated tenant partitions in PostgreSQL 17 using integer FCFA precision,
+              immutable reversing entries, fiscal period locks, and auditable outbox logs.
             </p>
           </section>
           <section className="space-y-2">
-            <h2 className="font-display text-lg font-bold text-slate-900">2. Auth0 Identity &amp; Access Control</h2>
+            <h2 className="font-display text-lg font-bold text-slate-900">2. Auth0 Identity &amp; Role-Based Access Control</h2>
             <p>
-              Station owners retain complete ownership over employee roles (`OWNER`, `MANAGER`, `ATTENDANT`,
-              `ACCOUNTANT`), API keys, and webhook subscriptions. All API access requires signed Auth0 OIDC
-              tokens or scoped tenant API keys.
+              Station owners retain complete sovereignty over employee roles (
+              <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">OWNER</code>,{' '}
+              <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">MANAGER</code>,{' '}
+              <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">ATTENDANT</code>,{' '}
+              <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">ACCOUNTANT</code>),
+              scoped API keys, and AES-256-GCM encrypted webhook secrets. All API endpoints require verified
+              Auth0 RS256 OIDC PKCE tokens or scoped tenant API keys.
             </p>
           </section>
           <section className="space-y-2">
-            <h2 className="font-display text-lg font-bold text-slate-900">3. Subscription Billing</h2>
+            <h2 className="font-display text-lg font-bold text-slate-900">3. Subscription Billing &amp; Data Portability</h2>
             <p>
-              Subscriptions start at 25 000 FCFA per station per month and may be upgraded or exported in
-              standard CSV/SYSCOHADA ledger formats at any time.
+              Cloud SaaS subscriptions start at 25 000 FCFA per station per month with 99.9% uptime SLA and
+              full export portability in standard CSV, Excel, PDF, and SYSCOHADA ledger formats at any time.
             </p>
           </section>
         </div>
@@ -698,15 +742,15 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
           <div className="lg:col-span-6 flex flex-col justify-center space-y-6">
             <div className="text-sm font-medium text-amber-700">
-              Petrol Station Operations &amp; Accounting · Starting at 25 000 FCFA/month
+              Enterprise Petrol Station SaaS · Starting at 25 000 FCFA/month
             </div>
             <h1 className="font-display text-[clamp(2.25rem,4vw,3.75rem)] leading-[1.08] font-bold tracking-tight text-slate-900 [text-wrap:balance]">
               Every litre metered. Every franc accounted for.
             </h1>
             <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-xl">
-              OpesFuel unifies pump totalizers, underground tank dipsticks, employee shifts, corporate
-              fleet credit, AI forecasting, and automated double-entry FCFA accounting—engineered on
-              Java 25 Spring Boot, PostgreSQL, OpenAPI 3.1, TypeScript, and Mobile Apps for Android &amp; iPhone.
+              OpesFuel unifies pump totalizers, underground tank dipsticks &amp; ATG telemetry, staff payroll,
+              corporate fleet credit, AI diagnostics, and automated SYSCOHADA FCFA accounting—running on
+              Java 25 Spring Boot, PostgreSQL 17, OpenAPI 3.1, TypeScript, and Mobile Apps for Android &amp; iPhone.
             </p>
             <div className="flex flex-wrap items-center gap-4 pt-1">
               <button
@@ -714,7 +758,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 onClick={onOpenConsole}
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
               >
-                Launch Operations Console <ArrowRight className="w-4 h-4" />
+                Start Station Onboarding <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 type="button"
@@ -744,15 +788,15 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-5">
             <div className="text-xs text-slate-500">Ledger Precision</div>
-            <div className="font-mono tabular-nums text-xl font-bold text-slate-900 mt-1">Integer FCFA</div>
+            <div className="font-mono tabular-nums text-xl font-bold text-slate-900 mt-1">SYSCOHADA · FCFA</div>
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <div className="text-xs text-slate-500">Backend Engine</div>
-            <div className="font-mono text-xl font-bold text-slate-900 mt-1">Java 25 · Spring Boot</div>
+            <div className="text-xs text-slate-500">Backend Architecture</div>
+            <div className="font-mono text-xl font-bold text-slate-900 mt-1">15 Spring Boot Modules</div>
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <div className="text-xs text-slate-500">Field Companion</div>
-            <div className="font-mono text-xl font-bold text-slate-900 mt-1">Android &amp; iPhone</div>
+            <div className="text-xs text-slate-500">Security &amp; SLA</div>
+            <div className="font-mono text-xl font-bold text-slate-900 mt-1">Auth0 RS256 · 99.9%</div>
           </div>
         </div>
       </section>
@@ -760,7 +804,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
       {/* Asymmetric Capability Bento */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="max-w-2xl space-y-2">
-          <div className="text-sm font-medium text-amber-700">Core Architecture</div>
+          <div className="text-sm font-medium text-amber-700">Production Architecture</div>
           <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-slate-900">
             Designed around forecourt reality and audit-grade accounting.
           </h2>
@@ -780,7 +824,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 When an attendant submits a closing totalizer and cash/Orange Money/MoMo/fleet count,
                 OpesFuel validates the arithmetic, deducts the exact litres from the linked underground
                 tank, logs any employee cash variance, and emits a ShiftClosedEvent that writes balanced
-                Revenue, VAT, and COGS journal lines to PostgreSQL.
+                Revenue, VAT (19.25%), and tank WAC COGS journal lines to PostgreSQL.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-100 text-sm">
@@ -803,14 +847,14 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs font-mono text-slate-500">
                 <Truck className="w-4 h-4 text-amber-600" />
-                <span>Inventory &amp; Dipsticks</span>
+                <span>Inventory, ATG 15°C &amp; Shrinkage</span>
               </div>
               <h3 className="font-display text-xl font-bold text-slate-900">
-                02. Tanker receipts &amp; shrinkage alerts.
+                02. Tanker receipts &amp; shrinkage reconciliation.
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Reconcile supplier bill-of-lading litres against morning and evening dipstick readings.
-                Flag underground leaks or delivery shortfalls immediately.
+                Reconcile supplier bill-of-lading litres against dipsticks and ATG IoT probes compensated
+                to 15°C standard volume. Flag underground leaks or shortfalls immediately.
               </p>
             </div>
             <button
@@ -818,7 +862,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               onClick={() => onNavigate('platform')}
               className="text-sm font-semibold text-amber-700 hover:text-amber-800 text-left"
             >
-              Explore all 7 modules →
+              Explore all 15 Spring Boot modules →
             </button>
           </div>
 
@@ -831,8 +875,8 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               03. Offline-capable attendant &amp; owner app.
             </h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Dedicated mobile apps for Android and iPhone with idempotency keys so shifts and dipsticks queue
-              cleanly when forecourt cellular coverage drops.
+              Dedicated mobile apps for Android and iPhone with Auth0 PKCE and UUID idempotency keys so
+              shifts and dipsticks queue cleanly when forecourt cellular coverage drops.
             </p>
           </div>
 
@@ -846,15 +890,15 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 04. Java 25 Spring Boot Modular Monolith + CQRS + Auth0.
               </h3>
               <p className="text-sm text-slate-300 leading-relaxed">
-                Connect fleet cards, ERPs, or custom BI dashboards via scoped API keys, Auth0 JWTs,
-                and signed domain-event webhooks.
+                Connect fleet cards, ERPs, or BI dashboards via SHA-256 scoped API keys, Auth0 RS256 JWTs,
+                and AES-256-GCM HMAC-signed domain event webhooks.
               </p>
               <button
                 type="button"
                 onClick={() => onNavigate('api')}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-400 hover:text-amber-300"
               >
-                Inspect OpenAPI 3.1 Specification →
+                Inspect 88-Endpoint OpenAPI 3.1 Spec →
               </button>
             </div>
             <div className="rounded-lg overflow-hidden border border-slate-700">
@@ -869,23 +913,68 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
         </div>
       </section>
 
+      {/* 5 Enterprise Account Types Showcase */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="max-w-2xl space-y-2">
+          <div className="text-sm font-medium text-amber-700">Role-Isolated Enterprise Workspaces</div>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            Dedicated dashboards for every stakeholder across your fuel operation.
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[
+            {
+              role: 'OWNER',
+              title: 'Station Network Owner',
+              desc: 'Multi-station KPIs, live fuel pricing, SaaS billing invoices, staff invites, and API keys.',
+            },
+            {
+              role: 'MANAGER',
+              title: 'Forecourt Manager',
+              desc: 'Pump shifts, tanker deliveries, dipstick & ATG calibration, roster attendance, and expenses.',
+            },
+            {
+              role: 'ATTENDANT',
+              title: 'Pump Island Attendant',
+              desc: 'Streamlined shift open/close, Cash/Orange Money/MoMo handover, fleet vouchers, and Shop POS.',
+            },
+            {
+              role: 'ACCOUNTANT',
+              title: 'Chief Accountant',
+              desc: 'SYSCOHADA journals, VAT (19.25%) remittances, AP payments, fiscal period locks, and Z-Reports.',
+            },
+            {
+              role: 'PLATFORM_ADMIN',
+              title: 'SaaS Control Plane',
+              desc: 'Multi-tenant operator command: global MRR, tenant lifecycle status, and enterprise lead pipeline.',
+            },
+          ].map((item) => (
+            <div key={item.role} className="bg-white border border-slate-200 rounded-xl p-5 space-y-2">
+              <div className="font-mono text-[11px] font-bold text-amber-700">{item.role}</div>
+              <div className="font-display text-base font-bold text-slate-900">{item.title}</div>
+              <p className="text-xs text-slate-600 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Conversion Banner */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white border border-slate-200 rounded-xl p-8 sm:p-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-3 text-xs font-medium text-slate-500">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Auth0 RBAC Ready</span>
+              <span>Auth0 RS256 OIDC PKCE</span>
               <span aria-hidden="true">·</span>
               <Database className="w-4 h-4 text-amber-600" />
-              <span>PostgreSQL ACID Ledger</span>
+              <span>PostgreSQL 17 ACID Ledger</span>
             </div>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-900">
-              Ready to run a shift closure or inspect live financial statements?
+              Launch your petrol station cloud in under 5 minutes.
             </h2>
             <p className="text-sm text-slate-600">
-              Open the interactive console with instant role switching across Owner, Station Manager,
-              Pump Attendant, and Accountant profiles.
+              Provision your multi-tenant workspace, commission your underground tanks and pump nozzles,
+              and invite your managers, attendants, and accountants with zero hardware lock-in.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
@@ -894,14 +983,14 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               onClick={onOpenConsole}
               className="px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
             >
-              Open Interactive Console
+              Launch Station Workspace
             </button>
             <button
               type="button"
               onClick={() => onNavigate('contact')}
               className="px-5 py-3 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-900 text-sm font-semibold transition-colors whitespace-nowrap"
             >
-              Book Station Demo
+              Schedule Enterprise Onboarding
             </button>
           </div>
         </div>

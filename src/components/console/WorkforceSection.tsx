@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ChevronRight, Download, Edit3, Trash2, Users } from 'lucide-react';
+import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction, ROLE_PROFILES } from '../../auth/auth0';
 import { formatFcfa } from '../../domain/formatters';
 import { Employee, UserRole } from '../../domain/types';
+import { WorkforcePayrollPanel } from './WorkforcePayrollPanel';
 
 interface WorkforceSectionProps {
+  engine: OpesFuelApiEngine;
   role: UserRole;
   stationId: string;
   defaultStationId: string;
@@ -29,9 +32,11 @@ interface WorkforceSectionProps {
     }
   ) => void;
   onDeleteEmployee: (employeeId: string) => void;
+  onNotify: (type: 'success' | 'error', message: string) => void;
 }
 
 export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
+  engine,
   role,
   stationId,
   defaultStationId,
@@ -40,6 +45,7 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
   onCreateEmployee,
   onUpdateEmployee,
   onDeleteEmployee,
+  onNotify,
 }) => {
   const canManage = canPerformAction(role, 'MANAGE_EMPLOYEES');
   const visibleEmployees = employees.filter((e) => stationId === 'ALL' || e.stationId === stationId);
@@ -471,6 +477,15 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
           </button>
         </form>
       )}
+
+      <WorkforcePayrollPanel
+        engine={engine}
+        role={role}
+        stationId={stationId}
+        effectiveStationId={effectiveStation}
+        employees={visibleEmployees}
+        onNotify={onNotify}
+      />
     </div>
   );
 };

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Pause, Play, Trash2 } from 'lucide-react';
+import { Check, Copy, History, KeyRound, Pause, Play, ShieldAlert, Trash2, X } from 'lucide-react';
+import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { formatShortDate } from '../../domain/formatters';
 import { ApiKeyRecord, DomainEventLog, WebhookSubscription } from '../../domain/types';
 
 interface ApiPlatformSectionProps {
+  engine: OpesFuelApiEngine;
   events: DomainEventLog[];
   apiKeys: ApiKeyRecord[];
   webhooks: WebhookSubscription[];
@@ -13,6 +15,7 @@ interface ApiPlatformSectionProps {
   onToggleWebhook: (webhookId: string) => void;
   onDeleteWebhook: (webhookId: string) => void;
   onExecuteApiQuery: (endpoint: string) => unknown;
+  onNotify: (type: 'success' | 'error', message: string) => void;
 }
 
 const TEST_ENDPOINTS = [
@@ -24,15 +27,15 @@ const TEST_ENDPOINTS = [
 ];
 
 export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
+  engine,
   events,
   apiKeys,
   webhooks,
-  onCreateApiKey,
   onRevokeApiKey,
-  onCreateWebhook,
   onToggleWebhook,
   onDeleteWebhook,
   onExecuteApiQuery,
+  onNotify,
 }) => {
   const [keyLabel, setKeyLabel] = useState('');
   const [webhookUrl, setWebhookUrl] = useState('https://erp.station-partner.cm/opesfuel-hook');
@@ -41,17 +44,87 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
     JSON.stringify(onExecuteApiQuery(TEST_ENDPOINTS[3].path), null, 2)
   );
 
-  const handleKeyCreate = (e: React.FormEvent) => {
+  // One-time revealed secret banner (raw X-API-Key or HMAC signingSecret)
+  const [revealedSecret, setRevealedSecret] = useState<{ title: string; value: string; hint: string } | null>(null);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+
+  // Webhook delivery logs modal/panel
+  const [selectedWebhookId, setSelectedWebhookId] = useState<string | null>(null);
+  const [deliveries, setDeliveries] = useState<Array<Record<string, unknown>>>([]);
+  const [loadingDeliveries, setLoadingDeliveries] = useState(false);
+
+  const handleKeyCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!keyLabel.trim()) return;
-    onCreateApiKey(keyLabel.trim(), ['stations:read', 'accounting:read', 'events:read']);
-    setKeyLabel('');
+    try {
+      const created = (await engine.createApiKeyLive(keyLabel.trim(), [
+        'stations:read',
+        'accounting:read',
+        'events:read',
+      ])) as Record<string, unknown>;
+      const rawKey = String(created.rawApiKey ?? created.apiKey ?? created.plainKey ?? '');
+      if (rawKey) {
+        setRevealedSecret({
+          title: `New X-API-Key Provisioned (${keyLabel.trim()})`,
+          value: rawKey,
+          hint: 'Copy this API key now — for security, Spring Boot stores only the SHA-256 hash and will never display it again.',
+        });
+      }
+      onNotify('success', `Provisioned scoped API key "${keyLabel.trim()}".`);
+      setKeyLabel('');
+    } catch (err) {
+      onNotify('error', err instanceof Error ? err.message : 'Failed to create API key.');
+    }
   };
 
-  const handleWebhookCreate = (e: React.FormEvent) => {
+  const handleWebhookCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!webhookUrl.startsWith('https://')) return;
-    onCreateWebhook(webhookUrl.trim(), ['ShiftClosedEvent', 'DipstickVarianceFlaggedEvent']);
+    if (!webhookUrl.startsWith('https://')) {
+      onNotify('error', 'Webhook URL must use HTTPS (SSRF protection rejects http/private hosts).');
+      return;
+    }
+    try {
+      const created = await engine.createWebhookLive(webhookUrl.trim(), [
+        'ShiftClosedEvent',
+        'DipstickVarianceFlaggedEvent',
+        'TankDeliveryReceivedEvent',
+      ]);
+      const signingSecret = String(created.signingSecret ?? '');
+      if (signingSecret) {
+        setRevealedSecret({
+          title: `Webhook HMAC-SHA256 Signing Secret (${webhookUrl.trim()})`,
+          value: signingSecret,
+          hint: 'Store this secret in your ERP receiver to verify the X-OpesFuel-Signature header. It is encrypted with AES-256-GCM at rest.',
+        });
+      }
+      onNotify('success', `Registered HMAC webhook endpoint ${webhookUrl.trim()}.`);
+    } catch (err) {
+      onNotify('error', err instanceof Error ? err.message : 'Failed to register webhook.');
+    }
+  };
+
+  const inspectDeliveries = async (webhookId: string) => {
+    setSelectedWebhookId(webhookId);
+    setLoadingDeliveries(true);
+    try {
+      const logs = await engine.listWebhookDeliveries(webhookId);
+      setDeliveries(Array.isArray(logs) ? logs : []);
+    } catch (err) {
+      onNotify('error', err instanceof Error ? err.message : 'Failed to load webhook delivery logs.');
+    } finally {
+      setLoadingDeliveries(false);
+    }
+  };
+
+  const copySecret = async () => {
+    if (!revealedSecret) return;
+    try {
+      await navigator.clipboard.writeText(revealedSecret.value);
+      setCopiedSecret(true);
+      setTimeout(() => setCopiedSecret(false), 2000);
+    } catch {
+      // ignore
+    }
   };
 
   const runEndpoint = (path: string) => {
@@ -62,6 +135,43 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* One-Time Secret Reveal Card */}
+      {revealedSecret && (
+        <div className="p-5 rounded-xl border-2 border-amber-400 bg-amber-50 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <KeyRound className="w-4 h-4 text-amber-700" />
+              {revealedSecret.title}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRevealedSecret(null)}
+              className="p-1 text-slate-500 hover:text-slate-900"
+              aria-label="Dismiss secret"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="flex-1 px-3 py-2 rounded-lg bg-slate-900 text-amber-300 font-mono text-xs break-all">
+              {revealedSecret.value}
+            </code>
+            <button
+              type="button"
+              onClick={() => void copySecret()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              {copiedSecret ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedSecret ? 'Copied' : 'Copy Secret'}
+            </button>
+          </div>
+          <p className="text-xs text-amber-900 flex items-center gap-1.5">
+            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+            {revealedSecret.hint}
+          </p>
+        </div>
+      )}
+
       {/* Live OpenAPI Explorer */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -100,7 +210,7 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
             <h3 className="font-display text-base font-bold text-slate-900">Tenant API Keys</h3>
             <p className="text-xs text-slate-500">Scoped X-API-Key credentials for ERPs &amp; Android/iPhone mobile apps</p>
           </div>
-          <form onSubmit={handleKeyCreate} className="flex gap-2">
+          <form onSubmit={(e) => void handleKeyCreate(e)} className="flex gap-2">
             <input
               type="text"
               placeholder="Integration Label (e.g. Odoo Connector)"
@@ -144,7 +254,7 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
             <h3 className="font-display text-base font-bold text-slate-900">Domain Event Webhooks</h3>
             <p className="text-xs text-slate-500">HMAC-SHA256 signed event delivery from Java Outbox relay</p>
           </div>
-          <form onSubmit={handleWebhookCreate} className="flex gap-2">
+          <form onSubmit={(e) => void handleWebhookCreate(e)} className="flex gap-2">
             <input
               type="url"
               value={webhookUrl}
@@ -166,7 +276,14 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
                   <div className="font-mono font-semibold text-slate-900 truncate">{w.targetUrl}</div>
                   <div className="text-slate-500 truncate">{w.subscribedEvents.join(' · ')}</div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => void inspectDeliveries(w.id)}
+                    className="inline-flex items-center gap-1 px-2 py-1.5 rounded border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold"
+                  >
+                    <History className="w-3 h-3" /> Logs
+                  </button>
                   <button
                     type="button"
                     onClick={() => onToggleWebhook(w.id)}
@@ -201,6 +318,44 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
               <div className="py-4 text-center text-slate-500">No webhook subscriptions registered yet.</div>
             )}
           </div>
+
+          {selectedWebhookId && (
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900">
+                  Webhook Delivery Logs ({selectedWebhookId})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedWebhookId(null)}
+                  className="text-slate-500 hover:text-slate-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {loadingDeliveries ? (
+                <div className="text-slate-500">Loading delivery attempts…</div>
+              ) : deliveries.length === 0 ? (
+                <div className="text-slate-500">No outbound deliveries dispatched yet.</div>
+              ) : (
+                <div className="divide-y divide-slate-200 max-h-48 overflow-y-auto">
+                  {deliveries.map((d, idx) => (
+                    <div key={String(d.id ?? idx)} className="py-1.5 flex items-center justify-between gap-2 font-mono">
+                      <div>
+                        <span className={d.success ? 'text-emerald-700 font-bold' : 'text-red-700 font-bold'}>
+                          HTTP {String(d.httpStatus ?? 0)}
+                        </span>{' '}
+                        · {String(d.eventType ?? 'Event')}
+                      </div>
+                      <span className="text-slate-500">
+                        {d.deliveredAt ? formatShortDate(String(d.deliveredAt)) : '-'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

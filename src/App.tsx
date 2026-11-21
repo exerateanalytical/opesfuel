@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CHART_OF_ACCOUNTS,
   computeFinancialReports,
@@ -6,18 +6,27 @@ import {
   OpesFuelStoreState,
   SUBSCRIPTION_PLANS,
 } from './api/opesfuelClient';
-import { canAccessSection } from './auth/auth0';
+import {
+  AuthSession,
+  buildAuth0LogoutUrl,
+  canAccessSection,
+  clearAuthSession,
+  getStoredAuthSession,
+  handleAuth0CallbackIfPresent,
+  refreshAuth0SessionIfNeeded,
+} from './auth/auth0';
 import { ClassicLoginPage } from './components/auth/ClassicLoginPage';
 import { AccountingSection } from './components/console/AccountingSection';
 import { AdminBillingSection } from './components/console/AdminBillingSection';
 import { AiAssistantSection } from './components/console/AiAssistantSection';
 import { ApiPlatformSection } from './components/console/ApiPlatformSection';
-import { ConsoleLayout } from './components/console/ConsoleLayout';
+import { ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
 import { FleetShopSection } from './components/console/FleetShopSection';
 import { ForecourtSection } from './components/console/ForecourtSection';
 import { InventorySection } from './components/console/InventorySection';
 import { OnboardingGuideModal } from './components/console/OnboardingGuideModal';
 import { OverviewSection } from './components/console/OverviewSection';
+import { PlatformAdminSection } from './components/console/PlatformAdminSection';
 import { WorkforceSection } from './components/console/WorkforceSection';
 import { MobileAppShowcase } from './components/mobile/MobileAppShowcase';
 import { PublicFooter } from './components/public/PublicFooter';
@@ -37,6 +46,7 @@ const PUBLIC_PAGES: PublicPage[] = [
 ];
 
 const CONSOLE_SECTIONS: ConsoleSection[] = [
+  'platform-admin',
   'overview',
   'forecourt',
   'inventory',
@@ -49,29 +59,35 @@ const CONSOLE_SECTIONS: ConsoleSection[] = [
   'admin',
 ];
 
-function parseHashRoute(): {
+function parseHashRoute(hashStr = window.location.hash): {
   mode: 'public' | 'login' | 'console';
   publicPage: PublicPage;
   consoleSection: ConsoleSection;
+  inviteToken: string | null;
 } {
-  const raw = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  const rawOriginal = hashStr.replace(/^#\/?/, '');
+  const raw = rawOriginal.toLowerCase();
   if (!raw) {
-    return { mode: 'public', publicPage: 'home', consoleSection: 'overview' };
+    return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null };
+  }
+  if (raw.startsWith('invite/')) {
+    const token = rawOriginal.slice('invite/'.length).trim();
+    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: token || null };
   }
   if (raw === 'login') {
-    return { mode: 'login', publicPage: 'home', consoleSection: 'overview' };
+    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: null };
   }
   if (raw.startsWith('app/')) {
     const seg = raw.slice(4) as ConsoleSection;
     if (CONSOLE_SECTIONS.includes(seg)) {
-      return { mode: 'console', publicPage: 'home', consoleSection: seg };
+      return { mode: 'console', publicPage: 'home', consoleSection: seg, inviteToken: null };
     }
-    return { mode: 'console', publicPage: 'home', consoleSection: 'overview' };
+    return { mode: 'console', publicPage: 'home', consoleSection: 'overview', inviteToken: null };
   }
   if (PUBLIC_PAGES.includes(raw as PublicPage)) {
-    return { mode: 'public', publicPage: raw as PublicPage, consoleSection: 'overview' };
+    return { mode: 'public', publicPage: raw as PublicPage, consoleSection: 'overview', inviteToken: null };
   }
-  return { mode: 'public', publicPage: 'home', consoleSection: 'overview' };
+  return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null };
 }
 
 export default function App() {
@@ -82,11 +98,19 @@ export default function App() {
   const [mode, setMode] = useState<'public' | 'login' | 'console'>(initialRoute.mode);
   const [publicPage, setPublicPage] = useState<PublicPage>(initialRoute.publicPage);
   const [consoleSection, setConsoleSection] = useState<ConsoleSection>(initialRoute.consoleSection);
-  const [role, setRole] = useState<UserRole>('OWNER');
+  const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(initialRoute.inviteToken);
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() => getStoredAuthSession());
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole>(() => getStoredAuthSession()?.role ?? 'OWNER');
   const [activeStationId, setActiveStationId] = useState<string>(() => store.stations[0]?.id ?? 'ALL');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingTab, setOnboardingTab] = useState<'guide' | 'institutional'>('guide');
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  const notify = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+  }, []);
 
   // Keep activeStationId valid if stations are deleted or tenant workspace is reset
   const effectiveActiveStationId = useMemo(() => {
@@ -97,23 +121,113 @@ export default function App() {
 
   const defaultStationId = store.stations[0]?.id ?? 'st_plateau';
 
+  const refreshNotifications = useCallback(async (stationScope = effectiveActiveStationId) => {
+    try {
+      const raw = await engineRef.current.fetchNotifications(stationScope, false);
+      if (Array.isArray(raw)) {
+        setNotifications(
+          raw.map((item) => {
+            const n = item as Record<string, unknown>;
+            return {
+              id: String(n.id ?? ''),
+              stationId: n.stationId ? String(n.stationId) : null,
+              category: n.category ? String(n.category) : 'ALERT',
+              severity: n.severity ? String(n.severity) : 'INFO',
+              title: String(n.title ?? 'Operational Alert'),
+              message: String(n.message ?? ''),
+              read: Boolean(n.read ?? n.isRead ?? false),
+              createdAt: String(n.createdAt ?? new Date().toISOString()),
+            };
+          })
+        );
+      }
+    } catch {
+      // keep existing notifications on transient error
+    }
+  }, [effectiveActiveStationId]);
+
+  // Register server-authoritative sync & RFC 7807 error callbacks
+  useEffect(() => {
+    engineRef.current.setRemoteCallbacks({
+      onError: (msg) => setToast({ type: 'error', message: msg }),
+      onSynced: (nextState) => setStore(nextState),
+    });
+  }, []);
+
+  // Auth0 OIDC PKCE callback exchange + session restoration + live Spring Boot hydration
   useEffect(() => {
     let active = true;
-    engineRef.current.hydrateFromSpringBoot().then((hydrated) => {
+    (async () => {
+      const callbackResult = await handleAuth0CallbackIfPresent();
+      if (!active) return;
+
+      if (callbackResult.error) {
+        setAuthError(callbackResult.error);
+        setToast({ type: 'error', message: callbackResult.error });
+        setMode('login');
+        return;
+      }
+
+      let resolvedSession = callbackResult.session ?? getStoredAuthSession();
+      resolvedSession = await refreshAuth0SessionIfNeeded(resolvedSession);
+      if (!active) return;
+
+      if (resolvedSession?.accessToken) {
+        setAuthSession(resolvedSession);
+        setRole(resolvedSession.role);
+        engineRef.current.setAccessToken(resolvedSession.accessToken);
+
+        // If returning from Auth0 PKCE callback, navigate to the intended route
+        if (callbackResult.session && callbackResult.returnHash) {
+          const parsedReturn = parseHashRoute(callbackResult.returnHash);
+          if (parsedReturn.inviteToken) {
+            try {
+              await engineRef.current.acceptStaffInvite(parsedReturn.inviteToken, resolvedSession.accessToken);
+              setPendingInviteToken(null);
+              setToast({ type: 'success', message: 'Staff invitation accepted and Auth0 account linked.' });
+            } catch (err) {
+              setToast({
+                type: 'error',
+                message: err instanceof Error ? err.message : 'Unable to accept staff invitation.',
+              });
+            }
+            setMode('console');
+            setConsoleSection('overview');
+          } else {
+            setMode(parsedReturn.mode === 'public' ? 'console' : parsedReturn.mode);
+            setConsoleSection(parsedReturn.consoleSection);
+          }
+        }
+      }
+
+      const hydrated = await engineRef.current.hydrateFromSpringBoot(resolvedSession?.accessToken ?? null);
       if (active && hydrated) {
         setStore(hydrated);
       }
-    });
+      if (active) {
+        void refreshNotifications();
+      }
+    })();
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [refreshNotifications]);
+
+  // Refresh notifications when switching active station inside the console
+  useEffect(() => {
+    if (mode === 'console') {
+      void refreshNotifications(effectiveActiveStationId);
+    }
+  }, [mode, effectiveActiveStationId, refreshNotifications]);
 
   // Bidirectional URL hash sync for direct bookmarkable individual pages
   useEffect(() => {
     const nextHash =
       mode === 'login'
-        ? '#/login'
+        ? pendingInviteToken
+          ? `#/invite/${pendingInviteToken}`
+          : '#/login'
         : mode === 'console'
         ? `#/app/${consoleSection}`
         : publicPage === 'home'
@@ -122,7 +236,7 @@ export default function App() {
     if (window.location.hash !== nextHash) {
       window.history.replaceState(null, '', nextHash);
     }
-  }, [mode, publicPage, consoleSection]);
+  }, [mode, publicPage, consoleSection, pendingInviteToken]);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -130,6 +244,7 @@ export default function App() {
       setMode(parsed.mode);
       setPublicPage(parsed.publicPage);
       setConsoleSection(parsed.consoleSection);
+      setPendingInviteToken(parsed.inviteToken);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -149,7 +264,15 @@ export default function App() {
       store.tenant.aiSubscription.active,
     ];
     return checks.filter(Boolean).length;
-  }, [store.tanks.length, store.pumps.length, store.employees.length, store.shifts, store.journals.length, report.trialBalanceBalanced, store.tenant.aiSubscription.active]);
+  }, [
+    store.tanks.length,
+    store.pumps.length,
+    store.employees.length,
+    store.shifts,
+    store.journals.length,
+    report.trialBalanceBalanced,
+    store.tenant.aiSubscription.active,
+  ]);
 
   const openOnboardingGuide = (tab: 'guide' | 'institutional' = 'guide') => {
     setOnboardingTab(tab);
@@ -161,6 +284,7 @@ export default function App() {
       const next = action();
       setStore(next);
       setToast({ type: 'success', message: successMsg });
+      void refreshNotifications(effectiveActiveStationId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Operation failed.';
       setToast({ type: 'error', message: msg });
@@ -169,12 +293,14 @@ export default function App() {
 
   const handleRoleChange = (nextRole: UserRole) => {
     setRole(nextRole);
-    if (!canAccessSection(nextRole, consoleSection)) {
+    if (nextRole === 'PLATFORM_ADMIN') {
+      setConsoleSection('platform-admin');
+    } else if (!canAccessSection(nextRole, consoleSection)) {
       setConsoleSection('overview');
     }
     setToast({
       type: 'success',
-      message: `Switched active Auth0 demo profile to ${nextRole}.`,
+      message: `Switched active workspace role to ${nextRole}.`,
     });
   };
 
@@ -204,6 +330,41 @@ export default function App() {
     window.scrollTo({ top: 0 });
   };
 
+  const handleSignOut = () => {
+    const wasAuth0 = authSession?.mode === 'AUTH0_OIDC';
+    clearAuthSession();
+    setAuthSession(null);
+    engineRef.current.setAccessToken(null);
+    if (wasAuth0) {
+      const logoutUrl = buildAuth0LogoutUrl();
+      if (logoutUrl) {
+        window.location.assign(logoutUrl);
+        return;
+      }
+    }
+    setMode('login');
+    window.scrollTo({ top: 0 });
+  };
+
+  const handleMarkNotificationRead = async (id: string) => {
+    try {
+      await engineRef.current.markNotificationRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : 'Unable to mark notification as read.');
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await engineRef.current.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      notify('success', 'All operational notifications marked as read.');
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : 'Unable to clear notifications.');
+    }
+  };
+
   if (mode === 'login') {
     return (
       <ClassicLoginPage
@@ -211,17 +372,38 @@ export default function App() {
         stations={store.stations}
         initialRole={role}
         initialStationId={effectiveActiveStationId}
-        onAuthenticated={(nextRole, nextStationId) => {
+        authSession={authSession}
+        pendingInviteToken={pendingInviteToken}
+        authError={authError}
+        onAuthenticated={async (nextRole, nextStationId) => {
           setRole(nextRole);
           setActiveStationId(nextStationId);
-          if (!canAccessSection(nextRole, consoleSection)) {
+          if (nextRole === 'PLATFORM_ADMIN') {
+            setConsoleSection('platform-admin');
+          } else if (!canAccessSection(nextRole, consoleSection)) {
             setConsoleSection('overview');
           }
+          if (pendingInviteToken) {
+            try {
+              await engineRef.current.acceptStaffInvite(pendingInviteToken);
+              setPendingInviteToken(null);
+              setToast({
+                type: 'success',
+                message: `Signed in as ${nextRole} and accepted staff invitation.`,
+              });
+            } catch (err) {
+              setToast({
+                type: 'error',
+                message: err instanceof Error ? err.message : 'Invitation acceptance failed.',
+              });
+            }
+          } else {
+            setToast({
+              type: 'success',
+              message: `Signed in cleanly as ${nextRole}.`,
+            });
+          }
           setMode('console');
-          setToast({
-            type: 'success',
-            message: `Signed in cleanly as ${nextRole}.`,
-          });
           window.scrollTo({ top: 0 });
         }}
         onCreateWorkspace={(input) => {
@@ -271,6 +453,7 @@ export default function App() {
             report={report}
             onNavigate={setPublicPage}
             onOpenConsole={openClassicLogin}
+            onLeadSubmitted={(lead) => engineRef.current.recordPreviewLead(lead)}
           />
         </main>
         <PublicFooter
@@ -285,6 +468,7 @@ export default function App() {
     <ConsoleLayout
       tenant={store.tenant}
       role={role}
+      authSession={authSession}
       onChangeRole={handleRoleChange}
       activeStationId={effectiveActiveStationId}
       onChangeStation={setActiveStationId}
@@ -293,12 +477,19 @@ export default function App() {
       onSelectSection={setConsoleSection}
       onOpenOnboardingGuide={() => openOnboardingGuide('guide')}
       onboardingCompletedCount={onboardingCompletedCount}
+      notifications={notifications}
+      onRefreshNotifications={() => void refreshNotifications(effectiveActiveStationId)}
+      onMarkNotificationRead={(id) => void handleMarkNotificationRead(id)}
+      onMarkAllNotificationsRead={() => void handleMarkAllNotificationsRead()}
       onExitToPublic={() => setMode('public')}
-      onSignOut={openClassicLogin}
+      onSignOut={handleSignOut}
       transportMode={engineRef.current.getTransportMode()}
       toast={toast}
       onDismissToast={() => setToast(null)}
     >
+      {consoleSection === 'platform-admin' && role === 'PLATFORM_ADMIN' && (
+        <PlatformAdminSection engine={engineRef.current} onNotify={notify} />
+      )}
       {consoleSection === 'overview' && (
         <OverviewSection
           role={role}
@@ -373,6 +564,7 @@ export default function App() {
 
       {consoleSection === 'inventory' && (
         <InventorySection
+          engine={engineRef.current}
           role={role}
           stationId={effectiveActiveStationId}
           defaultStationId={defaultStationId}
@@ -428,11 +620,13 @@ export default function App() {
               'Deleted dipstick calibration reading.'
             )
           }
+          onNotify={notify}
         />
       )}
 
       {consoleSection === 'fleet' && (
         <FleetShopSection
+          engine={engineRef.current}
           role={role}
           stationId={effectiveActiveStationId}
           defaultStationId={defaultStationId}
@@ -487,11 +681,13 @@ export default function App() {
               'Removed shop/lubricant SKU.'
             )
           }
+          onNotify={notify}
         />
       )}
 
       {consoleSection === 'workforce' && (
         <WorkforceSection
+          engine={engineRef.current}
           role={role}
           stationId={effectiveActiveStationId}
           defaultStationId={defaultStationId}
@@ -520,11 +716,13 @@ export default function App() {
               'Removed employee from station roster.'
             )
           }
+          onNotify={notify}
         />
       )}
 
       {consoleSection === 'accounting' && (
         <AccountingSection
+          engine={engineRef.current}
           role={role}
           stationId={effectiveActiveStationId}
           defaultStationId={defaultStationId}
@@ -556,11 +754,14 @@ export default function App() {
               'Deleted treasury deposit and reversed its journal entry.'
             )
           }
+          onNotify={notify}
         />
       )}
 
       {consoleSection === 'ai-assistant' && (
         <AiAssistantSection
+          engine={engineRef.current}
+          accessToken={authSession?.accessToken ?? null}
           tenant={store.tenant}
           role={role}
           activeStationId={effectiveActiveStationId}
@@ -644,6 +845,7 @@ export default function App() {
 
       {consoleSection === 'api-platform' && (
         <ApiPlatformSection
+          engine={engineRef.current}
           events={store.events}
           apiKeys={store.apiKeys}
           webhooks={store.webhooks}
@@ -678,11 +880,13 @@ export default function App() {
             )
           }
           onExecuteApiQuery={executeApiQuery}
+          onNotify={notify}
         />
       )}
 
       {consoleSection === 'admin' && (
         <AdminBillingSection
+          engine={engineRef.current}
           tenant={store.tenant}
           role={role}
           stations={store.stations}
@@ -735,6 +939,7 @@ export default function App() {
               'Restored full Cameroon demo network data.'
             )
           }
+          onNotify={notify}
         />
       )}
 

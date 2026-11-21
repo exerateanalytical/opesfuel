@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ChevronRight, Database, FileSpreadsheet, FileText, Plus, Trash2 } from 'lucide-react';
+import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { DipstickReadingRecord, FuelGrade, FuelTank, PurchaseOrder, TankDeliveryRecord, UserRole } from '../../domain/types';
 import { exportInventoryExcel, exportInventoryPdf } from '../../utils/exportReports';
+import { InventoryAdvancedPanel } from './InventoryAdvancedPanel';
 
 interface InventorySectionProps {
+  engine: OpesFuelApiEngine;
   role: UserRole;
   stationId: string;
   defaultStationId: string;
@@ -41,9 +44,11 @@ interface InventorySectionProps {
   onDeletePO: (poId: string) => void;
   onDeleteDelivery: (deliveryId: string) => void;
   onDeleteDipstick: (dipstickId: string) => void;
+  onNotify: (type: 'success' | 'error', message: string) => void;
 }
 
 export const InventorySection: React.FC<InventorySectionProps> = ({
+  engine,
   role,
   stationId,
   defaultStationId,
@@ -59,6 +64,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
   onDeletePO,
   onDeleteDelivery,
   onDeleteDipstick,
+  onNotify,
 }) => {
   const canDeliver = canPerformAction(role, 'RECORD_DELIVERY');
   const canDip = canPerformAction(role, 'RECORD_DIPSTICK');
@@ -824,6 +830,14 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
           </div>
         </div>
       </div>
+
+      <InventoryAdvancedPanel
+        engine={engine}
+        role={role}
+        tanks={visibleTanks}
+        purchaseOrders={visiblePOs}
+        onNotify={onNotify}
+      />
     </div>
   );
 };

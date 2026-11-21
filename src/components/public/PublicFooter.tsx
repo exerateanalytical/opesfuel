@@ -81,7 +81,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate, onOpenCo
           <ul className="space-y-2.5 text-sm">
             <li>
               <button type="button" onClick={() => go('contact')} className="hover:text-white transition-colors">
-                Request Station Demo
+                Schedule Enterprise Onboarding
               </button>
             </li>
             <li>
@@ -97,7 +97,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate, onOpenCo
       <div className="border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
           <span>© 2026 OpesFuel by Opesware. All rights reserved.</span>
-          <span>FCFA Currency · SYSCOHADA &amp; IFRS Ready · PostgreSQL ACID Ledger</span>
+          <span>99.9% Uptime SLA · SYSCOHADA &amp; IFRS Ready · Java 25 Spring Boot · PostgreSQL 17 ACID</span>
         </div>
       </div>
     </footer>

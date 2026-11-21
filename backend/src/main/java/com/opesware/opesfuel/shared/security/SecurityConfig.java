@@ -1,9 +1,11 @@
 package com.opesware.opesfuel.shared.security;
 
+import com.opesware.opesfuel.shared.web.IdempotencyFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -29,25 +31,33 @@ public class SecurityConfig {
     @Value("${opesfuel.cors.allowed-origins:http://localhost:3000,http://localhost:8081}")
     private List<String> allowedOrigins;
 
-    private final ApiKeyAuthFilter apiKeyAuthFilter;
-
-    public SecurityConfig(ApiKeyAuthFilter apiKeyAuthFilter) {
-        this.apiKeyAuthFilter = apiKeyAuthFilter;
-    }
+    @Value("${opesfuel.idempotency.ttl-hours:24}")
+    private long idempotencyTtlHours;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JdbcTemplate jdbcTemplate) throws Exception {
+        ApiKeyAuthFilter apiKeyAuthFilter = new ApiKeyAuthFilter(jdbcTemplate);
+        IdempotencyFilter idempotencyFilter = new IdempotencyFilter(jdbcTemplate, idempotencyTtlHours);
+
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/api/v1/billing/plans", "/api/v1/billing/enterprise-licenses", "/api/v1/catalog/institutional-fuels", "/api/v1/openapi.json", "/api/v1/docs/**").permitAll()
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/billing/plans",
+                    "/api/v1/billing/enterprise-licenses",
+                    "/api/v1/catalog/institutional-fuels",
+                    "/api/v1/openapi.json",
+                    "/api/v1/docs/**"
+                ).permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/leads").permitAll()
-                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(apiKeyAuthFilter, BearerTokenAuthenticationFilter.class)
+            .addFilterAfter(idempotencyFilter, BearerTokenAuthenticationFilter.class)
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(auth0RoleConverter()))
             );
@@ -60,6 +70,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-API-Key"));
+        config.setExposedHeaders(List.of("Idempotency-Replayed"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/v1/**", config);
@@ -75,7 +86,7 @@ public class SecurityConfig {
                 roles = List.of("ATTENDANT");
             }
             Collection<GrantedAuthority> authorities = roles.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.trim().toUpperCase()))
                 .collect(Collectors.toList());
             return authorities;
         });

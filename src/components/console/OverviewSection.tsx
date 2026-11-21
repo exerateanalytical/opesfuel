@@ -32,7 +32,19 @@ interface OverviewSectionProps {
     planName: string;
     monthlyFeeFcfa: number;
   }) => void;
-  onJumpTo: (section: 'forecourt' | 'inventory' | 'accounting' | 'api-platform' | 'ai-assistant' | 'mobile-app') => void;
+  onJumpTo: (
+    section:
+      | 'forecourt'
+      | 'inventory'
+      | 'fleet'
+      | 'workforce'
+      | 'accounting'
+      | 'api-platform'
+      | 'ai-assistant'
+      | 'mobile-app'
+      | 'admin'
+      | 'platform-admin'
+  ) => void;
 }
 
 export const OverviewSection: React.FC<OverviewSectionProps> = ({
@@ -198,9 +210,92 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
     setShowNewStation(false);
   };
 
+  const roleDesk = {
+    PLATFORM_ADMIN: {
+      badge: 'SAAS PLATFORM SUPER-ADMIN WORKSPACE',
+      title: 'Global Multi-Tenant Control Plane & Network Telemetry',
+      summary: 'Monitor all subscribed petrol station tenants, global FCFA MRR, enterprise licenses, and inbound sales leads.',
+      actions: [
+        { label: 'Open SaaS Control Plane', target: 'platform-admin' as const, primary: true },
+        { label: 'Tenant Billing & Invites', target: 'admin' as const, primary: false },
+        { label: 'API Keys & Webhooks', target: 'api-platform' as const, primary: false },
+      ],
+    },
+    OWNER: {
+      badge: 'STATION NETWORK OWNER WORKSPACE',
+      title: `Executive Overview — ${currentStation ? currentStation.name : 'All Network Stations'}`,
+      summary: `Net Profit: ${formatFcfa(report.netIncomeFcfa)} · Trial Balance: ${report.trialBalanceBalanced ? 'Balanced' : 'Attention Required'} · ${stations.length} active station(s).`,
+      actions: [
+        { label: 'Billing & Staff Invites', target: 'admin' as const, primary: true },
+        { label: 'SYSCOHADA Ledger', target: 'accounting' as const, primary: false },
+        { label: 'AI Copilot Diagnostics', target: 'ai-assistant' as const, primary: false },
+      ],
+    },
+    MANAGER: {
+      badge: 'FORECOURT STATION MANAGER WORKSPACE',
+      title: 'Daily Forecourt, Tank Dipsticks & Staff Roster Control',
+      summary: `${openShiftsCount} open nozzle shift(s) · ${operationalAlerts.length} operational alert(s) · Avg tank fill ${volumeFillPct}%.`,
+      actions: [
+        { label: 'Forecourt Shifts', target: 'forecourt' as const, primary: true },
+        { label: 'Tanks & Deliveries', target: 'inventory' as const, primary: false },
+        { label: 'Staff & Payroll', target: 'workforce' as const, primary: false },
+      ],
+    },
+    ATTENDANT: {
+      badge: 'PUMP ISLAND ATTENDANT WORKSPACE',
+      title: 'Active Nozzle Shift, Cash/MoMo Handover & Shop POS',
+      summary: `${openShiftsCount} active shift(s) currently running across ${filteredPumps.length} forecourt nozzle(s).`,
+      actions: [
+        { label: 'Open / Close Pump Shift', target: 'forecourt' as const, primary: true },
+        { label: 'Fleet Voucher & Shop POS', target: 'fleet' as const, primary: false },
+        { label: 'Mobile Field Companion', target: 'mobile-app' as const, primary: false },
+      ],
+    },
+    ACCOUNTANT: {
+      badge: 'CHIEF ACCOUNTANT & SYSCOHADA WORKSPACE',
+      title: 'Double-Entry Ledger, VAT (19.25%), Fleet AR & Fiscal Locks',
+      summary: `VAT Payable: ${formatFcfa(report.vatPayableFcfa)} · Fleet AR: ${formatFcfa(report.fleetReceivablesFcfa)} · Supplier AP: ${formatFcfa(report.accountsPayableFcfa)}.`,
+      actions: [
+        { label: 'Ledger, VAT & Z-Report', target: 'accounting' as const, primary: true },
+        { label: 'Fleet AR Settlements', target: 'fleet' as const, primary: false },
+        { label: 'Monthly Payroll Run', target: 'workforce' as const, primary: false },
+      ],
+    },
+  }[role];
+
   return (
     <div className="space-y-6">
+      {/* Role-Tailored Command Header for all 5 Account Types */}
+      <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="font-mono text-[11px] font-bold text-amber-700 tracking-wide">
+            {roleDesk.badge}
+          </div>
+          <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900">
+            {roleDesk.title}
+          </h2>
+          <p className="text-xs text-slate-600">{roleDesk.summary}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {roleDesk.actions.map((act) => (
+            <button
+              key={act.label}
+              type="button"
+              onClick={() => onJumpTo(act.target)}
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                act.primary
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                  : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-800'
+              }`}
+            >
+              {act.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Onboarding & Institutional Fuel Tick-Wizard Banner */}
+      {(role === 'OWNER' || role === 'MANAGER' || role === 'PLATFORM_ADMIN') && (
       <div className="bg-slate-900 text-white border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 font-mono text-xs text-amber-400 font-semibold">
@@ -237,6 +332,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* Automated Station Health Monitor */}
       <section

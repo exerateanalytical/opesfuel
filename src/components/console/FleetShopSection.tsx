@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ChevronRight, CreditCard, Plus, Trash2 } from 'lucide-react';
+import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { FleetAccount, FleetTransaction, FuelGrade, ShopItem, UserRole } from '../../domain/types';
+import { FleetShopAdvancedPanel } from './FleetShopAdvancedPanel';
 
 interface FleetShopSectionProps {
+  engine: OpesFuelApiEngine;
   role: UserRole;
   stationId: string;
   defaultStationId: string;
@@ -40,9 +43,11 @@ interface FleetShopSectionProps {
     unitCostFcfa: number;
   }) => void;
   onDeleteShopItem: (itemId: string) => void;
+  onNotify: (type: 'success' | 'error', message: string) => void;
 }
 
 export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
+  engine,
   role,
   stationId,
   defaultStationId,
@@ -57,6 +62,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
   onDeleteFleetAccount,
   onCreateShopItem,
   onDeleteShopItem,
+  onNotify,
 }) => {
   const canVoucher = canPerformAction(role, 'OPEN_CLOSE_SHIFT');
   const canSettle = canPerformAction(role, 'SETTLE_FLEET');
@@ -701,6 +707,14 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
           </table>
         </div>
       </div>
+
+      <FleetShopAdvancedPanel
+        engine={engine}
+        role={role}
+        stationId={stationId}
+        fleetAccounts={fleetAccounts}
+        onNotify={onNotify}
+      />
     </div>
   );
 };

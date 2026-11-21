@@ -66,6 +66,21 @@ paths:
           $ref: "#/components/responses/ProblemDetail"
 
   /stations/{stationId}/fuel-prices:
+    get:
+      tags: [Stations]
+      operationId: listFuelPrices
+      summary: Query historical and active fuel prices in FCFA/L for a station
+      parameters:
+        - $ref: "#/components/parameters/StationId"
+      responses:
+        "200":
+          description: Fuel price history ordered newest-first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FuelPriceDto"
     post:
       tags: [Stations]
       operationId: updateFuelPrice
@@ -144,7 +159,11 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateStationCommand"
+              type: object
+              properties:
+                code: { type: string }
+                name: { type: string }
+                city: { type: string }
       responses:
         "200":
           description: Station metadata updated
@@ -155,22 +174,35 @@ paths:
     delete:
       tags: [Stations]
       operationId: deleteStation
-      summary: Remove a station tenant partition
+      summary: Remove an empty station tenant partition
       parameters:
         - $ref: "#/components/parameters/StationId"
       responses:
         "204":
           description: Station deleted
+        "409":
+          $ref: "#/components/responses/ProblemDetail"
 
   /catalog/institutional-fuels:
     get:
       tags: [Stations]
       operationId: listInstitutionalFuels
-      summary: Query pre-configured institutional fuel grades, capacities, and benchmark prices
+      summary: Query pre-configured institutional fuel grades, capacities, and benchmark prices from database catalog
       security: []
       responses:
         "200":
           description: Institutional fuel catalog
+
+  /stations/{stationId}/onboarding-steps:
+    get:
+      tags: [Stations]
+      operationId: listOnboardingSteps
+      summary: Query completed institutional onboarding milestones for a station
+      parameters:
+        - $ref: "#/components/parameters/StationId"
+      responses:
+        "200":
+          description: Completed onboarding steps
 
   /stations/{stationId}/onboarding-setup:
     post:
@@ -247,10 +279,23 @@ paths:
           description: Pump created
 
   /forecourt/pumps/{pumpId}:
+    patch:
+      tags: [Forecourt]
+      operationId: patchPump
+      summary: Update pump status (IDLE/MAINTENANCE) or unit price
+      parameters:
+        - name: pumpId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pump updated
     delete:
       tags: [Forecourt]
       operationId: deletePump
-      summary: Remove an idle pump dispenser
+      summary: Remove an idle pump dispenser with no shift history
       parameters:
         - name: pumpId
           in: path
@@ -265,7 +310,7 @@ paths:
     delete:
       tags: [Forecourt]
       operationId: deleteShift
-      summary: Delete a forecourt shift record
+      summary: Void a forecourt shift record and reverse tank stock, variance, and GL journals if closed
       parameters:
         - name: shiftId
           in: path
@@ -274,7 +319,7 @@ paths:
             type: string
       responses:
         "204":
-          description: Shift deleted
+          description: Shift voided
 
   /forecourt/shifts:
     get:
@@ -321,7 +366,7 @@ paths:
     post:
       tags: [Forecourt]
       operationId: closeShift
-      summary: CQRS command to close shift, compute cash/MoMo/credit variance, deduct tank stock, and post double-entry revenue + COGS journals
+      summary: CQRS command to close shift, compute cash/MoMo/credit variance, deduct tank stock, and post double-entry revenue + COGS journals using authoritative tank WAC
       parameters:
         - name: shiftId
           in: path
@@ -366,10 +411,23 @@ paths:
           description: Fleet account created
 
   /fleet/accounts/{accountId}:
+    patch:
+      tags: [FleetCredit]
+      operationId: patchFleetAccount
+      summary: Update corporate fleet credit limit or ACTIVE/HOLD status
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Fleet account updated
     delete:
       tags: [FleetCredit]
       operationId: deleteFleetAccount
-      summary: Delete a corporate fleet account
+      summary: Delete a corporate fleet account with zero balance and no voucher history
       parameters:
         - name: accountId
           in: path
@@ -381,6 +439,24 @@ paths:
           description: Fleet account deleted
 
   /fleet/vouchers:
+    get:
+      tags: [FleetCredit]
+      operationId: listFleetVouchers
+      summary: Query recent corporate fleet credit dispensing vouchers
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Fleet vouchers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FleetTransactionDto"
     post:
       tags: [FleetCredit]
       operationId: recordFleetVoucher
@@ -449,10 +525,23 @@ paths:
           description: SKU created
 
   /shop/items/{itemId}:
+    patch:
+      tags: [ShopPOS]
+      operationId: patchShopItem
+      summary: Update shop SKU price, cost, or reorder level
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SKU updated
     delete:
       tags: [ShopPOS]
       operationId: deleteShopItem
-      summary: Delete a shop or lubricant SKU
+      summary: Delete a shop or lubricant SKU without sales history
       parameters:
         - name: itemId
           in: path
@@ -464,10 +553,22 @@ paths:
           description: SKU deleted
 
   /shop/sales:
+    get:
+      tags: [ShopPOS]
+      operationId: listShopSales
+      summary: Query recorded shop/lubricant/LPG sales receipts
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shop sales receipts
     post:
       tags: [ShopPOS]
       operationId: recordShopSale
-      summary: Command to sell lubricant/LPG/shop items and post non-fuel revenue journal
+      summary: Command to sell lubricant/LPG/shop items and post non-fuel revenue and COGS journal
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -505,9 +606,10 @@ paths:
               required: [quantity]
               properties:
                 quantity: { type: integer, minimum: 1 }
+                unitCostFcfa: { type: integer, format: int64, minimum: 0 }
       responses:
         "200":
-          description: SKU restocked
+          description: SKU restocked and Inventory/AP journal posted
           content:
             application/json:
               schema:
@@ -539,7 +641,7 @@ paths:
     delete:
       tags: [Inventory]
       operationId: deleteTank
-      summary: Delete an underground storage tank
+      summary: Delete an unreferenced underground storage tank
       parameters:
         - name: tankId
           in: path
@@ -550,11 +652,30 @@ paths:
         "204":
           description: Tank deleted
 
+  /inventory/tanks/{tankId}/reconcile-shrinkage:
+    post:
+      tags: [Inventory]
+      operationId: reconcileTankShrinkage
+      summary: Reconcile tank book volume to latest dipstick reading and post shrinkage/gain journal
+      parameters:
+        - name: tankId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tank reconciled and inventory adjustment posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FuelTankDto"
+
   /inventory/purchase-orders/{poId}:
     delete:
       tags: [Inventory]
       operationId: deletePurchaseOrder
-      summary: Delete a supplier purchase order
+      summary: Delete a non-received supplier purchase order
       parameters:
         - name: poId
           in: path
@@ -564,6 +685,21 @@ paths:
       responses:
         "204":
           description: Purchase order deleted
+
+  /inventory/purchase-orders/{poId}/cancel:
+    patch:
+      tags: [Inventory]
+      operationId: cancelPurchaseOrder
+      summary: Cancel a PENDING supplier purchase order
+      parameters:
+        - name: poId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Purchase order cancelled
 
   /inventory/purchase-orders:
     get:
@@ -602,6 +738,11 @@ paths:
       tags: [Inventory]
       operationId: listDeliveries
       summary: Query recent tanker fuel deliveries with BoL vs. actual litres
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: Recent tanker deliveries
@@ -614,7 +755,7 @@ paths:
     post:
       tags: [Inventory]
       operationId: receiveDelivery
-      summary: Command to receive tanker delivery, compute BoL vs dipstick variance, and post inventory/AP journal
+      summary: Command to receive tanker delivery, validate tank ullage, update WAC, and post inventory/AP journal
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -631,11 +772,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/FuelTankDto"
 
+  /inventory/deliveries/{deliveryId}:
+    delete:
+      tags: [Inventory]
+      operationId: voidDelivery
+      summary: Void a tanker delivery, reverse tank volume, revert PO, and post reversing Inventory/AP journal
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Delivery voided
+
   /inventory/dipsticks:
     get:
       tags: [Inventory]
       operationId: listDipsticks
       summary: Query recent physical tank dipstick calibration readings
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: Recent dipstick readings
@@ -664,6 +825,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FuelTankDto"
+
+  /inventory/dipsticks/{dipstickId}:
+    delete:
+      tags: [Inventory]
+      operationId: deleteDipstick
+      summary: Delete a physical dipstick reading record
+      parameters:
+        - name: dipstickId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Dipstick deleted
 
   /workforce/employees:
     get:
@@ -714,7 +890,7 @@ paths:
     delete:
       tags: [Workforce]
       operationId: deleteEmployee
-      summary: Remove an employee record
+      summary: Remove an employee record with no shift history
       parameters:
         - name: employeeId
           in: path
@@ -748,7 +924,7 @@ paths:
     get:
       tags: [Workforce]
       operationId: getPayrollSummary
-      summary: CQRS payroll projection including base salary and cumulative shift cash variances in FCFA
+      summary: CQRS payroll projection including base salary and shortage deductions in FCFA
       parameters:
         - name: stationId
           in: query
@@ -768,19 +944,52 @@ paths:
                     fullName: { type: string }
                     role: { type: string }
                     baseSalaryFcfa: { type: integer, format: int64 }
-                    varianceFcfa: { type: integer, format: int64 }
-                    netPayrollFcfa: { type: integer, format: int64 }
+                    varianceAdjustmentFcfa: { type: integer, format: int64 }
+                    netPayableFcfa: { type: integer, format: int64 }
 
-  /accounting/reports:
+  /workforce/payroll/run:
+    post:
+      tags: [Workforce]
+      operationId: executePayrollRun
+      summary: Execute a station payroll disbursement, settle negative shortage deductions, and post payroll expense journal
+      responses:
+        "201":
+          description: Payroll disbursed
+
+  /workforce/payroll/runs:
     get:
-      tags: [Accounting]
-      operationId: getFinancialReports
-      summary: CQRS projection returning P&L, Balance Sheet, Trial Balance, Cash Flow, and VAT/Excise summaries in FCFA
+      tags: [Workforce]
+      operationId: listPayrollRuns
+      summary: Query historical payroll runs
       parameters:
         - name: stationId
           in: query
           schema:
             type: string
+      responses:
+        "200":
+          description: Payroll run history
+
+  /accounting/reports:
+    get:
+      tags: [Accounting]
+      operationId: getFinancialReports
+      summary: SQL-aggregated CQRS projection returning P&L, Balance Sheet, Trial Balance, Cash Flow, and VAT/Excise summaries in FCFA
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: Automated financial reports
@@ -822,6 +1031,33 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/JournalEntryDto"
+
+  /accounting/journals/manual:
+    post:
+      tags: [Accounting]
+      operationId: postManualJournal
+      summary: Post a balanced manual adjusting journal entry
+      responses:
+        "201":
+          description: Manual journal entry posted
+
+  /accounting/ap-payments:
+    post:
+      tags: [Accounting]
+      operationId: recordApPayment
+      summary: Record a supplier Accounts Payable settlement (DR 2010 / CR 1030 or 1010)
+      responses:
+        "201":
+          description: Supplier AP settlement posted
+
+  /accounting/vat-remittances:
+    post:
+      tags: [Accounting]
+      operationId: recordVatRemittance
+      summary: Record a VAT remittance to tax authorities (DR 2200 / CR 1030 or 1010)
+      responses:
+        "201":
+          description: VAT remittance posted
 
   /accounting/expenses:
     get:
@@ -1098,7 +1334,7 @@ paths:
     post:
       tags: [Billing]
       operationId: submitDemoLead
-      summary: Public onboarding and demo request intake endpoint
+      summary: Public onboarding and demo request intake endpoint (persisted & rate-limited)
       security: []
       requestBody:
         required: true
@@ -1118,6 +1354,370 @@ paths:
                     type: string
                   status:
                     type: string
+
+  /tenants/current:
+    get:
+      tags: [Stations]
+      operationId: getCurrentTenant
+      summary: Query active SaaS tenant workspace metadata, station count, and monthly FCFA commitment
+      responses:
+        "200":
+          description: Tenant workspace summary
+    patch:
+      tags: [Stations]
+      operationId: updateCurrentTenant
+      summary: Update tenant organization name, owner email, country code, or timezone
+      responses:
+        "200":
+          description: Tenant updated
+
+  /tenants/onboard:
+    post:
+      tags: [Stations]
+      operationId: onboardTenant
+      summary: Provision a new multi-tenant workspace with primary station and owner employee
+      responses:
+        "201":
+          description: Tenant provisioned
+
+  /tenants/current/reset-demo:
+    post:
+      tags: [Stations]
+      operationId: resetDemoWorkspace
+      summary: Clear seeded demo records for the current tenant while retaining the primary station
+      responses:
+        "200":
+          description: Workspace reset clean
+
+  /identity/me:
+    get:
+      tags: [Workforce]
+      operationId: getAuthenticatedProfile
+      summary: Return authenticated principal, tenant partition, roles, scopes, and linked employee profile
+      responses:
+        "200":
+          description: Authenticated user profile
+
+  /identity/invites:
+    get:
+      tags: [Workforce]
+      operationId: listUserInvites
+      summary: Query staff invitations for the tenant
+      responses:
+        "200":
+          description: Staff invitations
+    post:
+      tags: [Workforce]
+      operationId: createUserInvite
+      summary: Issue an expiring staff invitation token bound to a station and RBAC role
+      responses:
+        "201":
+          description: Invitation issued
+
+  /identity/invites/{token}/accept:
+    post:
+      tags: [Workforce]
+      operationId: acceptUserInvite
+      summary: Accept a staff invitation and link the caller Auth0 subject to the employee record
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Invitation accepted
+
+  /identity/invites/{inviteId}:
+    delete:
+      tags: [Workforce]
+      operationId: revokeUserInvite
+      summary: Revoke a pending staff invitation
+      parameters:
+        - name: inviteId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Invitation revoked
+
+  /billing/summary:
+    get:
+      tags: [Billing]
+      operationId: getBillingSummary
+      summary: Query tenant monthly FCFA subscription commitment, pump quota usage, AI add-ons, and unpaid invoice total
+      responses:
+        "200":
+          description: Billing summary
+
+  /billing/invoices:
+    get:
+      tags: [Billing]
+      operationId: listBillingInvoices
+      summary: Query issued and paid FCFA SaaS billing invoices
+      responses:
+        "200":
+          description: Billing invoices
+
+  /billing/invoices/generate:
+    post:
+      tags: [Billing]
+      operationId: generateBillingInvoice
+      summary: Generate an itemized monthly FCFA SaaS + AI Copilot invoice for the tenant
+      responses:
+        "201":
+          description: Invoice generated
+
+  /billing/invoices/{invoiceId}/pay:
+    post:
+      tags: [Billing]
+      operationId: payBillingInvoice
+      summary: Record Orange Money, MTN MoMo, Bank Transfer, or Card settlement against a SaaS invoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Payment recorded
+
+  /reporting/overview:
+    get:
+      tags: [Accounting]
+      operationId: getExecutiveOverview
+      summary: Consolidated executive KPI projection across stations, tanks, open shifts, and SYSCOHADA financials
+      parameters:
+        - name: stationId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Executive overview KPIs
+
+  /reporting/z-report:
+    get:
+      tags: [Accounting]
+      operationId: getDailyZReport
+      summary: Daily forecourt Z-report summarizing closed shifts, dispensed litres, tenders, and cash variance
+      parameters:
+        - name: stationId
+          in: query
+          schema: { type: string }
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Daily Z-report
+
+  /reporting/export/trial-balance.csv:
+    get:
+      tags: [Accounting]
+      operationId: exportTrialBalanceCsv
+      summary: Server-generated RFC 4180 CSV export of SYSCOHADA Trial Balance
+      responses:
+        "200":
+          description: CSV file
+
+  /reporting/export/journals.csv:
+    get:
+      tags: [Accounting]
+      operationId: exportJournalsCsv
+      summary: Server-generated RFC 4180 CSV export of Double-Entry General Ledger journals
+      responses:
+        "200":
+          description: CSV file
+
+  /notifications:
+    get:
+      tags: [ApiPlatform]
+      operationId: listNotifications
+      summary: Query operational and financial alert notifications (dipstick variance, cash variance, leads, invites)
+      responses:
+        "200":
+          description: Alert notifications
+
+  /notifications/{alertId}/read:
+    patch:
+      tags: [ApiPlatform]
+      operationId: markNotificationRead
+      summary: Mark an alert notification as read
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Alert marked read
+
+  /notifications/read-all:
+    post:
+      tags: [ApiPlatform]
+      operationId: markAllNotificationsRead
+      summary: Mark all unread notifications for the tenant as read
+      responses:
+        "200":
+          description: All alerts marked read
+
+  /fleet/accounts/{accountId}/vehicles:
+    get:
+      tags: [FleetCredit]
+      operationId: listFleetVehicles
+      summary: Query registered corporate fleet vehicles and grade/litre caps
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Registered vehicles
+    post:
+      tags: [FleetCredit]
+      operationId: registerFleetVehicle
+      summary: Register a vehicle under a corporate fleet account
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Vehicle registered
+
+  /fleet/accounts/{accountId}/vehicles/{vehicleId}:
+    delete:
+      tags: [FleetCredit]
+      operationId: removeFleetVehicle
+      summary: Remove a registered corporate fleet vehicle
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Vehicle removed
+
+  /fleet/accounts/{accountId}/statement:
+    get:
+      tags: [FleetCredit]
+      operationId: getFleetAccountStatement
+      summary: Query corporate fleet credit statement with credit utilization and voucher history
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Fleet credit statement
+
+  /inventory/suppliers:
+    get:
+      tags: [Inventory]
+      operationId: listSuppliers
+      summary: Query fuel depot and lubricant suppliers for the tenant
+      responses:
+        "200":
+          description: Suppliers list
+    post:
+      tags: [Inventory]
+      operationId: createSupplier
+      summary: Register a fuel depot or lubricant supplier
+      responses:
+        "201":
+          description: Supplier created
+
+  /inventory/tanks/{tankId}/atg-telemetry:
+    post:
+      tags: [Inventory]
+      operationId: ingestAtgTelemetry
+      summary: Ingest Automated Tank Gauge (ATG) IoT sensor telemetry with 15°C thermal volume compensation and water alert detection
+      parameters:
+        - name: tankId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: ATG reading recorded
+
+  /workforce/employees/{employeeId}/attendance-logs:
+    get:
+      tags: [Workforce]
+      operationId: listAttendanceLogs
+      summary: Query clock-in/clock-out timesheet audit logs for an employee
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Attendance log history
+
+  /workforce/payroll/payslips/{employeeId}:
+    get:
+      tags: [Workforce]
+      operationId: getEmployeePayslip
+      summary: Generate detailed FCFA payslip with shortage deductions, CNPS social contribution estimate, and logged hours
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Employee payslip
+
+  /accounting/periods:
+    get:
+      tags: [Accounting]
+      operationId: listFiscalPeriods
+      summary: Query closed/locked accounting fiscal periods
+      responses:
+        "200":
+          description: Fiscal periods
+
+  /accounting/periods/close:
+    post:
+      tags: [Accounting]
+      operationId: closeFiscalPeriod
+      summary: Close and lock an accounting fiscal period (YYYY-MM) against further postings
+      responses:
+        "201":
+          description: Fiscal period closed
+
+  /ai/history:
+    get:
+      tags: [ApiPlatform]
+      operationId: listAiAuditHistory
+      summary: Query persisted AI Copilot analysis & chat history with token metering
+      responses:
+        "200":
+          description: AI audit history
+
+  /platform/webhooks/{webhookId}/deliveries:
+    get:
+      tags: [ApiPlatform]
+      operationId: listWebhookDeliveries
+      summary: Query webhook HMAC delivery attempt audit logs
+      parameters:
+        - name: webhookId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Webhook delivery attempts
 
 components:
   securitySchemes:
@@ -1257,19 +1857,24 @@ components:
         driverName: { type: string }
         grade: { type: string, enum: [SUPER, GASOIL, KEROSENE, LPG_BULK, HEAVY_FUEL] }
         litres: { type: number }
+        standaloneSale: { type: boolean, default: false }
     FleetTransactionDto:
       type: object
       properties:
         id: { type: string }
         accountId: { type: string }
+        stationId: { type: string }
         vehiclePlate: { type: string }
+        driverName: { type: string }
+        grade: { type: string }
         litres: { type: number }
         amountFcfa: { type: integer, format: int64 }
         createdAt: { type: string, format: date-time }
     SettleFleetCommand:
       type: object
-      required: [amountFcfa, method]
+      required: [stationId, amountFcfa, method]
       properties:
+        stationId: { type: string }
         amountFcfa: { type: integer, format: int64 }
         method: { type: string, enum: [BANK_TRANSFER, MOBILE_MONEY, CASH] }
     ShopItemDto:
@@ -1283,6 +1888,7 @@ components:
         stockQty: { type: integer }
         reorderLevel: { type: integer }
         unitPriceFcfa: { type: integer, format: int64 }
+        unitCostFcfa: { type: integer, format: int64 }
     RecordShopSaleCommand:
       type: object
       required: [itemId, quantity, paymentMethod]
@@ -1312,7 +1918,7 @@ components:
         grade: { type: string }
         orderedLitres: { type: number }
         unitCostFcfa: { type: integer, format: int64 }
-        status: { type: string, enum: [PENDING, RECEIVED] }
+        status: { type: string, enum: [PENDING, RECEIVED, CANCELLED] }
         createdAt: { type: string, format: date-time }
     CreatePurchaseOrderCommand:
       type: object
@@ -1338,7 +1944,7 @@ components:
       required: [tankId, measuredLitres]
       properties:
         tankId: { type: string }
-        measuredLitres: { type: number }
+        measuredLitres: { type: number, minimum: 0 }
     TankDeliveryDto:
       type: object
       properties:
@@ -1363,6 +1969,7 @@ components:
       properties:
         id: { type: string }
         stationId: { type: string }
+        auth0Sub: { type: string, nullable: true }
         fullName: { type: string }
         role: { type: string, enum: [OWNER, MANAGER, ATTENDANT, ACCOUNTANT] }
         phone: { type: string }
@@ -1378,7 +1985,9 @@ components:
         fullName: { type: string }
         role: { type: string, enum: [OWNER, MANAGER, ATTENDANT, ACCOUNTANT] }
         phone: { type: string }
+        shiftWindow: { type: string }
         baseSalaryFcfa: { type: integer, format: int64 }
+        auth0Sub: { type: string }
     JournalEntryDto:
       type: object
       properties:
@@ -1388,11 +1997,13 @@ components:
         sourceEvent: { type: string }
         description: { type: string }
         postedAt: { type: string, format: date-time }
+        reversedEntryId: { type: string, nullable: true }
         lines:
           type: array
           items:
             type: object
             properties:
+              id: { type: string }
               accountCode: { type: string }
               accountName: { type: string }
               debitFcfa: { type: integer, format: int64 }
@@ -1402,7 +2013,7 @@ components:
       required: [stationId, category, description, amountFcfa, paymentSource]
       properties:
         stationId: { type: string }
-        category: { type: string, enum: [UTILITIES, MAINTENANCE, GENERATOR_FUEL, SECURITY, SUPPLIES] }
+        category: { type: string, enum: [UTILITIES, MAINTENANCE, GENERATOR_FUEL, SECURITY, SUPPLIES, SHRINKAGE, PAYROLL] }
         description: { type: string }
         amountFcfa: { type: integer, format: int64 }
         paymentSource: { type: string, enum: [CASH_SAFE, BANK] }
@@ -1440,12 +2051,19 @@ components:
       properties:
         currency: { type: string }
         totalRevenueFcfa: { type: integer, format: int64 }
+        nonFuelRevenueFcfa: { type: integer, format: int64 }
         cogsFcfa: { type: integer, format: int64 }
         grossProfitFcfa: { type: integer, format: int64 }
         operatingExpensesFcfa: { type: integer, format: int64 }
         cashVarianceFcfa: { type: integer, format: int64 }
         netIncomeFcfa: { type: integer, format: int64 }
         vatPayableFcfa: { type: integer, format: int64 }
+        cashOnHandFcfa: { type: integer, format: int64 }
+        mobileMoneyClearingFcfa: { type: integer, format: int64 }
+        bankBalanceFcfa: { type: integer, format: int64 }
+        fleetReceivablesFcfa: { type: integer, format: int64 }
+        inventoryAssetFcfa: { type: integer, format: int64 }
+        accountsPayableFcfa: { type: integer, format: int64 }
         trialBalanceBalanced: { type: boolean }
         trialBalance:
           type: array
@@ -1462,11 +2080,14 @@ components:
       type: object
       properties:
         eventId: { type: string }
+        tenantId: { type: string }
+        stationId: { type: string, nullable: true }
         eventType: { type: string }
         aggregateType: { type: string }
         aggregateId: { type: string }
         summary: { type: string }
         occurredAt: { type: string, format: date-time }
+        published: { type: boolean }
     ApiKeyDto:
       type: object
       properties:
@@ -1494,6 +2115,7 @@ components:
           type: array
           items: { type: string }
         active: { type: boolean }
+        signingSecret: { type: string, description: Returned once on creation for HMAC-SHA256 verification }
     CreateWebhookCommand:
       type: object
       required: [targetUrl, subscribedEvents]
@@ -1522,5 +2144,5 @@ components:
         stationName: { type: string }
         email: { type: string, format: email }
         phone: { type: string }
-        pumpCount: { type: integer }
+        pumpCount: { type: integer, minimum: 1 }
         selectedPlan: { type: string }

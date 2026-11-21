@@ -1,16 +1,25 @@
 package com.opesware.opesfuel.forecourt;
 
+import com.opesware.opesfuel.inventory.InventoryQueryApi;
+import com.opesware.opesfuel.shared.domain.DomainEnums;
+import com.opesware.opesfuel.shared.domain.DomainEnums.FuelGrade;
+import com.opesware.opesfuel.shared.domain.DomainEnums.PumpStatus;
 import com.opesware.opesfuel.shared.events.DomainEvent.FuelPriceUpdatedEvent;
 import com.opesware.opesfuel.shared.events.DomainEvent.ProvisionedFuelSpec;
 import com.opesware.opesfuel.shared.events.DomainEvent.ShiftClosedEvent;
 import com.opesware.opesfuel.shared.events.DomainEvent.ShiftOpenedEvent;
-import com.opesware.opesfuel.shared.events.DomainEvent.StationInstitutionalSetupEvent;
+import com.opesware.opesfuel.shared.events.DomainEvent.ShiftVoidedEvent;
+import com.opesware.opesfuel.shared.events.DomainEvent.TanksProvisionedEvent;
+import com.opesware.opesfuel.station.StationCatalogApi;
+import com.opesware.opesfuel.workforce.WorkforceQueryApi;
 import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.modulith.events.ApplicationModuleListener;
@@ -23,7 +32,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "pumps")
@@ -44,17 +55,20 @@ class PumpEntity {
     private long unitPriceFcfa;
     @Column(nullable = false)
     private String status;
+    @Version
+    private long version;
 
     public static PumpEntity create(String stationId, String tankId, String code, String grade, BigDecimal totalizerLitres, long unitPriceFcfa) {
+        FuelGrade validatedGrade = DomainEnums.parse(FuelGrade.class, grade, "grade");
         PumpEntity p = new PumpEntity();
-        p.id = "pmp_" + UUID.randomUUID().toString().substring(0, 8);
+        p.id = "pmp_" + UUID.randomUUID();
         p.stationId = stationId;
         p.tankId = tankId;
         p.code = code.trim().toUpperCase();
-        p.grade = grade.trim().toUpperCase();
+        p.grade = validatedGrade.name();
         p.totalizerLitres = totalizerLitres != null ? totalizerLitres : BigDecimal.ZERO;
         p.unitPriceFcfa = unitPriceFcfa;
-        p.status = "IDLE";
+        p.status = PumpStatus.IDLE.name();
         return p;
     }
 
@@ -104,10 +118,16 @@ class ShiftEntity {
     private Instant openedAt;
     @Column(name = "closed_at")
     private Instant closedAt;
+    @Column(nullable = false)
+    private boolean voided;
+    @Column(name = "voided_at")
+    private Instant voidedAt;
+    @Version
+    private long version;
 
     public static ShiftEntity open(String stationId, String pumpId, String attendantId, BigDecimal openingMeter, long unitPriceFcfa) {
         ShiftEntity entity = new ShiftEntity();
-        entity.id = "sh_" + UUID.randomUUID().toString().substring(0, 8);
+        entity.id = "sh_" + UUID.randomUUID();
         entity.stationId = stationId;
         entity.pumpId = pumpId;
         entity.attendantId = attendantId;
@@ -115,13 +135,14 @@ class ShiftEntity {
         entity.unitPriceFcfa = unitPriceFcfa;
         entity.status = "OPEN";
         entity.openedAt = Instant.now();
+        entity.voided = false;
         return entity;
     }
 
-    public ShiftClosedEvent close(String tankId, long unitCostFcfa, BigDecimal closingMeter,
+    public ShiftClosedEvent close(String tenantId, String tankId, long unitCostFcfa, BigDecimal closingMeter,
                                   long cash, long mobileMoney, long card, long fleetCredit) {
-        if (!"OPEN".equals(this.status)) {
-            throw new IllegalStateException("Shift is already closed.");
+        if (this.voided || !"OPEN".equals(this.status)) {
+            throw new IllegalStateException("Shift is already closed or voided.");
         }
         if (closingMeter.compareTo(this.openingMeterLitres) < 0) {
             throw new IllegalArgumentException("Closing meter cannot be less than opening meter.");
@@ -140,9 +161,29 @@ class ShiftEntity {
         this.closedAt = Instant.now();
 
         return ShiftClosedEvent.create(
-            this.id, this.stationId, this.pumpId, tankId, this.attendantId,
+            this.id, tenantId, this.stationId, this.pumpId, tankId, this.attendantId,
             litresSold, expectedFcfa, cash, mobileMoney, card, fleetCredit, this.varianceFcfa, unitCostFcfa
         );
+    }
+
+    public void markVoided() {
+        if (this.voided) {
+            throw new IllegalStateException("Shift is already voided.");
+        }
+        this.voided = true;
+        this.voidedAt = Instant.now();
+        this.status = "VOIDED";
+    }
+
+    public BigDecimal computeLitresSold() {
+        if (closingMeterLitres == null) {
+            return BigDecimal.ZERO;
+        }
+        return closingMeterLitres.subtract(openingMeterLitres).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public long computeExpectedRevenueFcfa() {
+        return computeLitresSold().multiply(BigDecimal.valueOf(unitPriceFcfa)).setScale(0, RoundingMode.HALF_UP).longValue();
     }
 
     public String getId() { return id; }
@@ -160,27 +201,70 @@ class ShiftEntity {
     public String getStatus() { return status; }
     public Instant getOpenedAt() { return openedAt; }
     public Instant getClosedAt() { return closedAt; }
+    public boolean isVoided() { return voided; }
 }
 
 interface PumpRepository extends JpaRepository<PumpEntity, String> {
+    List<PumpEntity> findByStationIdInOrderByCodeAsc(List<String> stationIds);
     List<PumpEntity> findByStationIdOrderByCodeAsc(String stationId);
     List<PumpEntity> findByStationIdAndGrade(String stationId, String grade);
+    boolean existsByStationIdAndCodeIgnoreCase(String stationId, String code);
+    long countByStationIdIn(List<String> stationIds);
 }
 
 interface ShiftRepository extends JpaRepository<ShiftEntity, String> {
-    List<ShiftEntity> findByStationIdOrderByOpenedAtDesc(String stationId);
+    List<ShiftEntity> findByStationIdInAndVoidedFalseOrderByOpenedAtDesc(List<String> stationIds, PageRequest pageable);
+    boolean existsByPumpId(String pumpId);
+    boolean existsByPumpIdAndStatus(String pumpId, String status);
+    long countByStationIdInAndStatusAndVoidedFalse(List<String> stationIds, String status);
 }
 
 @Service
-class ShiftCommandHandler {
+class ShiftCommandHandler implements ForecourtQueryApi {
     private final PumpRepository pumpRepository;
     private final ShiftRepository shiftRepository;
+    private final StationCatalogApi stationCatalogApi;
+    private final InventoryQueryApi inventoryQueryApi;
+    private final WorkforceQueryApi workforceQueryApi;
     private final ApplicationEventPublisher eventPublisher;
 
-    ShiftCommandHandler(PumpRepository pumpRepository, ShiftRepository shiftRepository, ApplicationEventPublisher eventPublisher) {
+    ShiftCommandHandler(
+        PumpRepository pumpRepository,
+        ShiftRepository shiftRepository,
+        StationCatalogApi stationCatalogApi,
+        InventoryQueryApi inventoryQueryApi,
+        WorkforceQueryApi workforceQueryApi,
+        ApplicationEventPublisher eventPublisher
+    ) {
         this.pumpRepository = pumpRepository;
         this.shiftRepository = shiftRepository;
+        this.stationCatalogApi = stationCatalogApi;
+        this.inventoryQueryApi = inventoryQueryApi;
+        this.workforceQueryApi = workforceQueryApi;
         this.eventPublisher = eventPublisher;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<Long> findPumpPriceByStationAndGrade(String stationId, String grade) {
+        return pumpRepository.findByStationIdAndGrade(stationId, grade).stream()
+            .map(PumpEntity::getUnitPriceFcfa)
+            .filter(p -> p > 0)
+            .findFirst();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countPumpsForStations(List<String> stationIds) {
+        if (stationIds == null || stationIds.isEmpty()) return 0L;
+        return pumpRepository.countByStationIdIn(stationIds);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countActiveShiftsForStations(List<String> stationIds) {
+        if (stationIds == null || stationIds.isEmpty()) return 0L;
+        return shiftRepository.countByStationIdInAndStatusAndVoidedFalse(stationIds, "OPEN");
     }
 
     @ApplicationModuleListener
@@ -192,13 +276,27 @@ class ShiftCommandHandler {
         pumpRepository.saveAll(pumps);
     }
 
+    /**
+     * Triggered AFTER Inventory has committed fuel_tanks rows, eliminating the async FK race condition.
+     * Provisions only missing nozzles up to spec.nozzleCount() so re-running onboarding is idempotent.
+     */
     @ApplicationModuleListener
-    public void onInstitutionalSetup(StationInstitutionalSetupEvent event) {
-        int existingCount = pumpRepository.findByStationIdOrderByCodeAsc(event.stationId()).size();
-        int nozzleIndex = existingCount + 1;
+    public void onTanksProvisioned(TanksProvisionedEvent event) {
+        int nozzleIndex = pumpRepository.findByStationIdOrderByCodeAsc(event.stationId()).size() + 1;
         for (ProvisionedFuelSpec spec : event.items()) {
-            for (int i = 0; i < spec.nozzleCount(); i++) {
-                String code = "P" + String.format("%02d", nozzleIndex++) + "-" + spec.grade().substring(0, Math.min(3, spec.grade().length()));
+            List<PumpEntity> existingGradePumps = pumpRepository.findByStationIdAndGrade(event.stationId(), spec.grade());
+            for (PumpEntity pump : existingGradePumps) {
+                pump.setUnitPriceFcfa(spec.sellingPriceFcfa());
+            }
+            pumpRepository.saveAll(existingGradePumps);
+
+            int missing = Math.max(0, spec.nozzleCount() - existingGradePumps.size());
+            for (int i = 0; i < missing; i++) {
+                String code;
+                do {
+                    code = "P" + String.format("%02d", nozzleIndex++) + "-" + spec.grade().substring(0, Math.min(3, spec.grade().length()));
+                } while (pumpRepository.existsByStationIdAndCodeIgnoreCase(event.stationId(), code));
+
                 pumpRepository.save(PumpEntity.create(
                     event.stationId(),
                     spec.tankId(),
@@ -211,33 +309,132 @@ class ShiftCommandHandler {
         }
     }
 
-    @Transactional
-    public ShiftEntity openShift(OpenShiftCommand cmd) {
-        PumpEntity pump = pumpRepository.findById(cmd.pumpId())
-            .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + cmd.pumpId()));
-        if ("ACTIVE_SHIFT".equals(pump.getStatus())) {
-            throw new IllegalStateException("Pump " + pump.getCode() + " already has an active shift.");
-        }
-        pump.setStatus("ACTIVE_SHIFT");
-        pumpRepository.save(pump);
-
-        ShiftEntity shift = shiftRepository.save(ShiftEntity.open(cmd.stationId(), cmd.pumpId(), cmd.attendantId(), pump.getTotalizerLitres(), pump.getUnitPriceFcfa()));
-        eventPublisher.publishEvent(new ShiftOpenedEvent(
-            UUID.randomUUID().toString(), shift.getId(), shift.getStationId(), shift.getPumpId(), shift.getAttendantId(), shift.getOpenedAt()
-        ));
-        return shift;
+    @Transactional(readOnly = true)
+    public List<PumpEntity> listPumps(String stationId) {
+        List<String> stationIds = stationCatalogApi.resolveAuthorizedStationIds(stationId);
+        if (stationIds.isEmpty()) return List.of();
+        return pumpRepository.findByStationIdInOrderByCodeAsc(stationIds);
     }
 
     @Transactional
-    public ShiftEntity closeShift(String shiftId, CloseShiftCommand cmd) {
+    public PumpEntity createPump(CreatePumpCommand cmd) {
+        stationCatalogApi.requireAccessibleStation(cmd.stationId());
+        FuelGrade validatedGrade = DomainEnums.parse(FuelGrade.class, cmd.grade(), "grade");
+        InventoryQueryApi.TankSnapshot tank = inventoryQueryApi.findTank(cmd.tankId())
+            .orElseThrow(() -> new IllegalArgumentException("Tank not found: " + cmd.tankId()));
+        if (!tank.stationId().equals(cmd.stationId())) {
+            throw new IllegalArgumentException("Tank " + cmd.tankId() + " does not belong to station " + cmd.stationId());
+        }
+        if (!tank.grade().equalsIgnoreCase(validatedGrade.name())) {
+            throw new IllegalArgumentException("Pump grade (" + validatedGrade + ") must match linked tank grade (" + tank.grade() + ").");
+        }
+        if (pumpRepository.existsByStationIdAndCodeIgnoreCase(cmd.stationId(), cmd.code().trim())) {
+            throw new IllegalStateException("Pump code already exists at this station: " + cmd.code().trim().toUpperCase());
+        }
+        return pumpRepository.save(PumpEntity.create(
+            cmd.stationId(), cmd.tankId(), cmd.code(), validatedGrade.name(), cmd.totalizerLitres(), cmd.unitPriceFcfa()
+        ));
+    }
+
+    @Transactional
+    public PumpEntity patchPump(String pumpId, PatchPumpCommand cmd) {
+        PumpEntity pump = pumpRepository.findById(pumpId)
+            .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + pumpId));
+        stationCatalogApi.requireAccessibleStation(pump.getStationId());
+        if (cmd.status() != null && !cmd.status().isBlank()) {
+            PumpStatus next = DomainEnums.parse(PumpStatus.class, cmd.status(), "status");
+            if (PumpStatus.ACTIVE_SHIFT.name().equals(pump.getStatus())) {
+                throw new IllegalStateException("Cannot change status of pump " + pump.getCode() + " while a shift is active.");
+            }
+            if (next == PumpStatus.ACTIVE_SHIFT) {
+                throw new IllegalArgumentException("Use /forecourt/shifts/open to transition a pump to ACTIVE_SHIFT.");
+            }
+            pump.setStatus(next.name());
+        }
+        if (cmd.unitPriceFcfa() != null) {
+            if (cmd.unitPriceFcfa() < 100) {
+                throw new IllegalArgumentException("unitPriceFcfa must be at least 100 FCFA.");
+            }
+            pump.setUnitPriceFcfa(cmd.unitPriceFcfa());
+        }
+        return pumpRepository.save(pump);
+    }
+
+    @Transactional
+    public void deletePump(String pumpId) {
+        PumpEntity pump = pumpRepository.findById(pumpId)
+            .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + pumpId));
+        stationCatalogApi.requireAccessibleStation(pump.getStationId());
+        if (PumpStatus.ACTIVE_SHIFT.name().equals(pump.getStatus())) {
+            throw new IllegalStateException("Cannot delete pump with an active open shift.");
+        }
+        if (shiftRepository.existsByPumpId(pumpId)) {
+            throw new IllegalStateException("Cannot delete pump " + pump.getCode() + " that has recorded shift history. Set status to MAINTENANCE instead.");
+        }
+        pumpRepository.deleteById(pumpId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShiftDto> listShifts(String stationId, int limit) {
+        List<String> stationIds = stationCatalogApi.resolveAuthorizedStationIds(stationId);
+        if (stationIds.isEmpty()) return List.of();
+        List<ShiftEntity> shifts = shiftRepository.findByStationIdInAndVoidedFalseOrderByOpenedAtDesc(
+            stationIds, PageRequest.of(0, Math.max(1, Math.min(limit, 200)))
+        );
+        Map<String, PumpEntity> pumpById = pumpRepository.findByStationIdInOrderByCodeAsc(stationIds).stream()
+            .collect(Collectors.toMap(PumpEntity::getId, p -> p, (a, b) -> a));
+        return shifts.stream()
+            .map(s -> toDto(s, pumpById.get(s.getPumpId())))
+            .toList();
+    }
+
+    @Transactional
+    public ShiftDto openShift(OpenShiftCommand cmd) {
+        StationCatalogApi.StationSnapshot station = stationCatalogApi.requireAccessibleStation(cmd.stationId());
+        PumpEntity pump = pumpRepository.findById(cmd.pumpId())
+            .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + cmd.pumpId()));
+        if (!pump.getStationId().equals(cmd.stationId())) {
+            throw new IllegalArgumentException("Pump " + pump.getCode() + " does not belong to station " + cmd.stationId());
+        }
+        if (!PumpStatus.IDLE.name().equals(pump.getStatus()) || shiftRepository.existsByPumpIdAndStatus(pump.getId(), "OPEN")) {
+            throw new IllegalStateException("Pump " + pump.getCode() + " is not IDLE (current status: " + pump.getStatus() + ").");
+        }
+        WorkforceQueryApi.EmployeeSnapshot attendant = workforceQueryApi.findEmployee(cmd.attendantId())
+            .orElseThrow(() -> new IllegalArgumentException("Attendant not found: " + cmd.attendantId()));
+        if (!attendant.stationId().equals(cmd.stationId())) {
+            throw new IllegalArgumentException("Attendant " + attendant.fullName() + " does not belong to station " + cmd.stationId());
+        }
+
+        pump.setStatus(PumpStatus.ACTIVE_SHIFT.name());
+        pumpRepository.save(pump);
+
+        ShiftEntity shift = shiftRepository.save(ShiftEntity.open(
+            cmd.stationId(), cmd.pumpId(), cmd.attendantId(), pump.getTotalizerLitres(), pump.getUnitPriceFcfa()
+        ));
+        eventPublisher.publishEvent(new ShiftOpenedEvent(
+            UUID.randomUUID().toString(), shift.getId(), station.tenantId(), shift.getStationId(),
+            shift.getPumpId(), shift.getAttendantId(), shift.getOpenedAt()
+        ));
+        return toDto(shift, pump, attendant.fullName());
+    }
+
+    @Transactional
+    public ShiftDto closeShift(String shiftId, CloseShiftCommand cmd) {
         ShiftEntity shift = shiftRepository.findById(shiftId)
             .orElseThrow(() -> new IllegalArgumentException("Shift not found: " + shiftId));
+        StationCatalogApi.StationSnapshot station = stationCatalogApi.requireAccessibleStation(shift.getStationId());
         PumpEntity pump = pumpRepository.findById(shift.getPumpId())
             .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + shift.getPumpId()));
 
+        // Always use authoritative tank Weighted Average Cost from Inventory instead of client-supplied or hardcoded ratios.
+        InventoryQueryApi.TankSnapshot tank = inventoryQueryApi.findTank(pump.getTankId())
+            .orElseThrow(() -> new IllegalStateException("Linked fuel tank not found: " + pump.getTankId()));
+        long authoritativeUnitCostFcfa = tank.unitCostFcfa();
+
         ShiftClosedEvent event = shift.close(
+            station.tenantId(),
             pump.getTankId(),
-            cmd.unitCostFcfa() != null ? cmd.unitCostFcfa() : Math.round(pump.getUnitPriceFcfa() * 0.88),
+            authoritativeUnitCostFcfa,
             cmd.closingMeterLitres(),
             cmd.cashFcfa(),
             cmd.mobileMoneyFcfa(),
@@ -246,13 +443,98 @@ class ShiftCommandHandler {
         );
 
         pump.setTotalizerLitres(cmd.closingMeterLitres());
-        pump.setStatus("IDLE");
+        pump.setStatus(PumpStatus.IDLE.name());
         pumpRepository.save(pump);
         shiftRepository.save(shift);
         eventPublisher.publishEvent(event);
-        return shift;
+        return toDto(shift, pump);
+    }
+
+    @Transactional
+    public void voidShift(String shiftId) {
+        ShiftEntity shift = shiftRepository.findById(shiftId)
+            .orElseThrow(() -> new IllegalArgumentException("Shift not found: " + shiftId));
+        StationCatalogApi.StationSnapshot station = stationCatalogApi.requireAccessibleStation(shift.getStationId());
+        PumpEntity pump = pumpRepository.findById(shift.getPumpId())
+            .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + shift.getPumpId()));
+
+        String priorStatus = shift.getStatus();
+        BigDecimal litresSold = shift.computeLitresSold();
+        long variance = shift.getVarianceFcfa();
+
+        shift.markVoided();
+        shiftRepository.save(shift);
+
+        if ("OPEN".equals(priorStatus)) {
+            pump.setStatus(PumpStatus.IDLE.name());
+            pumpRepository.save(pump);
+        } else if ("CLOSED".equals(priorStatus)) {
+            if (pump.getTotalizerLitres().compareTo(shift.getClosingMeterLitres()) == 0) {
+                pump.setTotalizerLitres(shift.getOpeningMeterLitres());
+                pumpRepository.save(pump);
+            }
+            eventPublisher.publishEvent(new ShiftVoidedEvent(
+                UUID.randomUUID().toString(), shift.getId(), station.tenantId(), shift.getStationId(),
+                pump.getId(), pump.getTankId(), shift.getAttendantId(), litresSold, variance, Instant.now()
+            ));
+        }
+    }
+
+    private ShiftDto toDto(ShiftEntity shift, PumpEntity pump) {
+        String attendantName = workforceQueryApi.findEmployee(shift.getAttendantId())
+            .map(WorkforceQueryApi.EmployeeSnapshot::fullName)
+            .orElse(shift.getAttendantId());
+        return toDto(shift, pump, attendantName);
+    }
+
+    private ShiftDto toDto(ShiftEntity shift, PumpEntity pump, String attendantName) {
+        return new ShiftDto(
+            shift.getId(),
+            shift.getStationId(),
+            shift.getPumpId(),
+            pump != null ? pump.getCode() : shift.getPumpId(),
+            pump != null ? pump.getGrade() : "SUPER",
+            shift.getAttendantId(),
+            attendantName,
+            shift.getOpeningMeterLitres(),
+            shift.getClosingMeterLitres(),
+            shift.computeLitresSold(),
+            shift.getUnitPriceFcfa(),
+            shift.computeExpectedRevenueFcfa(),
+            shift.getCashFcfa(),
+            shift.getMobileMoneyFcfa(),
+            shift.getCardFcfa(),
+            shift.getFleetCreditFcfa(),
+            shift.getVarianceFcfa(),
+            shift.getStatus(),
+            shift.getOpenedAt(),
+            shift.getClosedAt()
+        );
     }
 }
+
+record ShiftDto(
+    String id,
+    String stationId,
+    String pumpId,
+    String pumpCode,
+    String grade,
+    String attendantId,
+    String attendantName,
+    BigDecimal openingMeterLitres,
+    BigDecimal closingMeterLitres,
+    BigDecimal litresSold,
+    long unitPriceFcfa,
+    long expectedRevenueFcfa,
+    long cashFcfa,
+    long mobileMoneyFcfa,
+    long cardFcfa,
+    long fleetCreditFcfa,
+    long varianceFcfa,
+    String status,
+    Instant openedAt,
+    Instant closedAt
+) {}
 
 record CreatePumpCommand(
     @NotBlank String stationId,
@@ -260,87 +542,80 @@ record CreatePumpCommand(
     @NotBlank String code,
     @NotBlank String grade,
     @PositiveOrZero BigDecimal totalizerLitres,
-    @PositiveOrZero long unitPriceFcfa
+    @Positive long unitPriceFcfa
 ) {}
+
+record PatchPumpCommand(String status, Long unitPriceFcfa) {}
 record OpenShiftCommand(@NotBlank String stationId, @NotBlank String pumpId, @NotBlank String attendantId) {}
 record CloseShiftCommand(
     @NotNull BigDecimal closingMeterLitres,
     @PositiveOrZero long cashFcfa,
     @PositiveOrZero long mobileMoneyFcfa,
     @PositiveOrZero long cardFcfa,
-    @PositiveOrZero long fleetCreditFcfa,
-    Long unitCostFcfa
+    @PositiveOrZero long fleetCreditFcfa
 ) {}
 
 @RestController
 @RequestMapping("/api/v1/forecourt")
 public class ForecourtController {
-    private final PumpRepository pumpRepository;
-    private final ShiftRepository shiftRepository;
     private final ShiftCommandHandler shiftCommandHandler;
 
-    public ForecourtController(PumpRepository pumpRepository, ShiftRepository shiftRepository, ShiftCommandHandler shiftCommandHandler) {
-        this.pumpRepository = pumpRepository;
-        this.shiftRepository = shiftRepository;
+    public ForecourtController(ShiftCommandHandler shiftCommandHandler) {
         this.shiftCommandHandler = shiftCommandHandler;
     }
 
     @GetMapping("/pumps")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT')")
-    public List<PumpEntity> listPumps(@RequestParam String stationId) {
-        return "ALL".equalsIgnoreCase(stationId) ? pumpRepository.findAll() : pumpRepository.findByStationIdOrderByCodeAsc(stationId);
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_forecourt:read')")
+    public List<PumpEntity> listPumps(@RequestParam(required = false, defaultValue = "ALL") String stationId) {
+        return shiftCommandHandler.listPumps(stationId);
     }
 
     @PostMapping("/pumps")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_forecourt:write')")
     public PumpEntity createPump(@Valid @RequestBody CreatePumpCommand cmd) {
-        return pumpRepository.save(PumpEntity.create(cmd.stationId(), cmd.tankId(), cmd.code(), cmd.grade(), cmd.totalizerLitres(), cmd.unitPriceFcfa()));
+        return shiftCommandHandler.createPump(cmd);
+    }
+
+    @PatchMapping("/pumps/{pumpId}")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_forecourt:write')")
+    public PumpEntity patchPump(@PathVariable String pumpId, @RequestBody PatchPumpCommand cmd) {
+        return shiftCommandHandler.patchPump(pumpId, cmd);
     }
 
     @DeleteMapping("/pumps/{pumpId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_forecourt:write')")
     public void deletePump(@PathVariable String pumpId) {
-        PumpEntity pump = pumpRepository.findById(pumpId)
-            .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + pumpId));
-        if ("ACTIVE_SHIFT".equals(pump.getStatus())) {
-            throw new IllegalStateException("Cannot delete pump with an active open shift.");
-        }
-        pumpRepository.deleteById(pumpId);
+        shiftCommandHandler.deletePump(pumpId);
     }
 
     @GetMapping("/shifts")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT')")
-    public List<ShiftEntity> listShifts(@RequestParam String stationId) {
-        return "ALL".equalsIgnoreCase(stationId) ? shiftRepository.findAll() : shiftRepository.findByStationIdOrderByOpenedAtDesc(stationId);
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_forecourt:read')")
+    public List<ShiftDto> listShifts(
+        @RequestParam(required = false, defaultValue = "ALL") String stationId,
+        @RequestParam(required = false, defaultValue = "50") int limit
+    ) {
+        return shiftCommandHandler.listShifts(stationId, limit);
     }
 
     @PostMapping("/shifts/open")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT')")
-    public ShiftEntity openShift(@Valid @RequestBody OpenShiftCommand command) {
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT') or hasAuthority('SCOPE_forecourt:write')")
+    public ShiftDto openShift(@Valid @RequestBody OpenShiftCommand command) {
         return shiftCommandHandler.openShift(command);
     }
 
     @PostMapping("/shifts/{shiftId}/close")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT')")
-    public ShiftEntity closeShift(@PathVariable String shiftId, @Valid @RequestBody CloseShiftCommand command) {
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT') or hasAuthority('SCOPE_forecourt:write')")
+    public ShiftDto closeShift(@PathVariable String shiftId, @Valid @RequestBody CloseShiftCommand command) {
         return shiftCommandHandler.closeShift(shiftId, command);
     }
 
     @DeleteMapping("/shifts/{shiftId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_forecourt:write')")
     public void deleteShift(@PathVariable String shiftId) {
-        shiftRepository.findById(shiftId).ifPresent(shift -> {
-            if ("OPEN".equals(shift.getStatus())) {
-                pumpRepository.findById(shift.getPumpId()).ifPresent(pump -> {
-                    pump.setStatus("IDLE");
-                    pumpRepository.save(pump);
-                });
-            }
-            shiftRepository.deleteById(shiftId);
-        });
+        shiftCommandHandler.voidShift(shiftId);
     }
 }

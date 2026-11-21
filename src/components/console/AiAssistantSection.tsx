@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  History,
   Lock,
   MessageSquare,
   RefreshCw,
@@ -10,6 +11,7 @@ import {
   Sparkles,
   TrendingUp,
 } from 'lucide-react';
+import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { formatFcfa, formatLitres, formatShortDate } from '../../domain/formatters';
 import {
@@ -27,6 +29,8 @@ import {
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
 
 interface AiAssistantSectionProps {
+  engine: OpesFuelApiEngine;
+  accessToken?: string | null;
   tenant: TenantWorkspace;
   role: UserRole;
   activeStationId: string;
@@ -58,6 +62,8 @@ const VALID_JUMP_SECTIONS: ConsoleSection[] = [
 ];
 
 export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
+  engine,
+  accessToken,
   tenant,
   role,
   activeStationId,
@@ -73,6 +79,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
   const canManageAi = canPerformAction(role, 'MANAGE_AI_ADDON');
   const aiSub = tenant.aiSubscription;
   const hasEnterprisePlan = stations.some((s) => s.monthlyFeeFcfa >= 120000);
+  const effectiveToken = accessToken ?? engine.getAccessToken();
 
   const [analysis, setAnalysis] = useState<AiAnalysisReport | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -82,6 +89,19 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
   const [question, setQuestion] = useState('');
   const [asking, setAsking] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [auditHistory, setAuditHistory] = useState<Array<Record<string, unknown>>>([]);
+
+  const loadHistory = useCallback(async () => {
+    const scope = activeStationId === 'ALL' ? stations[0]?.id ?? 'ALL' : activeStationId;
+    const list = await engine.fetchAiHistory(scope, effectiveToken).catch(() => []);
+    setAuditHistory(Array.isArray(list) ? list : []);
+  }, [engine, activeStationId, stations, effectiveToken]);
+
+  useEffect(() => {
+    if (aiSub.active) {
+      void loadHistory();
+    }
+  }, [aiSub.active, loadHistory]);
 
   const metricsPayload = useMemo(() => {
     const scopedTanks = tanks.filter((t) => activeStationId === 'ALL' || t.stationId === activeStationId);
@@ -150,7 +170,10 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
     try {
       const response = await fetch('/api/ai/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}),
+        },
         body: JSON.stringify({
           aiActive: aiSub.active,
           stationScope: activeStationId,
@@ -162,6 +185,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         throw new Error(data?.error || `Analysis request failed (${response.status}).`);
       }
       setAnalysis(data as AiAnalysisReport);
+      void loadHistory();
     } catch (err) {
       setAnalyzeError(err instanceof Error ? err.message : 'Unable to reach OpesFuel AI analysis engine.');
     } finally {
@@ -186,9 +210,13 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
     try {
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}),
+        },
         body: JSON.stringify({
           aiActive: aiSub.active,
+          stationScope: activeStationId,
           question: trimmed,
           metrics: metricsPayload,
           history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
@@ -207,6 +235,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
           timestamp: data.answeredAt || new Date().toISOString(),
         },
       ]);
+      void loadHistory();
     } catch (err) {
       setChatError(err instanceof Error ? err.message : 'Unable to reach OpesFuel AI advisor.');
     } finally {
@@ -577,6 +606,48 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
             <Send className="w-3.5 h-3.5" /> {asking ? 'Thinking...' : 'Ask AI'}
           </button>
         </form>
+      </div>
+
+      {/* Persisted AI Audit History */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+              <History className="w-4 h-4 text-amber-600" />
+              Persisted AI Audit Trail
+            </h3>
+            <p className="text-xs text-slate-500">
+              Logged queries &amp; financial diagnostics from <span className="font-mono">GET /api/v1/ai/history</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadHistory()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
+        </div>
+        <div className="divide-y divide-slate-100 text-xs">
+          {auditHistory.length === 0 ? (
+            <div className="py-4 text-center text-slate-500">
+              No persisted AI audit logs for this station yet. Run an analysis or ask a question above.
+            </div>
+          ) : (
+            auditHistory.slice(0, 10).map((entry, idx) => (
+              <div key={String(entry.id ?? idx)} className="py-2.5 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-amber-700">{String(entry.actionType ?? 'AI_QUERY')}</span>
+                  <span className="font-mono text-slate-400">
+                    {entry.createdAt ? formatShortDate(String(entry.createdAt)) : '-'}
+                  </span>
+                </div>
+                <div className="text-slate-800 font-medium">{String(entry.promptSummary ?? '')}</div>
+                <div className="text-slate-600 line-clamp-2">{String(entry.responseSummary ?? '')}</div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

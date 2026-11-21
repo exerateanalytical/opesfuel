@@ -1,4 +1,4 @@
-export type UserRole = 'OWNER' | 'MANAGER' | 'ATTENDANT' | 'ACCOUNTANT';
+export type UserRole = 'PLATFORM_ADMIN' | 'OWNER' | 'MANAGER' | 'ATTENDANT' | 'ACCOUNTANT';
 
 export type FuelGrade = 'SUPER' | 'GASOIL' | 'KEROSENE' | 'LPG_BULK' | 'HEAVY_FUEL';
 
@@ -22,7 +22,8 @@ export type ConsoleSection =
   | 'ai-assistant'
   | 'mobile-app'
   | 'api-platform'
-  | 'admin';
+  | 'admin'
+  | 'platform-admin';
 
 export interface InstitutionalFuelTemplate {
   code: FuelGrade;
@@ -184,7 +185,7 @@ export interface PurchaseOrder {
   grade: FuelGrade;
   orderedLitres: number;
   unitCostFcfa: number;
-  status: 'PENDING' | 'RECEIVED';
+  status: 'PENDING' | 'RECEIVED' | 'CANCELLED';
   createdAt: string;
 }
 

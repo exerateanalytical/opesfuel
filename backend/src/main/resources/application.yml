@@ -1,9 +1,12 @@
 server:
   port: 8080
+  shutdown: graceful
 
 spring:
   application:
     name: opesfuel-platform
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/opesfuel}
     username: ${SPRING_DATASOURCE_USERNAME:opesfuel_app}
@@ -28,11 +31,15 @@ spring:
         jwt:
           issuer-uri: ${AUTH0_ISSUER_URI:https://opesfuel.auth0.com/}
           audiences: ${AUTH0_AUDIENCE:https://api.opesfuel.com/v1}
-  modulith:
-    events:
-      jdbc:
-        schema-initialization:
-          enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
 
 springdoc:
   api-docs:
@@ -43,3 +50,26 @@ springdoc:
 opesfuel:
   currency: FCFA
   starting-monthly-fee-fcfa: 25000
+  tax:
+    vat-rate: ${OPESFUEL_VAT_RATE:0.1925}
+  ai:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${OPESFUEL_AI_MODEL:gemini-2.5-flash}
+    base-url: ${OPESFUEL_AI_BASE_URL:https://generativelanguage.googleapis.com}
+    connect-timeout-ms: 5000
+    read-timeout-ms: 30000
+  webhooks:
+    enabled: ${OPESFUEL_WEBHOOKS_ENABLED:true}
+    allow-private-targets: ${OPESFUEL_WEBHOOKS_ALLOW_PRIVATE:false}
+    poll-interval-ms: 5000
+    max-retries: 5
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+  idempotency:
+    ttl-hours: 24
+  leads:
+    rate-limit-per-minute: 20
+  security:
+    encryption-key: ${OPESFUEL_ENCRYPTION_KEY:dev-only-opesfuel-32-byte-secret-key-change-me}
+  notifications:
+    webhook-url: ${OPESFUEL_ALERTS_WEBHOOK_URL:}

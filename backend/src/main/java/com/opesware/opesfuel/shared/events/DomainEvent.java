@@ -2,23 +2,37 @@ package com.opesware.opesfuel.shared.events;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public sealed interface DomainEvent permits
     DomainEvent.ShiftOpenedEvent,
     DomainEvent.ShiftClosedEvent,
+    DomainEvent.ShiftVoidedEvent,
     DomainEvent.FuelDeliveryRecordedEvent,
+    DomainEvent.FuelDeliveryVoidedEvent,
     DomainEvent.DipstickVarianceFlaggedEvent,
+    DomainEvent.TankShrinkageReconciledEvent,
     DomainEvent.ExpenseRecordedEvent,
+    DomainEvent.ExpenseVoidedEvent,
     DomainEvent.FleetVoucherRecordedEvent,
     DomainEvent.FleetAccountSettledEvent,
     DomainEvent.ShopSaleRecordedEvent,
+    DomainEvent.ShopItemRestockedEvent,
     DomainEvent.TreasuryDepositedEvent,
+    DomainEvent.TreasuryDepositVoidedEvent,
     DomainEvent.FuelPriceUpdatedEvent,
-    DomainEvent.StationInstitutionalSetupEvent {
+    DomainEvent.StationInstitutionalSetupEvent,
+    DomainEvent.TanksProvisionedEvent,
+    DomainEvent.SupplierApPaidEvent,
+    DomainEvent.VatRemittedEvent,
+    DomainEvent.PayrollDisbursedEvent,
+    DomainEvent.StaffInvitedEvent,
+    DomainEvent.DemoLeadCapturedEvent {
 
     String eventId();
     String aggregateId();
+    String tenantId();
     String stationId();
     Instant occurredAt();
     String summary();
@@ -27,21 +41,34 @@ public sealed interface DomainEvent permits
         return switch (this) {
             case ShiftOpenedEvent ignored -> "ForecourtShift";
             case ShiftClosedEvent ignored -> "ForecourtShift";
+            case ShiftVoidedEvent ignored -> "ForecourtShift";
             case FuelDeliveryRecordedEvent ignored -> "Inventory";
+            case FuelDeliveryVoidedEvent ignored -> "Inventory";
             case DipstickVarianceFlaggedEvent ignored -> "Inventory";
+            case TankShrinkageReconciledEvent ignored -> "Inventory";
             case ExpenseRecordedEvent ignored -> "Accounting";
+            case ExpenseVoidedEvent ignored -> "Accounting";
             case FleetVoucherRecordedEvent ignored -> "FleetCredit";
             case FleetAccountSettledEvent ignored -> "FleetCredit";
             case ShopSaleRecordedEvent ignored -> "ShopPOS";
+            case ShopItemRestockedEvent ignored -> "ShopPOS";
             case TreasuryDepositedEvent ignored -> "Treasury";
+            case TreasuryDepositVoidedEvent ignored -> "Treasury";
             case FuelPriceUpdatedEvent ignored -> "Station";
             case StationInstitutionalSetupEvent ignored -> "StationOnboarding";
+            case TanksProvisionedEvent ignored -> "StationOnboarding";
+            case SupplierApPaidEvent ignored -> "Accounting";
+            case VatRemittedEvent ignored -> "Accounting";
+            case PayrollDisbursedEvent ignored -> "Workforce";
+            case StaffInvitedEvent ignored -> "Identity";
+            case DemoLeadCapturedEvent ignored -> "LeadIntake";
         };
     }
 
     record ShiftOpenedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String pumpId,
         String attendantId,
@@ -56,6 +83,7 @@ public sealed interface DomainEvent permits
     record ShiftClosedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String pumpId,
         String tankId,
@@ -71,12 +99,12 @@ public sealed interface DomainEvent permits
         Instant occurredAt
     ) implements DomainEvent {
         public static ShiftClosedEvent create(
-            String shiftId, String stationId, String pumpId, String tankId, String attendantId,
+            String shiftId, String tenantId, String stationId, String pumpId, String tankId, String attendantId,
             BigDecimal litresSold, long expectedRevenueFcfa, long cashFcfa, long mobileMoneyFcfa,
             long cardFcfa, long fleetCreditFcfa, long varianceFcfa, long unitCostFcfa
         ) {
             return new ShiftClosedEvent(
-                UUID.randomUUID().toString(), shiftId, stationId, pumpId, tankId, attendantId,
+                UUID.randomUUID().toString(), shiftId, tenantId, stationId, pumpId, tankId, attendantId,
                 litresSold, expectedRevenueFcfa, cashFcfa, mobileMoneyFcfa, cardFcfa,
                 fleetCreditFcfa, varianceFcfa, unitCostFcfa, Instant.now()
             );
@@ -89,9 +117,28 @@ public sealed interface DomainEvent permits
         }
     }
 
+    record ShiftVoidedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String pumpId,
+        String tankId,
+        String attendantId,
+        BigDecimal litresSold,
+        long varianceFcfa,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Voided shift " + aggregateId + " (reversing " + litresSold + " L and variance " + varianceFcfa + " FCFA).";
+        }
+    }
+
     record FuelDeliveryRecordedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String tankId,
         String supplierName,
@@ -107,9 +154,26 @@ public sealed interface DomainEvent permits
         }
     }
 
+    record FuelDeliveryVoidedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String tankId,
+        BigDecimal reversedLitres,
+        long totalInvoiceFcfa,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Voided delivery " + aggregateId + ": reversed " + reversedLitres + " L (" + totalInvoiceFcfa + " FCFA).";
+        }
+    }
+
     record DipstickVarianceFlaggedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String tankId,
         BigDecimal bookLitres,
@@ -123,9 +187,27 @@ public sealed interface DomainEvent permits
         }
     }
 
+    record TankShrinkageReconciledEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String tankId,
+        BigDecimal varianceLitres,
+        long adjustmentValueFcfa,
+        String reason,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Reconciled tank " + tankId + " variance " + varianceLitres + " L (" + adjustmentValueFcfa + " FCFA).";
+        }
+    }
+
     record ExpenseRecordedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String category,
         String description,
@@ -139,14 +221,33 @@ public sealed interface DomainEvent permits
         }
     }
 
+    record ExpenseVoidedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String category,
+        long amountFcfa,
+        String paymentSource,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Voided expense " + aggregateId + " (" + amountFcfa + " FCFA).";
+        }
+    }
+
     record FleetVoucherRecordedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String companyName,
         String vehiclePlate,
         BigDecimal litres,
         long amountFcfa,
+        boolean standaloneSale,
+        long cogsFcfa,
         Instant occurredAt
     ) implements DomainEvent {
         @Override
@@ -158,6 +259,7 @@ public sealed interface DomainEvent permits
     record FleetAccountSettledEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String companyName,
         long amountFcfa,
@@ -173,6 +275,7 @@ public sealed interface DomainEvent permits
     record ShopSaleRecordedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String itemName,
         int quantity,
@@ -187,9 +290,27 @@ public sealed interface DomainEvent permits
         }
     }
 
+    record ShopItemRestockedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String sku,
+        String itemName,
+        int quantity,
+        long totalCostFcfa,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Restocked " + quantity + "x " + itemName + " (" + totalCostFcfa + " FCFA).";
+        }
+    }
+
     record TreasuryDepositedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String sourceAccount,
         String bankName,
@@ -202,9 +323,25 @@ public sealed interface DomainEvent permits
         }
     }
 
+    record TreasuryDepositVoidedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String sourceAccount,
+        long amountFcfa,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Voided treasury deposit " + aggregateId + " (" + amountFcfa + " FCFA).";
+        }
+    }
+
     record FuelPriceUpdatedEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
         String grade,
         long pricePerLitreFcfa,
@@ -227,11 +364,19 @@ public sealed interface DomainEvent permits
         int nozzleCount
     ) {}
 
+    record StarterLubricantsPack(
+        boolean includeLubricants,
+        int oilBottlesQty,
+        int lpgCylindersQty
+    ) {}
+
     record StationInstitutionalSetupEvent(
         String eventId,
         String aggregateId,
+        String tenantId,
         String stationId,
-        java.util.List<ProvisionedFuelSpec> items,
+        List<ProvisionedFuelSpec> items,
+        StarterLubricantsPack lubricantsPack,
         long openingInventoryAssetFcfa,
         Instant occurredAt
     ) implements DomainEvent {
@@ -239,6 +384,103 @@ public sealed interface DomainEvent permits
         public String summary() {
             return "Institutional fuel & volume setup synchronized " + items.size()
                 + " fuel lines (opening capital " + openingInventoryAssetFcfa + " FCFA).";
+        }
+    }
+
+    record TanksProvisionedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        List<ProvisionedFuelSpec> items,
+        StarterLubricantsPack lubricantsPack,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Provisioned " + items.size() + " underground fuel tanks for station " + stationId + ".";
+        }
+    }
+
+    record SupplierApPaidEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String supplierName,
+        String reference,
+        long amountFcfa,
+        String paymentSource,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Paid supplier " + supplierName + ": " + amountFcfa + " FCFA via " + paymentSource + ".";
+        }
+    }
+
+    record VatRemittedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String periodLabel,
+        String reference,
+        long amountFcfa,
+        String paymentSource,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Remitted VAT for " + periodLabel + ": " + amountFcfa + " FCFA.";
+        }
+    }
+
+    record PayrollDisbursedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String periodLabel,
+        long totalNetPaidFcfa,
+        String paymentSource,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Disbursed payroll (" + periodLabel + "): " + totalNetPaidFcfa + " FCFA.";
+        }
+    }
+
+    record StaffInvitedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String email,
+        String role,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "Invited " + email + " as " + role + " for station " + stationId + ".";
+        }
+    }
+
+    record DemoLeadCapturedEvent(
+        String eventId,
+        String aggregateId,
+        String tenantId,
+        String stationId,
+        String fullName,
+        String stationName,
+        String email,
+        int pumpCount,
+        Instant occurredAt
+    ) implements DomainEvent {
+        @Override
+        public String summary() {
+            return "New demo lead from " + fullName + " (" + stationName + ", " + pumpCount + " pumps).";
         }
     }
 }

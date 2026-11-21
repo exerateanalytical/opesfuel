@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Building2, Check, ChevronRight, RotateCcw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
-import { SUBSCRIPTION_PLANS } from '../../api/opesfuelClient';
+import { OpesFuelApiEngine, SUBSCRIPTION_PLANS } from '../../api/opesfuelClient';
 import { canPerformAction, isAuth0Configured, ROLE_PROFILES } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, gradeLabel } from '../../domain/formatters';
 import { Employee, FuelTank, Pump, Station, TenantWorkspace, UserRole } from '../../domain/types';
+import { BillingAndInvitesPanel } from './BillingAndInvitesPanel';
 
 interface AdminBillingSectionProps {
+  engine: OpesFuelApiEngine;
   tenant: TenantWorkspace;
   role: UserRole;
   stations: Station[];
@@ -25,9 +27,11 @@ interface AdminBillingSectionProps {
   onToggleAiSubscription: (enable: boolean) => void;
   onClearDemoData: () => void;
   onRestoreDemoData: () => void;
+  onNotify: (type: 'success' | 'error', message: string) => void;
 }
 
 export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
+  engine,
   tenant,
   role,
   stations,
@@ -41,6 +45,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   onToggleAiSubscription,
   onClearDemoData,
   onRestoreDemoData,
+  onNotify,
 }) => {
   const [selectedStationId, setSelectedStationId] = useState(stations[0]?.id ?? '');
   const [detailStationId, setDetailStationId] = useState<string | null>(null);
@@ -528,12 +533,12 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
               Auth0 Security &amp; RBAC Policy Matrix
             </h3>
             <p className="text-xs text-slate-500">
-              Status: {isAuth0Configured ? 'Auth0 RS256 OIDC Active' : 'Demo RBAC Mode (Configure VITE_AUTH0_DOMAIN & AUTH0_ISSUER_URI for production)'}
+              Status: {isAuth0Configured ? 'Auth0 RS256 OIDC Production Active' : 'Workspace RBAC Policy Active'}
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {(['OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as UserRole[]).map((r) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {(['PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as UserRole[]).map((r) => (
             <div key={r} className="border border-slate-200 rounded-lg p-4 space-y-1.5">
               <div className="font-mono text-xs font-bold text-amber-700">ROLE_{r}</div>
               <div className="text-sm font-semibold text-slate-900">{ROLE_PROFILES[r].title}</div>
@@ -566,6 +571,14 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
           </p>
         </div>
       </div>
+
+      <BillingAndInvitesPanel
+        engine={engine}
+        role={role}
+        stations={stations}
+        employees={employees}
+        onNotify={onNotify}
+      />
     </div>
   );
 };

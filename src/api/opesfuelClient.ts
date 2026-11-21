@@ -917,14 +917,37 @@ export function computeFinancialReports(state: OpesFuelStoreState, stationId: st
 export class OpesFuelApiEngine {
   private state: OpesFuelStoreState;
   private readonly springBootBaseUrl: string;
+  private accessToken: string | null = null;
+  private onRemoteError: ((message: string) => void) | null = null;
+  private onStateSynced: ((nextState: OpesFuelStoreState) => void) | null = null;
 
   constructor(initialState?: OpesFuelStoreState) {
-    this.springBootBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    this.springBootBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
     if (initialState) {
       this.state = initialState;
     } else {
       this.state = this.loadPersistedState() ?? createSeedState();
     }
+  }
+
+  setAccessToken(token: string | null) {
+    this.accessToken = token;
+  }
+
+  getAccessToken(): string | null {
+    return this.accessToken;
+  }
+
+  getSpringBootBaseUrl(): string {
+    return this.springBootBaseUrl;
+  }
+
+  setRemoteCallbacks(callbacks: {
+    onError?: (message: string) => void;
+    onSynced?: (nextState: OpesFuelStoreState) => void;
+  }) {
+    this.onRemoteError = callbacks.onError ?? null;
+    this.onStateSynced = callbacks.onSynced ?? null;
   }
 
   private loadPersistedState(): OpesFuelStoreState | null {
@@ -983,9 +1006,16 @@ export class OpesFuelApiEngine {
     reference: string,
     sourceEvent: string,
     description: string,
-    lines: JournalLine[]
+    lines: Array<Omit<JournalLine, 'accountName'> & { accountName?: string }>
   ) {
-    const cleanLines = lines.filter((l) => l.debitFcfa > 0 || l.creditFcfa > 0);
+    const cleanLines: JournalLine[] = lines
+      .filter((l) => l.debitFcfa > 0 || l.creditFcfa > 0)
+      .map((l) => ({
+        accountCode: l.accountCode,
+        accountName: l.accountName ?? CHART_OF_ACCOUNTS.find((a) => a.code === l.accountCode)?.name ?? l.accountCode,
+        debitFcfa: l.debitFcfa,
+        creditFcfa: l.creditFcfa,
+      }));
     const debitSum = cleanLines.reduce((s, l) => s + l.debitFcfa, 0);
     const creditSum = cleanLines.reduce((s, l) => s + l.creditFcfa, 0);
     if (debitSum !== creditSum) {
@@ -1022,6 +1052,21 @@ export class OpesFuelApiEngine {
     });
   }
 
+  private async extractErrorMessage(res: Response): Promise<string> {
+    try {
+      const text = await res.text();
+      if (!text) return `HTTP ${res.status} ${res.statusText}`;
+      try {
+        const parsed = JSON.parse(text) as { detail?: string; title?: string; message?: string; error?: string };
+        return parsed.detail || parsed.message || parsed.title || parsed.error || `HTTP ${res.status}`;
+      } catch {
+        return text.slice(0, 220);
+      }
+    } catch {
+      return `HTTP ${res.status} ${res.statusText}`;
+    }
+  }
+
   private async dispatchRemoteIfConfigured(
     path: string,
     method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
@@ -1029,18 +1074,35 @@ export class OpesFuelApiEngine {
     token?: string | null
   ) {
     if (!this.springBootBaseUrl) return;
+    const effectiveToken = token ?? this.accessToken;
     try {
-      await fetch(`${this.springBootBaseUrl}/api/v1${path}`, {
+      const res = await fetch(`${this.springBootBaseUrl}/api/v1${path}`, {
         method,
         headers: {
           'Content-Type': 'application/json',
           'Idempotency-Key': crypto.randomUUID(),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}),
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       });
-    } catch {
-      // Preview state stays responsive when remote Spring Boot instance is offline
+      if (!res.ok) {
+        const detail = await this.extractErrorMessage(res);
+        this.onRemoteError?.(`Backend rejected ${method} ${path} (${res.status}): ${detail}`);
+        // Re-hydrate from server to roll back rejected optimistic local state
+        const authoritative = await this.hydrateFromSpringBoot(effectiveToken);
+        if (authoritative) {
+          this.onStateSynced?.(authoritative);
+        }
+        return;
+      }
+      // Adopt server-generated UUIDs, calculated WAC COGS, and authoritative ledger entries
+      const synced = await this.hydrateFromSpringBoot(effectiveToken);
+      if (synced) {
+        this.onStateSynced?.(synced);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Network error reaching Spring Boot API';
+      this.onRemoteError?.(`Sync warning (${method} ${path}): ${msg}`);
     }
   }
 
@@ -1086,6 +1148,16 @@ export class OpesFuelApiEngine {
     } else {
       this.state = createCleanTenantState(input);
     }
+    void this.dispatchRemoteIfConfigured('/tenants/onboard', 'POST', {
+      organizationName: input.organizationName,
+      ownerName: input.ownerName,
+      ownerEmail: input.ownerEmail,
+      stationCode: input.stationCode,
+      stationName: input.stationName,
+      city: input.city,
+      planName: input.planName,
+      monthlyFeeFcfa: input.monthlyFeeFcfa,
+    });
     return this.getSnapshot();
   }
 
@@ -1130,6 +1202,7 @@ export class OpesFuelApiEngine {
       apiKeys: [],
       webhooks: [],
     };
+    void this.dispatchRemoteIfConfigured('/tenants/current/reset-demo', 'POST');
     return this.getSnapshot();
   }
 
@@ -1403,7 +1476,8 @@ export class OpesFuelApiEngine {
   async hydrateFromSpringBoot(token?: string | null): Promise<OpesFuelStoreState | null> {
     if (!this.springBootBaseUrl) return null;
     try {
-      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const effectiveToken = token ?? this.accessToken;
+      const headers: Record<string, string> = effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {};
       const fetchJson = async <T,>(path: string): Promise<T | null> => {
         try {
           const res = await fetch(`${this.springBootBaseUrl}/api/v1${path}`, { headers });
@@ -1414,7 +1488,20 @@ export class OpesFuelApiEngine {
         }
       };
 
-      const rawStations = await fetchJson<Array<Omit<Station, 'prices'> & { prices?: Partial<Record<FuelGrade, number>> }>>('/stations');
+      const [rawTenant, rawStations] = await Promise.all([
+        fetchJson<{ id: string; name: string; ownerEmail: string; createdAt?: string }>('/tenants/current'),
+        fetchJson<Array<Omit<Station, 'prices'> & { prices?: Partial<Record<FuelGrade, number>> }>>('/stations'),
+      ]);
+      if (rawTenant && rawTenant.id) {
+        this.state.tenant = {
+          ...this.state.tenant,
+          tenantId: rawTenant.id,
+          organizationName: rawTenant.name || this.state.tenant.organizationName,
+          ownerEmail: rawTenant.ownerEmail || this.state.tenant.ownerEmail,
+          createdAt: rawTenant.createdAt || this.state.tenant.createdAt,
+          isSampleData: false,
+        };
+      }
       if (!Array.isArray(rawStations) || rawStations.length === 0) return null;
 
       const priceLists = await Promise.all(
@@ -2505,4 +2592,1064 @@ export class OpesFuelApiEngine {
     void this.dispatchRemoteIfConfigured(`/platform/webhooks/${webhookId}`, 'DELETE');
     return this.getSnapshot();
   }
+
+  private async requestBackendJson<T>(
+    path: string,
+    options: { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; token?: string | null; syncAfter?: boolean } = {}
+  ): Promise<T> {
+    if (!this.springBootBaseUrl) {
+      throw new Error('VITE_API_BASE_URL is not configured for live Spring Boot API calls.');
+    }
+    const method = options.method ?? 'GET';
+    const effectiveToken = options.token ?? this.accessToken;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(method !== 'GET' ? { 'Idempotency-Key': crypto.randomUUID() } : {}),
+      ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}),
+    };
+    const res = await fetch(`${this.springBootBaseUrl}/api/v1${path}`, {
+      method,
+      headers,
+      ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+    });
+    if (!res.ok) {
+      const detail = await this.extractErrorMessage(res);
+      throw new Error(`API ${res.status}: ${detail}`);
+    }
+    const data = res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+    if (options.syncAfter && method !== 'GET') {
+      const synced = await this.hydrateFromSpringBoot(effectiveToken);
+      if (synced) {
+        this.onStateSynced?.(synced);
+      }
+    }
+    return data;
+  }
+
+  // --- Preview-mode in-memory caches for newer Spring Boot tables when VITE_API_BASE_URL is unset ---
+  private previewInvites: Array<{
+    id: string;
+    stationId: string;
+    employeeId?: string | null;
+    email: string;
+    role: string;
+    inviteToken: string;
+    status: string;
+    expiresAt: string;
+    createdAt: string;
+  }> = [];
+
+  private previewInvoices: Array<{
+    id: string;
+    invoiceNumber: string;
+    periodLabel: string;
+    stationsCount: number;
+    subtotalFcfa: number;
+    aiAddonFcfa: number;
+    vatFcfa: number;
+    totalFcfa: number;
+    paidFcfa: number;
+    status: string;
+    dueAt: string;
+    createdAt: string;
+  }> = [];
+
+  private previewNotifications: Array<{
+    id: string;
+    stationId: string | null;
+    category: string;
+    severity: string;
+    title: string;
+    message: string;
+    read: boolean;
+    createdAt: string;
+  }> | null = null;
+
+  private previewSuppliers: Array<{
+    id: string;
+    name: string;
+    taxId: string;
+    contactPhone: string;
+    paymentTermsDays: number;
+    status: string;
+  }> = [
+    { id: 'sup_scdp', name: 'SCDP Depot Douala', taxId: 'M018500001234Z', contactPhone: '+237 233 40 54 45', paymentTermsDays: 14, status: 'ACTIVE' },
+    { id: 'sup_sonara', name: 'SONARA Limbe Refining', taxId: 'M027600009911A', contactPhone: '+237 233 33 22 38', paymentTermsDays: 30, status: 'ACTIVE' },
+  ];
+
+  private previewVehicles: Record<string, Array<{
+    id: string;
+    accountId: string;
+    plateNumber: string;
+    driverName: string;
+    allowedGrade: string;
+    monthlyLitreCap: number;
+    status: string;
+  }>> = {};
+
+  private previewPayrollRuns: Array<{
+    id: string;
+    stationId: string;
+    periodLabel: string;
+    employeeCount: number;
+    grossFcfa: number;
+    deductionsFcfa: number;
+    netPaidFcfa: number;
+    paymentSource: string;
+    executedAt: string;
+  }> = [];
+
+  private previewFiscalPeriods: Array<{
+    id: string;
+    stationId: string;
+    periodKey: string;
+    status: string;
+    closedBy: string;
+    closedAt: string;
+  }> = [];
+
+  private previewShopSales: Array<{
+    id: string;
+    stationId: string;
+    itemId: string;
+    sku: string;
+    itemName: string;
+    quantity: number;
+    unitPriceFcfa: number;
+    totalRevenueFcfa: number;
+    totalCogsFcfa: number;
+    paymentMethod: string;
+    soldAt: string;
+  }> = [];
+
+  private previewAiHistory: Array<{
+    id: string;
+    stationId: string;
+    actionType: string;
+    promptSummary: string;
+    responseSummary: string;
+    modelUsed: string;
+    createdAt: string;
+  }> = [];
+
+  private ensurePreviewNotifications() {
+    if (this.previewNotifications !== null) return this.previewNotifications;
+    const now = new Date().toISOString();
+    const generated: Array<{
+      id: string;
+      stationId: string | null;
+      category: string;
+      severity: string;
+      title: string;
+      message: string;
+      read: boolean;
+      createdAt: string;
+    }> = [];
+    for (const tank of this.state.tanks) {
+      if (Math.abs(tank.varianceLitres) > 100) {
+        generated.push({
+          id: `ntf_dip_${tank.id}`,
+          stationId: tank.stationId,
+          category: 'DIPSTICK_VARIANCE',
+          severity: 'HIGH',
+          title: `Dipstick Variance Alert — ${tank.name}`,
+          message: `Variance of ${tank.varianceLitres} L detected between book (${tank.bookVolumeLitres} L) and physical dip (${tank.lastDipLitres} L).`,
+          read: false,
+          createdAt: now,
+        });
+      }
+      if (tank.bookVolumeLitres / Math.max(1, tank.capacityLitres) < 0.25) {
+        generated.push({
+          id: `ntf_low_${tank.id}`,
+          stationId: tank.stationId,
+          category: 'LOW_STOCK',
+          severity: 'MEDIUM',
+          title: `Low Tank Volume — ${tank.name}`,
+          message: `Remaining volume ${tank.bookVolumeLitres} L is below 25% of ${tank.capacityLitres} L capacity.`,
+          read: false,
+          createdAt: now,
+        });
+      }
+    }
+    if (generated.length === 0) {
+      generated.push({
+        id: 'ntf_welcome',
+        stationId: this.state.stations[0]?.id ?? null,
+        category: 'SYSTEM',
+        severity: 'INFO',
+        title: 'OpesFuel Alert Engine Active',
+        message: 'Real-time shift variance, dipstick shrinkage, and fleet credit alerts are monitored automatically.',
+        read: false,
+        createdAt: now,
+      });
+    }
+    this.previewNotifications = generated;
+    return this.previewNotifications;
+  }
+
+  // --- Production Spring Boot Module Integrations (All 15 Modules) ---
+
+  fetchCurrentTenant(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve({
+        id: this.state.tenant.tenantId,
+        name: this.state.tenant.organizationName,
+        ownerEmail: this.state.tenant.ownerEmail,
+        defaultCurrency: 'FCFA',
+        countryCode: 'CM',
+        timezone: 'Africa/Douala',
+        stationCount: this.state.stations.length,
+        monthlyCommitmentFcfa: this.state.stations.reduce((s, st) => s + st.monthlyFeeFcfa, 0),
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/tenants/current', { token });
+  }
+
+  updateCurrentTenant(input: { name?: string; ownerEmail?: string; countryCode?: string; timezone?: string }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      if (input.name) this.state.tenant.organizationName = input.name;
+      if (input.ownerEmail) this.state.tenant.ownerEmail = input.ownerEmail;
+      this.persistState();
+      return Promise.resolve({ id: this.state.tenant.tenantId, ...input });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/tenants/current', {
+      method: 'PATCH',
+      body: input,
+      token,
+      syncAfter: true,
+    });
+  }
+
+  fetchAuthenticatedProfile(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve({
+        principalId: 'demo-owner',
+        tenantId: this.state.tenant.tenantId,
+        auth0Sub: 'demo|owner',
+        roles: ['OWNER'],
+        scopes: [],
+        allowedStationIds: [],
+        apiKeyAuth: false,
+        linkedEmployee: null,
+        accessibleStationsCount: this.state.stations.length,
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/identity/me', { token });
+  }
+
+  listStaffInvites(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([...this.previewInvites]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/identity/invites', { token });
+  }
+
+  createStaffInvite(input: { stationId: string; employeeId?: string; email: string; role: UserRole }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const inv = {
+        id: `inv_${Math.random().toString(36).slice(2, 8)}`,
+        stationId: input.stationId,
+        employeeId: input.employeeId ?? null,
+        email: input.email.trim().toLowerCase(),
+        role: input.role,
+        inviteToken: `opfinv_${Math.random().toString(36).slice(2, 14)}`,
+        status: 'PENDING',
+        expiresAt: new Date(Date.now() + 7 * 86400_000).toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      this.previewInvites.unshift(inv);
+      return Promise.resolve(inv);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/identity/invites', { method: 'POST', body: input, token });
+  }
+
+  acceptStaffInvite(inviteToken: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const inv = this.previewInvites.find((i) => i.inviteToken === inviteToken);
+      if (inv) inv.status = 'ACCEPTED';
+      return Promise.resolve(inv ?? { inviteToken, status: 'ACCEPTED' });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/identity/invites/${encodeURIComponent(inviteToken)}/accept`,
+      { method: 'POST', token, syncAfter: true }
+    );
+  }
+
+  revokeStaffInvite(inviteId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const inv = this.previewInvites.find((i) => i.id === inviteId);
+      if (inv) inv.status = 'REVOKED';
+      return Promise.resolve();
+    }
+    return this.requestBackendJson<void>(`/identity/invites/${encodeURIComponent(inviteId)}`, {
+      method: 'DELETE',
+      token,
+    });
+  }
+
+  fetchBillingSummary(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const stationCommitmentFcfa = this.state.stations.reduce((s, st) => s + st.monthlyFeeFcfa, 0);
+      const aiAddonMonthlyFcfa = this.state.tenant.aiSubscription.active ? this.state.tenant.aiSubscription.monthlyFeeFcfa : 0;
+      const outstandingBalanceFcfa = this.previewInvoices.reduce((s, inv) => s + Math.max(0, inv.totalFcfa - inv.paidFcfa), 0);
+      return Promise.resolve({
+        tenantId: this.state.tenant.tenantId,
+        stationCount: this.state.stations.length,
+        stationCommitmentFcfa,
+        aiAddonMonthlyFcfa,
+        monthlyRecurringTotalFcfa: stationCommitmentFcfa + aiAddonMonthlyFcfa,
+        outstandingBalanceFcfa,
+        invoiceCount: this.previewInvoices.length,
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/billing/summary', { token });
+  }
+
+  listBillingInvoices(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([...this.previewInvoices]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/billing/invoices', { token });
+  }
+
+  generateBillingInvoice(periodLabel?: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const label = periodLabel || new Date().toISOString().slice(0, 7);
+      const subtotal = this.state.stations.reduce((s, st) => s + st.monthlyFeeFcfa, 0);
+      const aiAddon = this.state.tenant.aiSubscription.active ? this.state.tenant.aiSubscription.monthlyFeeFcfa : 0;
+      const vat = Math.round((subtotal + aiAddon) * 0.1925);
+      const inv = {
+        id: `binv_${Math.random().toString(36).slice(2, 8)}`,
+        invoiceNumber: `OPF-INV-${label.replace('-', '')}-${String(this.previewInvoices.length + 1).padStart(3, '0')}`,
+        periodLabel: label,
+        stationsCount: this.state.stations.length,
+        subtotalFcfa: subtotal,
+        aiAddonFcfa: aiAddon,
+        vatFcfa: vat,
+        totalFcfa: subtotal + aiAddon + vat,
+        paidFcfa: 0,
+        status: 'ISSUED',
+        dueAt: new Date(Date.now() + 15 * 86400_000).toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      this.previewInvoices.unshift(inv);
+      return Promise.resolve(inv);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/billing/invoices/generate', {
+      method: 'POST',
+      body: periodLabel ? { periodLabel } : {},
+      token,
+    });
+  }
+
+  payBillingInvoice(
+    invoiceId: string,
+    input: { amountFcfa: number; paymentChannel: 'ORANGE_MONEY' | 'MTN_MOMO' | 'BANK_TRANSFER' | 'CARD'; providerReference: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const inv = this.previewInvoices.find((i) => i.id === invoiceId);
+      if (inv) {
+        inv.paidFcfa = Math.min(inv.totalFcfa, inv.paidFcfa + input.amountFcfa);
+        inv.status = inv.paidFcfa >= inv.totalFcfa ? 'PAID' : 'PARTIAL';
+      }
+      return Promise.resolve(inv ?? { invoiceId, status: 'PAID' });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/billing/invoices/${encodeURIComponent(invoiceId)}/pay`, {
+      method: 'POST',
+      body: input,
+      token,
+    });
+  }
+
+  fetchExecutiveOverview(stationId = 'ALL', token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const report = computeFinancialReports(this.state, stationId);
+      return Promise.resolve({
+        stationScope: stationId,
+        stationsCount: this.state.stations.length,
+        ...report,
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/reporting/overview?stationId=${encodeURIComponent(stationId)}`, { token });
+  }
+
+  fetchDailyZReport(stationId = 'ALL', date?: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const targetDate = date || new Date().toISOString().slice(0, 10);
+      const scopedShifts = this.state.shifts.filter((s) => (stationId === 'ALL' || s.stationId === stationId) && s.status === 'CLOSED');
+      return Promise.resolve({
+        stationScope: stationId,
+        businessDate: targetDate,
+        closedShiftsCount: scopedShifts.length,
+        totalLitresDispensed: Number(scopedShifts.reduce((s, sh) => s + sh.litresSold, 0).toFixed(2)),
+        expectedRevenueFcfa: scopedShifts.reduce((s, sh) => s + sh.expectedRevenueFcfa, 0),
+        cashCollectedFcfa: scopedShifts.reduce((s, sh) => s + sh.cashFcfa, 0),
+        mobileMoneyCollectedFcfa: scopedShifts.reduce((s, sh) => s + sh.mobileMoneyFcfa, 0),
+        cardCollectedFcfa: scopedShifts.reduce((s, sh) => s + sh.cardFcfa, 0),
+        fleetCreditFcfa: scopedShifts.reduce((s, sh) => s + sh.fleetCreditFcfa, 0),
+        totalVarianceFcfa: scopedShifts.reduce((s, sh) => s + sh.varianceFcfa, 0),
+        generatedAt: new Date().toISOString(),
+      });
+    }
+    const qs = new URLSearchParams({ stationId, ...(date ? { date } : {}) });
+    return this.requestBackendJson<Record<string, unknown>>(`/reporting/z-report?${qs.toString()}`, { token });
+  }
+
+  async downloadAuthenticatedCsv(path: string, filename: string, fallbackCsv?: string, token?: string | null): Promise<void> {
+    if (!this.springBootBaseUrl) {
+      const content = fallbackCsv ?? '';
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    const effectiveToken = token ?? this.accessToken;
+    const res = await fetch(`${this.springBootBaseUrl}/api/v1${path}`, {
+      headers: effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {},
+    });
+    if (!res.ok) {
+      const detail = await this.extractErrorMessage(res);
+      throw new Error(`CSV export failed (${res.status}): ${detail}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  fetchNotifications(stationId = 'ALL', unreadOnly = false, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const items = this.ensurePreviewNotifications().filter(
+        (n) => (stationId === 'ALL' || !n.stationId || n.stationId === stationId) && (!unreadOnly || !n.read)
+      );
+      return Promise.resolve([...items]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(
+      `/notifications?stationId=${encodeURIComponent(stationId)}&unreadOnly=${unreadOnly}`,
+      { token }
+    );
+  }
+
+  markNotificationRead(alertId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const list = this.ensurePreviewNotifications();
+      const target = list.find((n) => n.id === alertId);
+      if (target) target.read = true;
+      return Promise.resolve(target ?? { id: alertId, read: true });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/notifications/${encodeURIComponent(alertId)}/read`, {
+      method: 'PATCH',
+      token,
+    });
+  }
+
+  markAllNotificationsRead(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const list = this.ensurePreviewNotifications();
+      let count = 0;
+      for (const n of list) {
+        if (!n.read) {
+          n.read = true;
+          count += 1;
+        }
+      }
+      return Promise.resolve({ markedReadCount: count });
+    }
+    return this.requestBackendJson<{ markedReadCount: number }>('/notifications/read-all', { method: 'POST', token });
+  }
+
+  listPayrollRuns(stationId = 'ALL', token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve(this.previewPayrollRuns.filter((r) => stationId === 'ALL' || r.stationId === stationId));
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(`/workforce/payroll/runs?stationId=${encodeURIComponent(stationId)}`, { token });
+  }
+
+  executePayrollRun(input: { stationId: string; periodLabel: string; paymentSource: 'CASH_SAFE' | 'BANK' }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const staff = this.state.employees.filter((e) => e.stationId === input.stationId);
+      const grossFcfa = staff.reduce((s, e) => s + e.baseSalaryFcfa, 0);
+      const deductionsFcfa = staff.reduce((s, e) => s + (e.cumulativeVarianceFcfa < 0 ? Math.abs(e.cumulativeVarianceFcfa) : 0), 0);
+      const netPaidFcfa = Math.max(0, grossFcfa - deductionsFcfa);
+      const run = {
+        id: `pr_${Math.random().toString(36).slice(2, 8)}`,
+        stationId: input.stationId,
+        periodLabel: input.periodLabel,
+        employeeCount: staff.length,
+        grossFcfa,
+        deductionsFcfa,
+        netPaidFcfa,
+        paymentSource: input.paymentSource,
+        executedAt: new Date().toISOString(),
+      };
+      this.previewPayrollRuns.unshift(run);
+      const creditAcc = input.paymentSource === 'BANK' ? '1030' : '1010';
+      if (netPaidFcfa > 0) {
+        this.pushJournal(input.stationId, `PAY-${input.periodLabel}`, 'PayrollExecutedEvent', `Monthly payroll ${input.periodLabel}`, [
+          { accountCode: '6100', debitFcfa: netPaidFcfa, creditFcfa: 0 },
+          { accountCode: creditAcc, debitFcfa: 0, creditFcfa: netPaidFcfa },
+        ]);
+        this.persistState();
+        this.onStateSynced?.(this.getSnapshot());
+      }
+      return Promise.resolve(run);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/workforce/payroll/run', {
+      method: 'POST',
+      body: input,
+      token,
+      syncAfter: true,
+    });
+  }
+
+  fetchEmployeePayslip(employeeId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const emp = this.state.employees.find((e) => e.id === employeeId);
+      if (!emp) return Promise.reject(new Error('Employee not found.'));
+      const shortageDeductionFcfa = emp.cumulativeVarianceFcfa < 0 ? Math.abs(emp.cumulativeVarianceFcfa) : 0;
+      return Promise.resolve({
+        employeeId: emp.id,
+        fullName: emp.fullName,
+        role: emp.role,
+        stationId: emp.stationId,
+        baseSalaryFcfa: emp.baseSalaryFcfa,
+        shortageDeductionFcfa,
+        overageNoteFcfa: emp.cumulativeVarianceFcfa > 0 ? emp.cumulativeVarianceFcfa : 0,
+        netPayableFcfa: Math.max(0, emp.baseSalaryFcfa - shortageDeductionFcfa),
+        generatedAt: new Date().toISOString(),
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/workforce/payroll/payslips/${encodeURIComponent(employeeId)}`, { token });
+  }
+
+  fetchAttendanceLogs(employeeId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const emp = this.state.employees.find((e) => e.id === employeeId);
+      return Promise.resolve([
+        {
+          id: `att_${employeeId}_1`,
+          employeeId,
+          stationId: emp?.stationId ?? '',
+          action: emp?.clockedIn ? 'CLOCK_IN' : 'CLOCK_OUT',
+          recordedAt: new Date().toISOString(),
+        },
+      ]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(`/workforce/employees/${encodeURIComponent(employeeId)}/attendance-logs`, { token });
+  }
+
+  listSuppliers(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([...this.previewSuppliers]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/inventory/suppliers', { token });
+  }
+
+  createSupplier(input: { name: string; taxId?: string; contactPhone?: string; paymentTermsDays?: number }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const sup = {
+        id: `sup_${Math.random().toString(36).slice(2, 8)}`,
+        name: input.name.trim(),
+        taxId: input.taxId?.trim() || 'N/A',
+        contactPhone: input.contactPhone?.trim() || '+237 600 00 00 00',
+        paymentTermsDays: input.paymentTermsDays ?? 14,
+        status: 'ACTIVE',
+      };
+      this.previewSuppliers.unshift(sup);
+      return Promise.resolve(sup);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/inventory/suppliers', { method: 'POST', body: input, token });
+  }
+
+  cancelPurchaseOrder(poId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const po = this.state.purchaseOrders.find((p) => p.id === poId);
+      if (po) po.status = 'CANCELLED';
+      this.persistState();
+      this.onStateSynced?.(this.getSnapshot());
+      return Promise.resolve(po ?? { id: poId, status: 'CANCELLED' });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/inventory/purchase-orders/${encodeURIComponent(poId)}/cancel`, {
+      method: 'POST',
+      token,
+      syncAfter: true,
+    });
+  }
+
+  reconcileTankShrinkage(tankId: string, reason?: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const tank = this.state.tanks.find((t) => t.id === tankId);
+      if (!tank) return Promise.reject(new Error('Tank not found.'));
+      const diffLitres = Number((tank.lastDipLitres - tank.bookVolumeLitres).toFixed(2));
+      const amountFcfa = Math.round(Math.abs(diffLitres) * tank.unitCostFcfa);
+      tank.bookVolumeLitres = tank.lastDipLitres;
+      tank.varianceLitres = 0;
+      tank.status = tank.bookVolumeLitres / Math.max(1, tank.capacityLitres) < 0.2 ? 'LOW_STOCK' : 'NOMINAL';
+      if (amountFcfa > 0) {
+        this.pushJournal(tank.stationId, `SHRINK-${tank.id.slice(-4)}`, 'TankShrinkageReconciledEvent', reason ?? 'Dipstick shrinkage reconciliation', [
+          { accountCode: diffLitres < 0 ? '6300' : '1200', debitFcfa: amountFcfa, creditFcfa: 0 },
+          { accountCode: diffLitres < 0 ? '1200' : '4010', debitFcfa: 0, creditFcfa: amountFcfa },
+        ]);
+      }
+      this.persistState();
+      this.onStateSynced?.(this.getSnapshot());
+      return Promise.resolve({ tankId, reconciledLitres: diffLitres, adjustmentFcfa: amountFcfa });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/inventory/tanks/${encodeURIComponent(tankId)}/reconcile-shrinkage`, {
+      method: 'POST',
+      body: { reason: reason ?? 'Physical dipstick calibration reconciliation' },
+      token,
+      syncAfter: true,
+    });
+  }
+
+  ingestAtgTelemetry(tankId: string, input: { grossObservedLitres: number; temperatureCelsius: number; waterLevelMm?: number }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const tank = this.state.tanks.find((t) => t.id === tankId);
+      if (!tank) return Promise.reject(new Error('Tank not found.'));
+      // 15°C thermal expansion compensation (approx 0.00095 / °C)
+      const compensatedLitres = Number((input.grossObservedLitres * (1 - 0.00095 * (input.temperatureCelsius - 15))).toFixed(2));
+      tank.lastDipLitres = compensatedLitres;
+      tank.varianceLitres = Number((compensatedLitres - tank.bookVolumeLitres).toFixed(2));
+      tank.status = Math.abs(tank.varianceLitres) > 100 ? 'VARIANCE_ALERT' : tank.bookVolumeLitres / Math.max(1, tank.capacityLitres) < 0.2 ? 'LOW_STOCK' : 'NOMINAL';
+      this.persistState();
+      this.onStateSynced?.(this.getSnapshot());
+      return Promise.resolve({
+        tankId,
+        grossObservedLitres: input.grossObservedLitres,
+        temperatureCelsius: input.temperatureCelsius,
+        netStandardVolume15CLitres: compensatedLitres,
+        varianceLitres: tank.varianceLitres,
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/inventory/tanks/${encodeURIComponent(tankId)}/atg-telemetry`, {
+      method: 'POST',
+      body: input,
+      token,
+      syncAfter: true,
+    });
+  }
+
+  updateFleetAccountStatus(accountId: string, status: 'ACTIVE' | 'HOLD', creditLimitFcfa?: number, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const acc = this.state.fleetAccounts.find((a) => a.id === accountId);
+      if (acc) {
+        acc.status = status;
+        if (creditLimitFcfa !== undefined) acc.creditLimitFcfa = creditLimitFcfa;
+      }
+      this.persistState();
+      this.onStateSynced?.(this.getSnapshot());
+      return Promise.resolve(acc ?? { id: accountId, status });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/fleet/accounts/${encodeURIComponent(accountId)}`, {
+      method: 'PATCH',
+      body: { status, ...(creditLimitFcfa !== undefined ? { creditLimitFcfa } : {}) },
+      token,
+      syncAfter: true,
+    });
+  }
+
+  listFleetVehicles(accountId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([...(this.previewVehicles[accountId] ?? [])]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(`/fleet/accounts/${encodeURIComponent(accountId)}/vehicles`, { token });
+  }
+
+  registerFleetVehicle(
+    accountId: string,
+    input: { plateNumber: string; driverName: string; allowedGrade?: FuelGrade; monthlyLitreCap?: number },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const v = {
+        id: `veh_${Math.random().toString(36).slice(2, 8)}`,
+        accountId,
+        plateNumber: input.plateNumber.trim().toUpperCase(),
+        driverName: input.driverName.trim(),
+        allowedGrade: input.allowedGrade ?? 'ANY',
+        monthlyLitreCap: input.monthlyLitreCap ?? 5000,
+        status: 'ACTIVE',
+      };
+      this.previewVehicles[accountId] = [v, ...(this.previewVehicles[accountId] ?? [])];
+      return Promise.resolve(v);
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/fleet/accounts/${encodeURIComponent(accountId)}/vehicles`, {
+      method: 'POST',
+      body: input,
+      token,
+    });
+  }
+
+  deleteFleetVehicle(accountId: string, vehicleId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      this.previewVehicles[accountId] = (this.previewVehicles[accountId] ?? []).filter((v) => v.id !== vehicleId);
+      return Promise.resolve();
+    }
+    return this.requestBackendJson<void>(
+      `/fleet/accounts/${encodeURIComponent(accountId)}/vehicles/${encodeURIComponent(vehicleId)}`,
+      { method: 'DELETE', token }
+    );
+  }
+
+  fetchFleetStatement(accountId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const acc = this.state.fleetAccounts.find((a) => a.id === accountId);
+      const txs = this.state.fleetTransactions.filter((t) => t.accountId === accountId);
+      return Promise.resolve({
+        accountId,
+        companyName: acc?.companyName ?? accountId,
+        taxId: acc?.taxId ?? '',
+        status: acc?.status ?? 'ACTIVE',
+        creditLimitFcfa: acc?.creditLimitFcfa ?? 0,
+        balanceOwedFcfa: acc?.balanceOwedFcfa ?? 0,
+        availableCreditFcfa: Math.max(0, (acc?.creditLimitFcfa ?? 0) - (acc?.balanceOwedFcfa ?? 0)),
+        transactionCount: txs.length,
+        totalLitresConsumed: Number(txs.reduce((s, t) => s + t.litres, 0).toFixed(2)),
+        transactions: txs,
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/fleet/accounts/${encodeURIComponent(accountId)}/statement`, { token });
+  }
+
+  listShopSales(stationId = 'ALL', token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve(this.previewShopSales.filter((s) => stationId === 'ALL' || s.stationId === stationId));
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(`/shop/sales?stationId=${encodeURIComponent(stationId)}`, { token });
+  }
+
+  recordApPayment(input: { stationId: string; supplierName: string; reference: string; amountFcfa: number; paymentSource: 'CASH_SAFE' | 'BANK' }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const creditAcc = input.paymentSource === 'BANK' ? '1030' : '1010';
+      this.pushJournal(input.stationId, input.reference, 'SupplierApPaidEvent', `Supplier AP payment to ${input.supplierName}`, [
+        { accountCode: '2010', debitFcfa: input.amountFcfa, creditFcfa: 0 },
+        { accountCode: creditAcc, debitFcfa: 0, creditFcfa: input.amountFcfa },
+      ]);
+      this.persistState();
+      this.onStateSynced?.(this.getSnapshot());
+      return Promise.resolve({ status: 'POSTED', ...input });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/accounting/ap-payments', {
+      method: 'POST',
+      body: input,
+      token,
+      syncAfter: true,
+    });
+  }
+
+  recordVatRemittance(input: { stationId: string; periodLabel: string; reference: string; amountFcfa: number; paymentSource: 'CASH_SAFE' | 'BANK' }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const creditAcc = input.paymentSource === 'BANK' ? '1030' : '1010';
+      this.pushJournal(input.stationId, input.reference, 'VatRemittedEvent', `VAT remittance ${input.periodLabel}`, [
+        { accountCode: '2200', debitFcfa: input.amountFcfa, creditFcfa: 0 },
+        { accountCode: creditAcc, debitFcfa: 0, creditFcfa: input.amountFcfa },
+      ]);
+      this.persistState();
+      this.onStateSynced?.(this.getSnapshot());
+      return Promise.resolve({ status: 'POSTED', ...input });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/accounting/vat-remittances', {
+      method: 'POST',
+      body: input,
+      token,
+      syncAfter: true,
+    });
+  }
+
+  postManualJournal(
+    input: { stationId: string; reference: string; description: string; lines: Array<{ accountCode: string; debitFcfa: number; creditFcfa: number }> },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      this.pushJournal(input.stationId, input.reference, 'ManualJournalPostedEvent', input.description, input.lines);
+      this.persistState();
+      this.onStateSynced?.(this.getSnapshot());
+      return Promise.resolve({ status: 'POSTED', reference: input.reference });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/accounting/journals/manual', {
+      method: 'POST',
+      body: input,
+      token,
+      syncAfter: true,
+    });
+  }
+
+  listFiscalPeriods(stationId = 'ALL', token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve(this.previewFiscalPeriods.filter((p) => stationId === 'ALL' || p.stationId === stationId));
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(`/accounting/periods?stationId=${encodeURIComponent(stationId)}`, { token });
+  }
+
+  closeFiscalPeriod(stationId: string, periodKey: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const fp = {
+        id: `fp_${Math.random().toString(36).slice(2, 8)}`,
+        stationId,
+        periodKey,
+        status: 'CLOSED',
+        closedBy: this.state.tenant.ownerEmail,
+        closedAt: new Date().toISOString(),
+      };
+      this.previewFiscalPeriods.unshift(fp);
+      return Promise.resolve(fp);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/accounting/periods/close', {
+      method: 'POST',
+      body: { stationId, periodKey },
+      token,
+    });
+  }
+
+  fetchAiHistory(stationId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve(this.previewAiHistory.filter((h) => stationId === 'ALL' || h.stationId === stationId));
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(`/ai/history?stationId=${encodeURIComponent(stationId)}`, { token });
+  }
+
+  createWebhookLive(targetUrl: string, subscribedEvents: string[], token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const signingSecret = `whsec_${Math.random().toString(36).slice(2, 18)}${Math.random().toString(36).slice(2, 10)}`;
+      this.createWebhook('OWNER', targetUrl, subscribedEvents);
+      const created = this.state.webhooks[0];
+      return Promise.resolve({ ...created, signingSecret });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform/webhooks', {
+      method: 'POST',
+      body: { targetUrl, subscribedEvents },
+      token,
+      syncAfter: true,
+    });
+  }
+
+  createApiKeyLive(label: string, scopes: string[], token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const rawKey = `opf_live_${Math.random().toString(36).slice(2, 16)}${Math.random().toString(36).slice(2, 10)}`;
+      this.createApiKey('OWNER', label, scopes);
+      const created = this.state.apiKeys[0];
+      return Promise.resolve({ ...created, rawApiKey: rawKey });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform/api-keys', {
+      method: 'POST',
+      body: { label, scopes },
+      token,
+      syncAfter: true,
+    });
+  }
+
+  listWebhookDeliveries(webhookId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([
+        {
+          id: `del_${webhookId}_1`,
+          webhookId,
+          eventType: 'ShiftClosedEvent',
+          httpStatus: 200,
+          success: true,
+          attemptCount: 1,
+          deliveredAt: new Date().toISOString(),
+          responseSnippet: '{"received":true}',
+        },
+      ]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(
+      `/platform/webhooks/${encodeURIComponent(webhookId)}/deliveries`,
+      { token }
+    );
+  }
+
+  // --- SaaS Platform Super-Admin Control Plane (/api/v1/platform-admin/*) ---
+  private previewPlatformTenants: Array<{
+    id: string;
+    name: string;
+    ownerEmail: string;
+    countryCode: string;
+    timezone: string;
+    status: string;
+    stationCount: number;
+    employeeCount: number;
+    monthlyMrrFcfa: number;
+    createdAt: string;
+  }> | null = null;
+
+  private previewPlatformLeads: Array<{
+    id: string;
+    referenceId: string;
+    fullName: string;
+    stationName: string;
+    email: string;
+    phone: string;
+    pumpCount: number;
+    selectedPlan: string;
+    status: string;
+    createdAt: string;
+  }> = [
+    {
+      id: 'lead_preview_1',
+      referenceId: 'LEAD-DLA9021A',
+      fullName: 'Hervé Njoya',
+      stationName: 'Littoral Energies Akwa',
+      email: 'direction@littoral-energies.cm',
+      phone: '+237 699 41 22 08',
+      pumpCount: 12,
+      selectedPlan: 'Multi-Pump Pro (55 000 FCFA/mo)',
+      status: 'RECEIVED',
+      createdAt: new Date(Date.now() - 3600_000 * 5).toISOString(),
+    },
+    {
+      id: 'lead_preview_2',
+      referenceId: 'LEAD-YDE4410C',
+      fullName: 'Nadège Fouda',
+      stationName: 'Centre Fuel Network (6 Stations)',
+      email: 'finance@centrefuel.cm',
+      phone: '+237 677 88 15 40',
+      pumpCount: 28,
+      selectedPlan: 'Network Enterprise (120 000 FCFA/mo)',
+      status: 'QUALIFIED',
+      createdAt: new Date(Date.now() - 86400_000 * 2).toISOString(),
+    },
+  ];
+
+  private ensurePreviewPlatformTenants() {
+    if (this.previewPlatformTenants !== null) return this.previewPlatformTenants;
+    const currentMrr = this.state.stations.reduce((s, st) => s + st.monthlyFeeFcfa, 0);
+    this.previewPlatformTenants = [
+      {
+        id: this.state.tenant.tenantId,
+        name: this.state.tenant.organizationName,
+        ownerEmail: this.state.tenant.ownerEmail,
+        countryCode: 'CM',
+        timezone: 'Africa/Douala',
+        status: 'ACTIVE',
+        stationCount: this.state.stations.length,
+        employeeCount: this.state.employees.length,
+        monthlyMrrFcfa: currentMrr,
+        createdAt: this.state.tenant.createdAt,
+      },
+      {
+        id: 'ten_atlantic_oil',
+        name: 'Atlantic Petroleum Cameroon SA',
+        ownerEmail: 'ceo@atlanticoil.cm',
+        countryCode: 'CM',
+        timezone: 'Africa/Douala',
+        status: 'ACTIVE',
+        stationCount: 4,
+        employeeCount: 26,
+        monthlyMrrFcfa: 480000,
+        createdAt: new Date(Date.now() - 86400_000 * 42).toISOString(),
+      },
+      {
+        id: 'ten_sahel_energies',
+        name: 'Sahel Energies Nord',
+        ownerEmail: 'ops@sahelenergies.cm',
+        countryCode: 'CM',
+        timezone: 'Africa/Douala',
+        status: 'ACTIVE',
+        stationCount: 2,
+        employeeCount: 11,
+        monthlyMrrFcfa: 110000,
+        createdAt: new Date(Date.now() - 86400_000 * 19).toISOString(),
+      },
+    ];
+    return this.previewPlatformTenants;
+  }
+
+  recordPreviewLead(input: {
+    referenceId: string;
+    fullName: string;
+    stationName: string;
+    email: string;
+    phone: string;
+    pumpCount: number;
+    selectedPlan: string;
+  }) {
+    this.previewPlatformLeads.unshift({
+      id: `lead_${Math.random().toString(36).slice(2, 8)}`,
+      ...input,
+      status: 'RECEIVED',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  fetchPlatformAdminOverview(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const tenants = this.ensurePreviewPlatformTenants();
+      const stationMrrFcfa = tenants.reduce((s, t) => s + t.monthlyMrrFcfa, 0);
+      const aiAddonMrrFcfa = this.state.tenant.aiSubscription.active ? this.state.tenant.aiSubscription.monthlyFeeFcfa : 0;
+      const totalBilledFcfa = this.previewInvoices.reduce((s, i) => s + i.totalFcfa, 0) + stationMrrFcfa;
+      const totalCollectedFcfa = this.previewInvoices.reduce((s, i) => s + i.paidFcfa, 0) + Math.round(stationMrrFcfa * 0.85);
+      return Promise.resolve({
+        totalTenants: tenants.length,
+        activeTenants: tenants.filter((t) => t.status === 'ACTIVE').length,
+        suspendedTenants: tenants.filter((t) => t.status === 'SUSPENDED').length,
+        totalStations: tenants.reduce((s, t) => s + t.stationCount, 0),
+        totalPlatformMrrFcfa: stationMrrFcfa + aiAddonMrrFcfa,
+        stationMrrFcfa,
+        aiAddonMrrFcfa,
+        activeAiAddons: this.state.tenant.aiSubscription.active ? 2 : 1,
+        totalBilledFcfa,
+        totalCollectedFcfa,
+        outstandingReceivablesFcfa: Math.max(0, totalBilledFcfa - totalCollectedFcfa),
+        openLeadsCount: this.previewPlatformLeads.filter((l) => ['RECEIVED', 'CONTACTED', 'QUALIFIED'].includes(l.status)).length,
+        totalEmployees: tenants.reduce((s, t) => s + t.employeeCount, 0),
+        generatedAt: new Date().toISOString(),
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/overview', { token });
+  }
+
+  listPlatformTenants(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([...this.ensurePreviewPlatformTenants()]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/tenants', { token });
+  }
+
+  updatePlatformTenantStatus(tenantId: string, status: 'ACTIVE' | 'SUSPENDED', token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const list = this.ensurePreviewPlatformTenants();
+      const target = list.find((t) => t.id === tenantId);
+      if (target) target.status = status;
+      return Promise.resolve(target ?? { id: tenantId, status });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/tenants/${encodeURIComponent(tenantId)}/status`,
+      { method: 'PATCH', body: { status }, token }
+    );
+  }
+
+  listPlatformLeads(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([...this.previewPlatformLeads]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/leads', { token });
+  }
+
+  updatePlatformLeadStatus(
+    leadId: string,
+    status: 'RECEIVED' | 'CONTACTED' | 'QUALIFIED' | 'CONVERTED' | 'ARCHIVED',
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const target = this.previewPlatformLeads.find((l) => l.id === leadId);
+      if (target) target.status = status;
+      return Promise.resolve(target ?? { id: leadId, status });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/leads/${encodeURIComponent(leadId)}/status`,
+      { method: 'PATCH', body: { status }, token }
+    );
+  }
 }
+
+

@@ -29,6 +29,12 @@ import {
   OpesFuelMobileClient,
   QueuedCommand,
 } from './src/api/opesfuelMobileClient';
+import {
+  clearMobileAccessToken,
+  getStoredMobileAccessToken,
+  isMobileAuth0Configured,
+  loginWithMobileAuth0,
+} from './src/auth/mobileAuth0';
 
 const client = new OpesFuelMobileClient();
 
@@ -145,7 +151,34 @@ export default function App() {
     setQueue(await client.getOfflineQueue());
   };
 
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  const handleMobileAuth0Toggle = async () => {
+    if (authToken) {
+      await clearMobileAccessToken();
+      client.setAccessToken(null);
+      setAuthToken(null);
+      setBanner('Signed out from Auth0 mobile session.');
+      return;
+    }
+    try {
+      const token = await loginWithMobileAuth0();
+      client.setAccessToken(token);
+      setAuthToken(token);
+      setBanner('Authenticated via Auth0 OIDC PKCE. Syncing live station telemetry.');
+      await refreshSyncHealth();
+    } catch (err) {
+      setBanner(err instanceof Error ? err.message : 'Mobile Auth0 sign-in failed.');
+    }
+  };
+
   useEffect(() => {
+    void getStoredMobileAccessToken().then((stored) => {
+      if (stored) {
+        client.setAccessToken(stored);
+        setAuthToken(stored);
+      }
+    });
     void refreshSyncHealth();
     const poll = setInterval(() => {
       void client.checkConnectivity().then(setSyncHealth).catch(() => {});
@@ -402,12 +435,19 @@ export default function App() {
               <Text style={styles.subtitle}>Android &amp; iPhone · Station Plateau · FCFA · {role}</Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.roleButton}
-            onPress={() => setRole(role === 'OWNER' ? 'ATTENDANT' : 'OWNER')}
-          >
-            <Text style={styles.roleButtonText}>{role === 'OWNER' ? 'Attendant View' : 'Owner View'}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {isMobileAuth0Configured && (
+              <TouchableOpacity style={styles.roleButton} onPress={handleMobileAuth0Toggle}>
+                <Text style={styles.roleButtonText}>{authToken ? 'Auth0 Out' : 'Auth0 SSO'}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.roleButton}
+              onPress={() => setRole(role === 'OWNER' ? 'ATTENDANT' : 'OWNER')}
+            >
+              <Text style={styles.roleButtonText}>{role === 'OWNER' ? 'Attendant View' : 'Owner View'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Real-Time Java Spring Boot Sync Status Indicator */}

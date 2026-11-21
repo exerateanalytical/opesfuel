@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Building2, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Building2, Eye, EyeOff, Lock, ShieldCheck, UserCheck } from 'lucide-react';
 import { SUBSCRIPTION_PLANS } from '../../api/opesfuelClient';
-import { buildAuth0AuthorizeUrl, ROLE_PROFILES } from '../../auth/auth0';
+import { AuthSession, isAuth0Configured, ROLE_PROFILES, startAuth0Login } from '../../auth/auth0';
 import { formatFcfa } from '../../domain/formatters';
 import { Station, UserRole } from '../../domain/types';
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
@@ -11,6 +11,9 @@ interface ClassicLoginPageProps {
   stations: Station[];
   initialRole: UserRole;
   initialStationId: string;
+  authSession?: AuthSession | null;
+  pendingInviteToken?: string | null;
+  authError?: string | null;
   onAuthenticated: (role: UserRole, stationId: string) => void;
   onCreateWorkspace: (input: {
     organizationName: string;
@@ -29,6 +32,7 @@ interface ClassicLoginPageProps {
 const LOGIN_CANOPY_IMG = '/src/assets/images/opesfuel_login_canopy_black_1795293396503.jpg';
 
 const EMAIL_TO_ROLE: Record<string, UserRole> = {
+  'superadmin@opesware.com': 'PLATFORM_ADMIN',
   'owner@opesfuel.com': 'OWNER',
   'manager@opesfuel.com': 'MANAGER',
   'attendant@opesfuel.com': 'ATTENDANT',
@@ -40,31 +44,49 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
   stations,
   initialRole,
   initialStationId,
+  authSession,
+  pendingInviteToken,
+  authError,
   onAuthenticated,
   onCreateWorkspace,
   onBackToSite,
 }) => {
   const [authTab, setAuthTab] = useState<'signin' | 'signup'>('signin');
   const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole);
-  const [email, setEmail] = useState(ROLE_PROFILES[initialRole].email);
+  const [email, setEmail] = useState(authSession?.email || ROLE_PROFILES[initialRole].email);
   const [password, setPassword] = useState('OpesFuel#2026');
   const [showPassword, setShowPassword] = useState(false);
   const [stationId, setStationId] = useState(initialStationId || stations[0]?.id || 'ALL');
   const [rememberTerminal, setRememberTerminal] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(authError ?? null);
+  const [ssoBusy, setSsoBusy] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
 
   // SaaS Workspace Creation form
   const [orgName, setOrgName] = useState('');
-  const [ownerName, setOwnerName] = useState('');
-  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerName, setOwnerName] = useState(authSession?.userName || '');
+  const [ownerEmail, setOwnerEmail] = useState(authSession?.email || '');
   const [stationCode, setStationCode] = useState('OPF-DLA-01');
   const [stationName, setStationName] = useState('');
   const [city, setCity] = useState('Douala');
   const [planId, setPlanId] = useState('starter');
   const [includeSampleData, setIncludeSampleData] = useState(false);
 
-  const auth0Url = buildAuth0AuthorizeUrl();
+  const handleAuth0Redirect = async (screenHint: 'login' | 'signup') => {
+    setError(null);
+    setSsoBusy(true);
+    try {
+      const returnHash = pendingInviteToken
+        ? `#/invite/${pendingInviteToken}`
+        : screenHint === 'signup'
+        ? '#/login'
+        : '#/app/overview';
+      await startAuth0Login({ screenHint, returnHash });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to start Auth0 PKCE sign-in.');
+      setSsoBusy(false);
+    }
+  };
 
   const handleRolePreset = (role: UserRole) => {
     setSelectedRole(role);
@@ -201,6 +223,19 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
             </button>
           </div>
 
+          {pendingInviteToken && (
+            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
+              <UserCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-semibold">Staff Invitation Detected</div>
+                <div>
+                  Sign in below to link your account and accept invitation token{' '}
+                  <span className="font-mono">{pendingInviteToken.slice(0, 14)}…</span>.
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs font-medium text-red-700">
               {error}
@@ -214,9 +249,23 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
                   Sign in to {organizationName}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Enter station credentials or switch an Auth0 RBAC profile below.
+                  {isAuth0Configured
+                    ? 'Authenticate via Auth0 OIDC PKCE for live Spring Boot JWT access.'
+                    : 'Enter station credentials or switch an Auth0 demo RBAC profile below.'}
                 </p>
               </div>
+
+              {isAuth0Configured && (
+                <button
+                  type="button"
+                  disabled={ssoBusy}
+                  onClick={() => void handleAuth0Redirect('login')}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  {ssoBusy ? 'Redirecting to Auth0 PKCE…' : 'Continue with Auth0 SSO (Production)'}
+                </button>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -285,52 +334,48 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
                     />
                     <span>Remember this station terminal</span>
                   </label>
-                  <span className="text-xs font-mono text-slate-500">Auth0 RBAC</span>
+                  <span className="text-xs font-mono text-slate-500">
+                    {isAuth0Configured ? 'Auth0 RS256' : 'RBAC Access'}
+                  </span>
                 </div>
 
                 <button
                   type="submit"
                   className="w-full py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors"
                 >
-                  Sign In to Classic Dashboard
+                  Sign In to Station Portal
                 </button>
               </form>
 
-              {auth0Url && (
-                <a
-                  href={auth0Url}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold transition-colors"
-                >
-                  <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                  Continue with Auth0 SSO
-                </a>
+              {!isAuth0Configured && (
+                <div className="pt-4 border-t border-slate-200 space-y-2.5">
+                  <div className="text-xs font-semibold text-slate-700">
+                    Workspace Account Types (5 Enterprise Roles)
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as UserRole[]).map((r) => {
+                      const active = selectedRole === r;
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => handleRolePreset(r)}
+                          className={`p-2.5 rounded-lg border text-left transition-colors ${
+                            active
+                              ? 'border-amber-600 bg-amber-50/70 text-slate-900'
+                              : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                          } ${r === 'PLATFORM_ADMIN' ? 'col-span-2' : ''}`}
+                        >
+                          <div className="font-mono text-[11px] font-bold text-amber-700">
+                            {r === 'PLATFORM_ADMIN' ? 'SAAS PLATFORM ADMIN' : r}
+                          </div>
+                          <div className="text-xs font-medium truncate">{ROLE_PROFILES[r].name}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-
-              <div className="pt-4 border-t border-slate-200 space-y-2.5">
-                <div className="text-xs font-semibold text-slate-700">
-                  Instant Role Presets (Demo RBAC Profiles)
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as UserRole[]).map((r) => {
-                    const active = selectedRole === r;
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => handleRolePreset(r)}
-                        className={`p-2.5 rounded-lg border text-left transition-colors ${
-                          active
-                            ? 'border-amber-600 bg-amber-50/70 text-slate-900'
-                            : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        <div className="font-mono text-[11px] font-bold text-amber-700">{r}</div>
-                        <div className="text-xs font-medium truncate">{ROLE_PROFILES[r].name}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </>
           ) : (
             <form onSubmit={handleSignupSubmit} className="space-y-3.5">
@@ -342,6 +387,17 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
                   Start clean with zero demo records or load sample Cameroon station operations.
                 </p>
               </div>
+              {isAuth0Configured && !authSession?.accessToken && (
+                <button
+                  type="button"
+                  disabled={ssoBusy}
+                  onClick={() => void handleAuth0Redirect('signup')}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-semibold transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                  Step 1: Verify Email via Auth0 SSO Before Provisioning
+                </button>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Company / Network Name</label>
