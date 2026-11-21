@@ -1,0 +1,1526 @@
+openapi: 3.1.0
+info:
+  title: OpesFuel API-as-a-Product
+  version: 1.0.0
+  description: |
+    API-first contract for OpesFuel Petrol Station Management Software.
+    Designed for Java 25 Spring Boot Modular Monolith (DDD, CQRS, Event-Driven),
+    PostgreSQL persistence, Auth0 RBAC JWT security, TypeScript Web App, and Mobile App for Android & iPhone.
+    All monetary values are integer FCFA (0 decimal places). Volumes are numeric Litres (L).
+  contact:
+    name: OpesFuel Platform Engineering
+    email: api@opesfuel.com
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Java 25 Spring Boot Modular Monolith
+  - url: https://api.opesfuel.com/v1
+    description: Production API Gateway
+security:
+  - auth0Bearer: []
+  - tenantApiKey: []
+tags:
+  - name: Stations
+  - name: Forecourt
+  - name: Inventory
+  - name: FleetCredit
+  - name: ShopPOS
+  - name: Workforce
+  - name: Accounting
+  - name: ApiPlatform
+  - name: Billing
+paths:
+  /stations:
+    get:
+      tags: [Stations]
+      operationId: listStations
+      summary: Query all petrol stations accessible to the tenant
+      responses:
+        "200":
+          description: List of stations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StationDto"
+    post:
+      tags: [Stations]
+      operationId: createStation
+      summary: Command to onboard a new petrol station
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStationCommand"
+      responses:
+        "201":
+          description: Station created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationDto"
+        "403":
+          $ref: "#/components/responses/ProblemDetail"
+
+  /stations/{stationId}/fuel-prices:
+    post:
+      tags: [Stations]
+      operationId: updateFuelPrice
+      summary: Command to publish a regulatory fuel price change in FCFA/L
+      parameters:
+        - $ref: "#/components/parameters/StationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFuelPriceCommand"
+      responses:
+        "200":
+          description: Fuel price updated and FuelPriceUpdatedEvent emitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FuelPriceDto"
+
+  /stations/{stationId}/subscription:
+    put:
+      tags: [Stations]
+      operationId: updateStationSubscription
+      summary: Command to update station SaaS subscription tier in FCFA
+      parameters:
+        - $ref: "#/components/parameters/StationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planName, monthlyFeeFcfa]
+              properties:
+                planName: { type: string }
+                monthlyFeeFcfa: { type: integer, format: int64, minimum: 25000 }
+      responses:
+        "200":
+          description: Station subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationDto"
+
+  /stations/{stationId}:
+    put:
+      tags: [Stations]
+      operationId: updateStation
+      summary: Update station code, name, or city metadata
+      parameters:
+        - $ref: "#/components/parameters/StationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStationCommand"
+      responses:
+        "200":
+          description: Station metadata updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationDto"
+    patch:
+      tags: [Stations]
+      operationId: patchStation
+      summary: Partially update station metadata
+      parameters:
+        - $ref: "#/components/parameters/StationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStationCommand"
+      responses:
+        "200":
+          description: Station metadata updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationDto"
+    delete:
+      tags: [Stations]
+      operationId: deleteStation
+      summary: Remove a station tenant partition
+      parameters:
+        - $ref: "#/components/parameters/StationId"
+      responses:
+        "204":
+          description: Station deleted
+
+  /catalog/institutional-fuels:
+    get:
+      tags: [Stations]
+      operationId: listInstitutionalFuels
+      summary: Query pre-configured institutional fuel grades, capacities, and benchmark prices
+      security: []
+      responses:
+        "200":
+          description: Institutional fuel catalog
+
+  /stations/{stationId}/onboarding-setup:
+    post:
+      tags: [Stations]
+      operationId: applyInstitutionalSetup
+      summary: Tick fuels and enter tank capacities & opening litres to synchronize prices, tanks, pumps, and opening capital journal
+      parameters:
+        - $ref: "#/components/parameters/StationId"
+      responses:
+        "201":
+          description: Station synchronized across inventory, forecourt, and accounting modules
+
+  /ai/subscription:
+    get:
+      tags: [ApiPlatform]
+      operationId: getAiSubscription
+      summary: Query Paid AI Copilot subscription state for a station (25,000 FCFA/month)
+      responses:
+        "200":
+          description: Subscription state
+
+  /ai/subscription/activate:
+    post:
+      tags: [ApiPlatform]
+      operationId: activateAiSubscription
+      summary: Enable or deactivate the Paid AI Copilot add-on
+      responses:
+        "200":
+          description: Updated subscription state
+
+  /ai/analyze:
+    post:
+      tags: [ApiPlatform]
+      operationId: analyzeStationWithAi
+      summary: Run AI stockout horizon prediction, shrinkage risk, and margin analysis (paid feature)
+      responses:
+        "200":
+          description: AI intelligence report
+
+  /ai/chat:
+    post:
+      tags: [ApiPlatform]
+      operationId: chatWithAiAdvisor
+      summary: Ask natural-language operational and SYSCOHADA financial questions grounded in live station data
+      responses:
+        "200":
+          description: AI advisor response
+
+  /forecourt/pumps:
+    get:
+      tags: [Forecourt]
+      operationId: listPumps
+      summary: Query pump islands and cumulative totalizers for a station
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pump inventory
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PumpDto"
+    post:
+      tags: [Forecourt]
+      operationId: createPump
+      summary: Provision a fuel pump dispenser linked to a storage tank
+      responses:
+        "201":
+          description: Pump created
+
+  /forecourt/pumps/{pumpId}:
+    delete:
+      tags: [Forecourt]
+      operationId: deletePump
+      summary: Remove an idle pump dispenser
+      parameters:
+        - name: pumpId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Pump deleted
+
+  /forecourt/shifts/{shiftId}:
+    delete:
+      tags: [Forecourt]
+      operationId: deleteShift
+      summary: Delete a forecourt shift record
+      parameters:
+        - name: shiftId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Shift deleted
+
+  /forecourt/shifts:
+    get:
+      tags: [Forecourt]
+      operationId: listShifts
+      summary: Query active and historical forecourt shifts
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shift list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShiftDto"
+
+  /forecourt/shifts/open:
+    post:
+      tags: [Forecourt]
+      operationId: openShift
+      summary: CQRS command to assign an attendant and open a pump shift
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenShiftCommand"
+      responses:
+        "201":
+          description: Shift opened and ShiftOpenedEvent emitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShiftDto"
+
+  /forecourt/shifts/{shiftId}/close:
+    post:
+      tags: [Forecourt]
+      operationId: closeShift
+      summary: CQRS command to close shift, compute cash/MoMo/credit variance, deduct tank stock, and post double-entry revenue + COGS journals
+      parameters:
+        - name: shiftId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseShiftCommand"
+      responses:
+        "200":
+          description: Shift closed and ShiftClosedEvent emitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShiftDto"
+
+  /fleet/accounts:
+    get:
+      tags: [FleetCredit]
+      operationId: listFleetAccounts
+      summary: Query corporate postpaid fleet accounts and credit limits in FCFA
+      responses:
+        "200":
+          description: Fleet accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FleetAccountDto"
+    post:
+      tags: [FleetCredit]
+      operationId: createFleetAccount
+      summary: Onboard a corporate postpaid fleet client
+      responses:
+        "201":
+          description: Fleet account created
+
+  /fleet/accounts/{accountId}:
+    delete:
+      tags: [FleetCredit]
+      operationId: deleteFleetAccount
+      summary: Delete a corporate fleet account
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Fleet account deleted
+
+  /fleet/vouchers:
+    post:
+      tags: [FleetCredit]
+      operationId: recordFleetVoucher
+      summary: Command to record a fleet credit fuel dispensing voucher
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordFleetVoucherCommand"
+      responses:
+        "201":
+          description: Fleet voucher recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetTransactionDto"
+
+  /fleet/accounts/{accountId}/settle:
+    post:
+      tags: [FleetCredit]
+      operationId: settleFleetAccount
+      summary: Command to record corporate settlement payment against Accounts Receivable
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettleFleetCommand"
+      responses:
+        "200":
+          description: Fleet account settled and double-entry cash/AR journal posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetAccountDto"
+
+  /shop/items:
+    get:
+      tags: [ShopPOS]
+      operationId: listShopItems
+      summary: Query lubricants, LPG cylinders, and forecourt shop SKUs
+      responses:
+        "200":
+          description: Shop SKUs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShopItemDto"
+    post:
+      tags: [ShopPOS]
+      operationId: createShopItem
+      summary: Create a new lubricant, LPG, or forecourt shop SKU
+      responses:
+        "201":
+          description: SKU created
+
+  /shop/items/{itemId}:
+    delete:
+      tags: [ShopPOS]
+      operationId: deleteShopItem
+      summary: Delete a shop or lubricant SKU
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: SKU deleted
+
+  /shop/sales:
+    post:
+      tags: [ShopPOS]
+      operationId: recordShopSale
+      summary: Command to sell lubricant/LPG/shop items and post non-fuel revenue journal
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordShopSaleCommand"
+      responses:
+        "201":
+          description: Shop sale recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShopItemDto"
+
+  /shop/items/{itemId}/restock:
+    post:
+      tags: [ShopPOS]
+      operationId: restockShopItem
+      summary: Command to restock shop/lubricant/LPG SKU and post Inventory/AP journal
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: SKU restocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShopItemDto"
+
+  /inventory/tanks:
+    get:
+      tags: [Inventory]
+      operationId: listTanks
+      summary: Query underground tank capacities, book levels, and dipstick variances
+      responses:
+        "200":
+          description: Underground fuel tanks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FuelTankDto"
+    post:
+      tags: [Inventory]
+      operationId: createTank
+      summary: Provision an underground fuel storage tank
+      responses:
+        "201":
+          description: Tank created
+
+  /inventory/tanks/{tankId}:
+    delete:
+      tags: [Inventory]
+      operationId: deleteTank
+      summary: Delete an underground storage tank
+      parameters:
+        - name: tankId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Tank deleted
+
+  /inventory/purchase-orders/{poId}:
+    delete:
+      tags: [Inventory]
+      operationId: deletePurchaseOrder
+      summary: Delete a supplier purchase order
+      parameters:
+        - name: poId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Purchase order deleted
+
+  /inventory/purchase-orders:
+    get:
+      tags: [Inventory]
+      operationId: listPurchaseOrders
+      summary: Query supplier tanker purchase orders
+      responses:
+        "200":
+          description: Purchase orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurchaseOrderDto"
+    post:
+      tags: [Inventory]
+      operationId: createPurchaseOrder
+      summary: Command to raise a supplier fuel tanker purchase order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePurchaseOrderCommand"
+      responses:
+        "201":
+          description: Purchase order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseOrderDto"
+
+  /inventory/deliveries:
+    get:
+      tags: [Inventory]
+      operationId: listDeliveries
+      summary: Query recent tanker fuel deliveries with BoL vs. actual litres
+      responses:
+        "200":
+          description: Recent tanker deliveries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TankDeliveryDto"
+    post:
+      tags: [Inventory]
+      operationId: receiveDelivery
+      summary: Command to receive tanker delivery, compute BoL vs dipstick variance, and post inventory/AP journal
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiveDeliveryCommand"
+      responses:
+        "201":
+          description: Delivery recorded and FuelDeliveryRecordedEvent emitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FuelTankDto"
+
+  /inventory/dipsticks:
+    get:
+      tags: [Inventory]
+      operationId: listDipsticks
+      summary: Query recent physical tank dipstick calibration readings
+      responses:
+        "200":
+          description: Recent dipstick readings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DipstickReadingDto"
+    post:
+      tags: [Inventory]
+      operationId: recordDipstick
+      summary: Command to record physical tank dipstick measurement and flag evaporation/leakage variance
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordDipstickCommand"
+      responses:
+        "200":
+          description: Dipstick reconciled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FuelTankDto"
+
+  /workforce/employees:
+    get:
+      tags: [Workforce]
+      operationId: listEmployees
+      summary: Query station staff, RBAC roles, attendance status, and payroll variance balances
+      responses:
+        "200":
+          description: Employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeDto"
+    post:
+      tags: [Workforce]
+      operationId: createEmployee
+      summary: Command to onboard a new employee with Auth0 role assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmployeeCommand"
+      responses:
+        "201":
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDto"
+
+  /workforce/employees/{employeeId}:
+    put:
+      tags: [Workforce]
+      operationId: updateEmployee
+      summary: Update employee profile, RBAC role, shift window, and base salary
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Employee updated
+    delete:
+      tags: [Workforce]
+      operationId: deleteEmployee
+      summary: Remove an employee record
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Employee deleted
+
+  /workforce/employees/{employeeId}/attendance:
+    post:
+      tags: [Workforce]
+      operationId: toggleAttendance
+      summary: Command to clock an employee in or out for their rostered shift
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Attendance updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDto"
+
+  /workforce/payroll:
+    get:
+      tags: [Workforce]
+      operationId: getPayrollSummary
+      summary: CQRS payroll projection including base salary and cumulative shift cash variances in FCFA
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payroll projection
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    employeeId: { type: string }
+                    fullName: { type: string }
+                    role: { type: string }
+                    baseSalaryFcfa: { type: integer, format: int64 }
+                    varianceFcfa: { type: integer, format: int64 }
+                    netPayrollFcfa: { type: integer, format: int64 }
+
+  /accounting/reports:
+    get:
+      tags: [Accounting]
+      operationId: getFinancialReports
+      summary: CQRS projection returning P&L, Balance Sheet, Trial Balance, Cash Flow, and VAT/Excise summaries in FCFA
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Automated financial reports
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialReportBundleDto"
+
+  /accounting/accounts:
+    get:
+      tags: [Accounting]
+      operationId: listAccounts
+      summary: Query SYSCOHADA / IFRS Chart of Accounts
+      responses:
+        "200":
+          description: Chart of Accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    code: { type: string }
+                    name: { type: string }
+                    accountType: { type: string }
+
+  /accounting/journals:
+    get:
+      tags: [Accounting]
+      operationId: listJournalEntries
+      summary: Query immutable double-entry journal ledger
+      responses:
+        "200":
+          description: Journal entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JournalEntryDto"
+
+  /accounting/expenses:
+    get:
+      tags: [Accounting]
+      operationId: listExpenses
+      summary: Query posted station operating expenses
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Expenses list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExpenseDto"
+    post:
+      tags: [Accounting]
+      operationId: recordExpense
+      summary: Command to submit and post a station operating expense or petty cash disbursement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordExpenseCommand"
+      responses:
+        "201":
+          description: Expense posted to ledger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseDto"
+
+  /accounting/deposits:
+    get:
+      tags: [Accounting]
+      operationId: listTreasuryDeposits
+      summary: Query bank and Mobile Money treasury deposits
+      parameters:
+        - name: stationId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Treasury deposits list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TreasuryDepositDto"
+    post:
+      tags: [Accounting]
+      operationId: recordTreasuryDeposit
+      summary: Command to transfer safe cash or Mobile Money clearing into bank accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordDepositCommand"
+      responses:
+        "201":
+          description: Treasury transfer posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TreasuryDepositDto"
+
+  /platform/events:
+    get:
+      tags: [ApiPlatform]
+      operationId: listDomainEvents
+      summary: Query transactional outbox and domain event log
+      responses:
+        "200":
+          description: Domain events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DomainEventDto"
+
+  /platform/api-keys:
+    get:
+      tags: [ApiPlatform]
+      operationId: listApiKeys
+      summary: Query scoped tenant API keys
+      responses:
+        "200":
+          description: API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyDto"
+    post:
+      tags: [ApiPlatform]
+      operationId: createApiKey
+      summary: Provision a new scoped API key for third-party ERP or fleet integrations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyCommand"
+      responses:
+        "201":
+          description: API key generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyDto"
+
+  /accounting/expenses/{expenseId}:
+    delete:
+      tags: [Accounting]
+      operationId: deleteExpense
+      summary: Delete a posted operating expense
+      parameters:
+        - name: expenseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Expense deleted
+
+  /accounting/deposits/{depositId}:
+    delete:
+      tags: [Accounting]
+      operationId: deleteTreasuryDeposit
+      summary: Delete a treasury deposit record
+      parameters:
+        - name: depositId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deposit deleted
+
+  /platform/api-keys/{keyId}:
+    delete:
+      tags: [ApiPlatform]
+      operationId: revokeApiKey
+      summary: Revoke a scoped tenant API key
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Key revoked
+
+  /platform/webhooks:
+    get:
+      tags: [ApiPlatform]
+      operationId: listWebhooks
+      summary: Query registered webhook endpoints subscribed to domain events
+      responses:
+        "200":
+          description: Webhook subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookDto"
+    post:
+      tags: [ApiPlatform]
+      operationId: createWebhook
+      summary: Register a signed HMAC webhook consumer for OpesFuel domain events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookCommand"
+      responses:
+        "201":
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDto"
+
+  /platform/webhooks/{webhookId}:
+    patch:
+      tags: [ApiPlatform]
+      operationId: toggleWebhook
+      summary: Pause or resume a webhook subscription
+      parameters:
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook status toggled
+    delete:
+      tags: [ApiPlatform]
+      operationId: deleteWebhook
+      summary: Remove a webhook subscription
+      parameters:
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Webhook deleted
+
+  /billing/plans:
+    get:
+      tags: [Billing]
+      operationId: listSubscriptionPlans
+      summary: Public pricing catalog starting at 25,000 FCFA/month
+      security: []
+      responses:
+        "200":
+          description: Subscription plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionPlanDto"
+
+  /billing/enterprise-licenses:
+    get:
+      tags: [Billing]
+      operationId: listEnterpriseLicenses
+      summary: Perpetual self-hosted deployment (5,000,000 FCFA/year) and custom Web/Mobile/Desktop source code IP license catalog
+      security: []
+      responses:
+        "200":
+          description: Enterprise licensing and IP ownership models
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    title: { type: string }
+                    billingModel: { type: string }
+                    annualFeeFcfa: { type: integer, format: int64, nullable: true }
+                    pricingDisplay: { type: string }
+                    platformsIncluded:
+                      type: array
+                      items: { type: string }
+                    fullIntellectualPropertyTransfer: { type: boolean }
+                    includedServices:
+                      type: array
+                      items: { type: string }
+
+  /public/leads:
+    post:
+      tags: [Billing]
+      operationId: submitDemoLead
+      summary: Public onboarding and demo request intake endpoint
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DemoLeadCommand"
+      responses:
+        "201":
+          description: Lead captured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  referenceId:
+                    type: string
+                  status:
+                    type: string
+
+components:
+  securitySchemes:
+    auth0Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Auth0 RS256 Access Token with RBAC role claims
+    tenantApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    StationId:
+      name: stationId
+      in: path
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+  responses:
+    ProblemDetail:
+      description: RFC 9457 Problem Details error response
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            properties:
+              type: { type: string }
+              title: { type: string }
+              status: { type: integer }
+              detail: { type: string }
+              instance: { type: string }
+  schemas:
+    StationDto:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        city: { type: string }
+        currency: { type: string, enum: [FCFA] }
+        planName: { type: string }
+        monthlyFeeFcfa: { type: integer, format: int64 }
+    CreateStationCommand:
+      type: object
+      required: [code, name, city]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        city: { type: string }
+    UpdateFuelPriceCommand:
+      type: object
+      required: [grade, pricePerLitreFcfa]
+      properties:
+        grade: { type: string, enum: [SUPER, GASOIL, KEROSENE, LPG_BULK, HEAVY_FUEL] }
+        pricePerLitreFcfa: { type: integer, format: int64, minimum: 100 }
+    FuelPriceDto:
+      type: object
+      properties:
+        stationId: { type: string }
+        grade: { type: string }
+        pricePerLitreFcfa: { type: integer, format: int64 }
+        effectiveAt: { type: string, format: date-time }
+    PumpDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        code: { type: string }
+        grade: { type: string, enum: [SUPER, GASOIL, KEROSENE, LPG_BULK, HEAVY_FUEL] }
+        tankId: { type: string }
+        totalizerLitres: { type: number }
+        unitPriceFcfa: { type: integer, format: int64 }
+        status: { type: string, enum: [IDLE, ACTIVE_SHIFT, MAINTENANCE] }
+    ShiftDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        pumpId: { type: string }
+        pumpCode: { type: string }
+        grade: { type: string }
+        attendantId: { type: string }
+        attendantName: { type: string }
+        openingMeterLitres: { type: number }
+        closingMeterLitres: { type: number, nullable: true }
+        litresSold: { type: number }
+        unitPriceFcfa: { type: integer, format: int64 }
+        expectedRevenueFcfa: { type: integer, format: int64 }
+        cashFcfa: { type: integer, format: int64 }
+        mobileMoneyFcfa: { type: integer, format: int64 }
+        cardFcfa: { type: integer, format: int64 }
+        fleetCreditFcfa: { type: integer, format: int64 }
+        varianceFcfa: { type: integer, format: int64 }
+        status: { type: string, enum: [OPEN, CLOSED] }
+        openedAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time, nullable: true }
+    OpenShiftCommand:
+      type: object
+      required: [stationId, pumpId, attendantId]
+      properties:
+        stationId: { type: string }
+        pumpId: { type: string }
+        attendantId: { type: string }
+    CloseShiftCommand:
+      type: object
+      required: [closingMeterLitres, cashFcfa, mobileMoneyFcfa, cardFcfa, fleetCreditFcfa]
+      properties:
+        closingMeterLitres: { type: number }
+        cashFcfa: { type: integer, format: int64 }
+        mobileMoneyFcfa: { type: integer, format: int64 }
+        cardFcfa: { type: integer, format: int64 }
+        fleetCreditFcfa: { type: integer, format: int64 }
+    FleetAccountDto:
+      type: object
+      properties:
+        id: { type: string }
+        companyName: { type: string }
+        taxId: { type: string }
+        creditLimitFcfa: { type: integer, format: int64 }
+        balanceOwedFcfa: { type: integer, format: int64 }
+        status: { type: string, enum: [ACTIVE, HOLD] }
+    RecordFleetVoucherCommand:
+      type: object
+      required: [accountId, stationId, vehiclePlate, driverName, grade, litres]
+      properties:
+        accountId: { type: string }
+        stationId: { type: string }
+        vehiclePlate: { type: string }
+        driverName: { type: string }
+        grade: { type: string, enum: [SUPER, GASOIL, KEROSENE, LPG_BULK, HEAVY_FUEL] }
+        litres: { type: number }
+    FleetTransactionDto:
+      type: object
+      properties:
+        id: { type: string }
+        accountId: { type: string }
+        vehiclePlate: { type: string }
+        litres: { type: number }
+        amountFcfa: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+    SettleFleetCommand:
+      type: object
+      required: [amountFcfa, method]
+      properties:
+        amountFcfa: { type: integer, format: int64 }
+        method: { type: string, enum: [BANK_TRANSFER, MOBILE_MONEY, CASH] }
+    ShopItemDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        sku: { type: string }
+        name: { type: string }
+        category: { type: string, enum: [LUBRICANT, LPG, SHOP] }
+        stockQty: { type: integer }
+        reorderLevel: { type: integer }
+        unitPriceFcfa: { type: integer, format: int64 }
+    RecordShopSaleCommand:
+      type: object
+      required: [itemId, quantity, paymentMethod]
+      properties:
+        itemId: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        paymentMethod: { type: string, enum: [CASH, MOBILE_MONEY, CARD] }
+    FuelTankDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        name: { type: string }
+        grade: { type: string, enum: [SUPER, GASOIL, KEROSENE, LPG_BULK, HEAVY_FUEL] }
+        capacityLitres: { type: number }
+        bookVolumeLitres: { type: number }
+        lastDipLitres: { type: number }
+        varianceLitres: { type: number }
+        unitCostFcfa: { type: integer, format: int64 }
+        status: { type: string, enum: [NOMINAL, LOW_STOCK, VARIANCE_ALERT] }
+    PurchaseOrderDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        supplierName: { type: string }
+        grade: { type: string }
+        orderedLitres: { type: number }
+        unitCostFcfa: { type: integer, format: int64 }
+        status: { type: string, enum: [PENDING, RECEIVED] }
+        createdAt: { type: string, format: date-time }
+    CreatePurchaseOrderCommand:
+      type: object
+      required: [stationId, supplierName, grade, orderedLitres, unitCostFcfa]
+      properties:
+        stationId: { type: string }
+        supplierName: { type: string }
+        grade: { type: string, enum: [SUPER, GASOIL, KEROSENE, LPG_BULK, HEAVY_FUEL] }
+        orderedLitres: { type: number }
+        unitCostFcfa: { type: integer, format: int64 }
+    ReceiveDeliveryCommand:
+      type: object
+      required: [tankId, supplierName, bolLitres, actualReceivedLitres, unitCostFcfa]
+      properties:
+        tankId: { type: string }
+        purchaseOrderId: { type: string }
+        supplierName: { type: string }
+        bolLitres: { type: number }
+        actualReceivedLitres: { type: number }
+        unitCostFcfa: { type: integer, format: int64 }
+    RecordDipstickCommand:
+      type: object
+      required: [tankId, measuredLitres]
+      properties:
+        tankId: { type: string }
+        measuredLitres: { type: number }
+    TankDeliveryDto:
+      type: object
+      properties:
+        id: { type: string }
+        tankId: { type: string }
+        supplierName: { type: string }
+        bolLitres: { type: number }
+        actualReceivedLitres: { type: number }
+        unitCostFcfa: { type: integer, format: int64 }
+        receivedAt: { type: string, format: date-time }
+    DipstickReadingDto:
+      type: object
+      properties:
+        id: { type: string }
+        tankId: { type: string }
+        bookLitres: { type: number }
+        measuredLitres: { type: number }
+        varianceLitres: { type: number }
+        recordedAt: { type: string, format: date-time }
+    EmployeeDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        fullName: { type: string }
+        role: { type: string, enum: [OWNER, MANAGER, ATTENDANT, ACCOUNTANT] }
+        phone: { type: string }
+        shiftWindow: { type: string }
+        clockedIn: { type: boolean }
+        baseSalaryFcfa: { type: integer, format: int64 }
+        cumulativeVarianceFcfa: { type: integer, format: int64 }
+    CreateEmployeeCommand:
+      type: object
+      required: [stationId, fullName, role, phone, baseSalaryFcfa]
+      properties:
+        stationId: { type: string }
+        fullName: { type: string }
+        role: { type: string, enum: [OWNER, MANAGER, ATTENDANT, ACCOUNTANT] }
+        phone: { type: string }
+        baseSalaryFcfa: { type: integer, format: int64 }
+    JournalEntryDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        reference: { type: string }
+        sourceEvent: { type: string }
+        description: { type: string }
+        postedAt: { type: string, format: date-time }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              accountCode: { type: string }
+              accountName: { type: string }
+              debitFcfa: { type: integer, format: int64 }
+              creditFcfa: { type: integer, format: int64 }
+    RecordExpenseCommand:
+      type: object
+      required: [stationId, category, description, amountFcfa, paymentSource]
+      properties:
+        stationId: { type: string }
+        category: { type: string, enum: [UTILITIES, MAINTENANCE, GENERATOR_FUEL, SECURITY, SUPPLIES] }
+        description: { type: string }
+        amountFcfa: { type: integer, format: int64 }
+        paymentSource: { type: string, enum: [CASH_SAFE, BANK] }
+    ExpenseDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        category: { type: string }
+        description: { type: string }
+        amountFcfa: { type: integer, format: int64 }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+    RecordDepositCommand:
+      type: object
+      required: [stationId, sourceAccount, bankName, slipReference, amountFcfa]
+      properties:
+        stationId: { type: string }
+        sourceAccount: { type: string, enum: [CASH_ON_HAND, MOBILE_MONEY_CLEARING] }
+        bankName: { type: string }
+        slipReference: { type: string }
+        amountFcfa: { type: integer, format: int64 }
+    TreasuryDepositDto:
+      type: object
+      properties:
+        id: { type: string }
+        stationId: { type: string }
+        sourceAccount: { type: string }
+        bankName: { type: string }
+        slipReference: { type: string }
+        amountFcfa: { type: integer, format: int64 }
+        depositedAt: { type: string, format: date-time }
+    FinancialReportBundleDto:
+      type: object
+      properties:
+        currency: { type: string }
+        totalRevenueFcfa: { type: integer, format: int64 }
+        cogsFcfa: { type: integer, format: int64 }
+        grossProfitFcfa: { type: integer, format: int64 }
+        operatingExpensesFcfa: { type: integer, format: int64 }
+        cashVarianceFcfa: { type: integer, format: int64 }
+        netIncomeFcfa: { type: integer, format: int64 }
+        vatPayableFcfa: { type: integer, format: int64 }
+        trialBalanceBalanced: { type: boolean }
+        trialBalance:
+          type: array
+          items:
+            type: object
+            properties:
+              accountCode: { type: string }
+              accountName: { type: string }
+              accountType: { type: string }
+              debitTotalFcfa: { type: integer, format: int64 }
+              creditTotalFcfa: { type: integer, format: int64 }
+              netBalanceFcfa: { type: integer, format: int64 }
+    DomainEventDto:
+      type: object
+      properties:
+        eventId: { type: string }
+        eventType: { type: string }
+        aggregateType: { type: string }
+        aggregateId: { type: string }
+        summary: { type: string }
+        occurredAt: { type: string, format: date-time }
+    ApiKeyDto:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+        maskedKey: { type: string }
+        scopes:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+    CreateApiKeyCommand:
+      type: object
+      required: [label, scopes]
+      properties:
+        label: { type: string }
+        scopes:
+          type: array
+          items: { type: string }
+    WebhookDto:
+      type: object
+      properties:
+        id: { type: string }
+        targetUrl: { type: string }
+        subscribedEvents:
+          type: array
+          items: { type: string }
+        active: { type: boolean }
+    CreateWebhookCommand:
+      type: object
+      required: [targetUrl, subscribedEvents]
+      properties:
+        targetUrl: { type: string, format: uri }
+        subscribedEvents:
+          type: array
+          items: { type: string }
+    SubscriptionPlanDto:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        audience: { type: string }
+        monthlyPriceFcfa: { type: integer, format: int64 }
+        pumpLimit: { type: string }
+        apiQuotaPerMonth: { type: string }
+        features:
+          type: array
+          items: { type: string }
+    DemoLeadCommand:
+      type: object
+      required: [fullName, stationName, email, phone, pumpCount]
+      properties:
+        fullName: { type: string }
+        stationName: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        pumpCount: { type: integer }
+        selectedPlan: { type: string }

@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: opesfuel-platform
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/opesfuel}
+    username: ${SPRING_DATASOURCE_USERNAME:opesfuel_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:dev_only_password}
+    hikari:
+      maximum-pool-size: 16
+      minimum-idle: 4
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AUTH0_ISSUER_URI:https://opesfuel.auth0.com/}
+          audiences: ${AUTH0_AUDIENCE:https://api.opesfuel.com/v1}
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: true
+
+springdoc:
+  api-docs:
+    path: /api/v1/openapi.json
+  swagger-ui:
+    path: /api/v1/docs
+
+opesfuel:
+  currency: FCFA
+  starting-monthly-fee-fcfa: 25000

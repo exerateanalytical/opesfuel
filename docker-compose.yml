@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: opesfuel
+      POSTGRES_USER: opesfuel_app
+      POSTGRES_PASSWORD: dev_only_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - opesfuel_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opesfuel_app -d opesfuel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  opesfuel-backend:
+    image: maven:3.9-eclipse-temurin-25
+    working_dir: /workspace/backend
+    volumes:
+      - .:/workspace
+    command: mvn spring-boot:run
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/opesfuel
+      SPRING_DATASOURCE_USERNAME: opesfuel_app
+      SPRING_DATASOURCE_PASSWORD: dev_only_password
+      AUTH0_ISSUER_URI: ${AUTH0_ISSUER_URI:-https://opesfuel.auth0.com/}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  opesfuel_pgdata:

@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "OpesFuel",
+    "slug": "opesfuel",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "opesfuel",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.opesware.opesfuel"
+    },
+    "android": {
+      "package": "com.opesware.opesfuel"
+    }
+  }
+}
