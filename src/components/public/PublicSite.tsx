@@ -28,6 +28,7 @@ import heroImgUrl from '../../assets/images/opesfuel_hero_forecourt_black_179529
 import mobileImgUrl from '../../assets/images/opesfuel_mobile_companion_black_1795293395662.jpg';
 import depotImgUrl from '../../assets/images/opesfuel_depot_telemetry_1795292393601.jpg';
 import { LicensingView } from './LicensingView';
+import { PublicPagesExtra } from './PublicPagesExtra';
 import { MobileAppShowcase } from '../mobile/MobileAppShowcase';
 
 interface PublicSiteProps {
@@ -187,6 +188,24 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
       setLeadSubmitting(false);
     }
   };
+
+  if (
+    page === 'solutions' ||
+    page === 'integrations' ||
+    page === 'security' ||
+    page === 'customers' ||
+    page === 'about' ||
+    page === 'resources' ||
+    page === 'status'
+  ) {
+    return (
+      <PublicPagesExtra
+        page={page}
+        onNavigate={onNavigate}
+        onOpenConsole={onOpenConsole}
+      />
+    );
+  }
 
   if (page === 'platform') {
     const modules = [
@@ -703,35 +722,77 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   if (page === 'legal') {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
-        <h1 className="font-display text-3xl font-bold text-slate-900">Terms of Service, SLA &amp; Data Privacy</h1>
-        <div className="bg-white border border-slate-200 rounded-xl p-8 space-y-6 text-sm text-slate-700 leading-relaxed">
+        <div className="space-y-3">
+          <div className="text-sm font-semibold text-amber-700">Legal, Compliance &amp; Data Governance</div>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-slate-900">
+            Terms of Service, Privacy Policy, DPA &amp; 99.9% SLA
+          </h1>
+          <p className="text-sm text-slate-500">
+            Effective Date: January 1, 2026 · Operated by Opesware (OpesFuel Platform) · Contact:{' '}
+            <span className="font-mono text-slate-700">info@opesware.com</span>
+          </p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 space-y-8 text-sm text-slate-700 leading-relaxed">
           <section className="space-y-2">
-            <h2 className="font-display text-lg font-bold text-slate-900">1. Tenant Financial Ledger Integrity</h2>
+            <h2 className="font-display text-lg font-bold text-slate-900">1. Terms of Service &amp; Tenant Financial Ledger Integrity</h2>
             <p>
-              All station sales, tank deliveries, and double-entry accounting journals recorded in OpesFuel
-              are stored in strictly isolated tenant partitions in PostgreSQL 17 using integer FCFA precision,
-              immutable reversing entries, fiscal period locks, and auditable outbox logs.
+              All petrol station shift sales, tanker deliveries, dipstick/ATG readings, payroll runs, and double-entry
+              SYSCOHADA accounting journals recorded in OpesFuel are stored in strictly isolated tenant partitions in
+              PostgreSQL 17 using integer FCFA precision, immutable void reversals, fiscal period locks, and auditable
+              outbox logs. Customers retain 100% ownership of their operational and accounting records at all times.
             </p>
           </section>
+
           <section className="space-y-2">
-            <h2 className="font-display text-lg font-bold text-slate-900">2. Auth0 Identity &amp; Role-Based Access Control</h2>
+            <h2 className="font-display text-lg font-bold text-slate-900">2. Privacy Policy &amp; Personal Data Protection</h2>
             <p>
-              Station owners retain complete sovereignty over employee roles (
+              OpesFuel processes only the employee names, work email addresses, telephone numbers, attendance logs,
+              and corporate fleet contact records explicitly entered by authorized station administrators. We never
+              sell, rent, or monetize tenant operational or financial data. All data in transit is protected by TLS 1.3
+              and sensitive webhook secrets are encrypted at rest with AES-256-GCM.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="font-display text-lg font-bold text-slate-900">3. Auth0 Identity &amp; Role-Based Access Control (DPA)</h2>
+            <p>
+              Station owners act as Data Controllers and retain complete sovereignty over employee roles (
               <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">OWNER</code>,{' '}
               <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">MANAGER</code>,{' '}
               <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">ATTENDANT</code>,{' '}
               <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">ACCOUNTANT</code>),
-              scoped API keys, and AES-256-GCM encrypted webhook secrets. All API endpoints require verified
-              Auth0 RS256 OIDC PKCE tokens or scoped tenant API keys.
+              7-day signed invitations, SHA-256 scoped API keys, and HMAC-SHA256 webhooks. All production endpoints
+              require verified Auth0 RS256 OIDC PKCE tokens or scoped tenant API keys.
             </p>
           </section>
+
           <section className="space-y-2">
-            <h2 className="font-display text-lg font-bold text-slate-900">3. Subscription Billing &amp; Data Portability</h2>
+            <h2 className="font-display text-lg font-bold text-slate-900">4. Service Level Agreement (99.9% Uptime) &amp; Data Portability</h2>
             <p>
-              Cloud SaaS subscriptions start at 25 000 FCFA per station per month with 99.9% uptime SLA and
-              full export portability in standard CSV, Excel, PDF, and SYSCOHADA ledger formats at any time.
+              Cloud SaaS subscriptions start at 25 000 FCFA per station per month and include a 99.9% monthly API
+              availability SLA, automated daily encrypted PostgreSQL backups, and full self-service export portability
+              in CSV, PDF, and SYSCOHADA ledger formats. Sovereign self-hosted VPS licensees govern their own
+              in-country backup and retention schedules.
             </p>
           </section>
+
+          <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate('security')}
+              className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              View Security Trust Center
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('status')}
+              className="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+            >
+              Inspect Live 99.9% Status
+            </button>
+          </div>
         </div>
       </div>
     );

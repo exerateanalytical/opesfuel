@@ -38,10 +38,17 @@ import { ConsoleSection, PublicPage, UserRole } from './domain/types';
 const PUBLIC_PAGES: PublicPage[] = [
   'home',
   'platform',
+  'solutions',
+  'integrations',
   'pricing',
   'licensing',
   'mobile',
   'api',
+  'security',
+  'customers',
+  'about',
+  'resources',
+  'status',
   'contact',
   'legal',
 ];

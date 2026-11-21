@@ -5,10 +5,17 @@ export type FuelGrade = 'SUPER' | 'GASOIL' | 'KEROSENE' | 'LPG_BULK' | 'HEAVY_FU
 export type PublicPage =
   | 'home'
   | 'platform'
+  | 'solutions'
+  | 'integrations'
   | 'pricing'
   | 'licensing'
   | 'mobile'
   | 'api'
+  | 'security'
+  | 'customers'
+  | 'about'
+  | 'resources'
+  | 'status'
   | 'contact'
   | 'legal';
 
