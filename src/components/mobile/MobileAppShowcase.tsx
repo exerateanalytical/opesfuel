@@ -8,7 +8,9 @@ import {
   Flame,
   Fuel,
   Gauge,
+  Menu,
   RefreshCw,
+  Shield,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -16,6 +18,7 @@ import {
   Wifi,
   WifiOff,
   Wrench,
+  X,
 } from 'lucide-react';
 import { INSTITUTIONAL_FUEL_CATALOG } from '../../api/opesfuelClient';
 import { formatFcfa, formatLitres, gradeLabel } from '../../domain/formatters';
@@ -246,8 +249,9 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
   );
 
   // Mobile state
-  const [mobileRole, setMobileRole] = useState<'OWNER' | 'ATTENDANT'>('OWNER');
+  const [mobileRole, setMobileRole] = useState<'OWNER' | 'MANAGER' | 'ATTENDANT' | 'ACCOUNTANT'>('OWNER');
   const [activeTab, setActiveTab] = useState<MobileShowcaseTab>('shifts');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [isOfflineSimulated, setIsOfflineSimulated] = useState(false);
   const [isCheckingSync, setIsCheckingSync] = useState(false);
   const [latencyMs, setLatencyMs] = useState(14);
@@ -638,7 +642,7 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* LEFT: Interactive Android & iPhone Device Viewport */}
         <div className="lg:col-span-5 flex flex-col items-center">
-          <div className="w-full max-w-[390px] rounded-[2.25rem] border-[6px] border-slate-900 bg-[#F8FAFC] shadow-xl overflow-hidden flex flex-col">
+          <div className="relative w-full max-w-[390px] rounded-[2.25rem] border-[6px] border-slate-900 bg-[#F8FAFC] shadow-xl overflow-hidden flex flex-col">
             {/* Hardware Status Strip */}
             <div className="bg-slate-900 text-white px-5 py-2 flex items-center justify-between text-[11px] font-mono">
               <span>09:41</span>
@@ -646,46 +650,177 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
               <span>5G · 94%</span>
             </div>
 
-            {/* EXACT Mobile Header + Real-Time Sync Status Indicator */}
-            <div className="bg-white border-b border-slate-200">
-              <div className="px-3.5 pt-3 pb-2.5 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center shrink-0">
-                    <Flame className="w-4 h-4 text-amber-500" />
+            {/* Slide-Over Mobile Hamburger Navigation Drawer */}
+            {drawerOpen && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Mobile app navigation drawer"
+                className="absolute inset-0 top-[30px] z-30 flex"
+              >
+                <div className="w-[82%] max-w-[300px] h-full bg-slate-900 text-slate-100 flex flex-col shadow-2xl">
+                  <div className="px-4 py-3.5 border-b border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-amber-600/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+                        <Flame className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-extrabold text-white truncate">
+                          Opes<span className="text-amber-400">Fuel</span> Mobile
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate">
+                          {effectiveStation?.name ?? 'Station Plateau'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDrawerOpen(false)}
+                      aria-label="Close mobile menu"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-[15px] font-extrabold text-slate-900 leading-tight truncate">
-                      Opes<span className="text-amber-600">Fuel</span> Mobile
+
+                  {/* Role Switcher inside Drawer */}
+                  <div className="px-4 py-3 border-b border-slate-800 space-y-1.5">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Shield className="w-3 h-3 text-amber-400" /> Active Role
                     </div>
-                    <div className="text-[10px] text-slate-500 truncate">
-                      Android &amp; iPhone · {effectiveStation?.name ?? 'Plateau'} · {mobileRole}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(['OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as const).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setMobileRole(r)}
+                          className={`px-2 py-1.5 rounded text-[10px] font-mono font-bold transition-colors ${
+                            mobileRole === r
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
                     </div>
+                  </div>
+
+                  {/* Full Vertical Navigation List */}
+                  <nav aria-label="Mobile drawer links" className="flex-1 overflow-y-auto p-3 space-y-1">
+                    {(
+                      [
+                        { id: 'shifts', label: 'Shifts & Pumps', icon: Fuel, badge: openShift ? '1 OPEN' : null },
+                        { id: 'inventory', label: 'Underground Tanks', icon: Gauge, badge: `${localTanks.length}` },
+                        { id: 'fleet', label: 'Fleet Credit & POS', icon: CreditCard, badge: null },
+                        { id: 'reports', label: 'Financial Reports', icon: TrendingUp, badge: 'FCFA' },
+                        { id: 'ai', label: 'AI Copilot', icon: Sparkles, badge: effectiveAiActive ? 'ON' : 'PRO' },
+                        { id: 'setup', label: 'Station Setup', icon: Wrench, badge: `${onboardingCompleted}/5` },
+                      ] as const
+                    ).map((item) => {
+                      const Icon = item.icon;
+                      const active = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveTab(item.id);
+                            setDrawerOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+                            active
+                              ? 'bg-amber-600 text-white'
+                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <Icon className="w-4 h-4 shrink-0" />
+                            <span>{item.label}</span>
+                          </span>
+                          {item.badge && (
+                            <span
+                              className={`font-mono text-[10px] px-1.5 py-0.5 rounded ${
+                                active ? 'bg-white/20 text-white' : 'bg-slate-800 text-amber-300'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </nav>
+
+                  {/* Drawer Footer: Offline Queue & Connection */}
+                  <div className="p-3 border-t border-slate-800 space-y-2 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOfflineSimulated((v) => !v);
+                        setDrawerOpen(false);
+                      }}
+                      className="w-full py-2 px-3 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 font-semibold flex items-center justify-between"
+                    >
+                      <span>{isOfflineSimulated ? 'Switch to Online Mode' : 'Test Offline Queue Mode'}</span>
+                      {isOfflineSimulated ? (
+                        <WifiOff className="w-3.5 h-3.5 text-red-400" />
+                      ) : (
+                        <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div
+                  className="flex-1 bg-slate-950/55 backdrop-blur-[1px]"
+                  onClick={() => setDrawerOpen(false)}
+                />
+              </div>
+            )}
+
+            {/* Clean Native Top App Bar + Compact Sync Status Bar */}
+            <div className="bg-white border-b border-slate-200">
+              <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  aria-label="Open mobile navigation menu"
+                  className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 flex items-center justify-center shrink-0"
+                >
+                  <Menu className="w-4 h-4" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-extrabold text-slate-900 leading-tight truncate">
+                    {activeTab === 'shifts'
+                      ? 'Forecourt Shifts'
+                      : activeTab === 'inventory'
+                      ? 'Underground Tanks'
+                      : activeTab === 'fleet'
+                      ? 'Fleet & Shop POS'
+                      : activeTab === 'reports'
+                      ? 'Financial Reports'
+                      : activeTab === 'ai'
+                      ? 'AI Copilot'
+                      : 'Station Setup'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 truncate">
+                    {effectiveStation?.name ?? 'Station Plateau'} · {mobileRole}
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setMobileRole(mobileRole === 'OWNER' ? 'ATTENDANT' : 'OWNER')}
-                  className="bg-slate-900 text-white px-2.5 py-1.5 rounded-md text-[10px] font-semibold shrink-0 whitespace-nowrap"
+                  onClick={offlineQueue.length > 0 && !isOfflineSimulated ? handleFlushQueue : handlePingSync}
+                  title="Tap to sync with Java Spring Boot"
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-mono font-bold shrink-0 border ${
+                    isCheckingSync
+                      ? 'bg-amber-50 border-amber-300 text-amber-900'
+                      : isLiveConnected
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-red-50 border-red-200 text-red-800'
+                  }`}
                 >
-                  {mobileRole === 'OWNER' ? 'Attendant View' : 'Owner View'}
-                </button>
-              </div>
-
-              {/* Real-Time Sync Status Indicator Bar */}
-              <button
-                type="button"
-                onClick={offlineQueue.length > 0 && !isOfflineSimulated ? handleFlushQueue : handlePingSync}
-                className={`w-full px-3.5 py-1.5 border-t border-slate-100 flex items-center justify-between gap-2 text-left transition-colors ${
-                  isCheckingSync
-                    ? 'bg-amber-50 text-amber-900'
-                    : isLiveConnected
-                    ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100/70'
-                    : 'bg-red-50 text-red-900 hover:bg-red-100/70'
-                }`}
-              >
-                <span className="flex items-center gap-1.5 min-w-0 text-[11px] font-bold">
                   <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${
+                    className={`w-1.5 h-1.5 rounded-full ${
                       isCheckingSync
                         ? 'bg-amber-500 animate-pulse'
                         : isLiveConnected
@@ -693,54 +828,20 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
                         : 'bg-red-600 animate-pulse'
                     }`}
                   />
-                  {isLiveConnected ? (
-                    <Wifi className="w-3.5 h-3.5 shrink-0 text-emerald-700" />
-                  ) : (
-                    <WifiOff className="w-3.5 h-3.5 shrink-0 text-red-700" />
-                  )}
-                  <span className="truncate font-mono">
-                    {isCheckingSync
-                      ? 'Checking Java Spring Boot...'
-                      : isLiveConnected
-                      ? `Live Connected · Spring Boot (${latencyMs}ms)`
-                      : isOfflineSimulated
-                      ? `Offline-Queued Mode · ${offlineQueue.length} Queued`
-                      : `Connected · ${offlineQueue.length} Queued (Tap to Sync)`}
-                  </span>
-                </span>
-                <RefreshCw className={`w-3 h-3 shrink-0 ${isCheckingSync ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-
-            {/* Horizontal 6-Tab Strip (Matches mobile/App.tsx) */}
-            <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-1.5 overflow-x-auto">
-              {(
-                [
-                  { id: 'shifts', label: 'Shifts' },
-                  { id: 'inventory', label: 'Tanks' },
-                  { id: 'fleet', label: 'Fleet/POS' },
-                  { id: 'reports', label: 'Reports' },
-                  { id: 'ai', label: 'AI Copilot' },
-                  { id: 'setup', label: `Setup (${onboardingCompleted}/5)` },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 py-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap shrink-0 min-h-[34px] transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {tab.label}
+                  {isCheckingSync
+                    ? 'Sync…'
+                    : isLiveConnected
+                    ? `${latencyMs}ms`
+                    : offlineQueue.length > 0
+                    ? `${offlineQueue.length} Q`
+                    : 'Offline'}
+                  <RefreshCw className={`w-2.5 h-2.5 ${isCheckingSync ? 'animate-spin' : ''}`} />
                 </button>
-              ))}
+              </div>
             </div>
 
             {/* Scrollable Mobile Viewport Body */}
-            <div className="p-3.5 space-y-3 h-[540px] overflow-y-auto">
+            <div className="p-3.5 space-y-3 h-[520px] overflow-y-auto">
               {mobileBanner && (
                 <div className="p-2.5 rounded-lg bg-amber-100 border border-amber-400 text-amber-950 text-[11px] font-semibold flex items-start justify-between gap-2">
                   <span>{mobileBanner}</span>
@@ -1262,9 +1363,52 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
               )}
             </div>
 
-            {/* Bottom Hardware Home Bar Indicator */}
-            <div className="bg-white border-t border-slate-200 py-2 flex justify-center">
-              <div className="w-28 h-1 rounded-full bg-slate-300" />
+            {/* Native 5-Tab Mobile Bottom Navigation Bar */}
+            <div className="bg-white border-t border-slate-200">
+              <div className="grid grid-cols-5 px-1 pt-1.5 pb-1">
+                {(
+                  [
+                    { id: 'shifts', label: 'Shifts', icon: Fuel },
+                    { id: 'inventory', label: 'Tanks', icon: Gauge },
+                    { id: 'fleet', label: 'POS', icon: CreditCard },
+                    { id: 'reports', label: 'Reports', icon: TrendingUp },
+                  ] as const
+                ).map((item) => {
+                  const Icon = item.icon;
+                  const active = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setActiveTab(item.id)}
+                      className={`flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                        active ? 'text-amber-600 bg-amber-50/70' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  className={`relative flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                    activeTab === 'ai' || activeTab === 'setup'
+                      ? 'text-amber-600 bg-amber-50/70'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Menu className="w-4 h-4" />
+                  <span>More</span>
+                  {offlineQueue.length > 0 && (
+                    <span className="absolute top-1 right-2.5 w-2 h-2 rounded-full bg-red-600" />
+                  )}
+                </button>
+              </div>
+              <div className="pb-1.5 pt-0.5 flex justify-center">
+                <div className="w-24 h-1 rounded-full bg-slate-300" />
+              </div>
             </div>
           </div>
         </div>

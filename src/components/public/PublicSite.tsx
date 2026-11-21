@@ -24,6 +24,9 @@ import {
   ShopItem,
   Station,
 } from '../../domain/types';
+import heroImgUrl from '../../assets/images/opesfuel_hero_forecourt_black_1795293395675.jpg';
+import mobileImgUrl from '../../assets/images/opesfuel_mobile_companion_black_1795293395662.jpg';
+import depotImgUrl from '../../assets/images/opesfuel_depot_telemetry_1795292393601.jpg';
 import { LicensingView } from './LicensingView';
 import { MobileAppShowcase } from '../mobile/MobileAppShowcase';
 
@@ -51,9 +54,9 @@ interface PublicSiteProps {
   }) => void;
 }
 
-const HERO_IMG = '/src/assets/images/opesfuel_hero_forecourt_black_1795293395675.jpg';
-const MOBILE_IMG = '/src/assets/images/opesfuel_mobile_companion_black_1795293395662.jpg';
-const DEPOT_IMG = '/src/assets/images/opesfuel_depot_telemetry_1795292393601.jpg';
+const HERO_IMG = heroImgUrl;
+const MOBILE_IMG = mobileImgUrl;
+const DEPOT_IMG = depotImgUrl;
 
 const ResilientImage: React.FC<{
   src: string;
@@ -465,7 +468,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   }
 
   if (page === 'licensing') {
-    return <LicensingView onOpenConsole={onOpenConsole} />;
+    return <LicensingView onOpenConsole={onOpenConsole} onLeadSubmitted={onLeadSubmitted} />;
   }
 
   if (page === 'mobile') {

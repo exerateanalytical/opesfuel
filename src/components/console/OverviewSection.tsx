@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Compass, Droplets, Gauge, Smartphone, Sparkles } from 'lucide-react';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
@@ -70,6 +70,13 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const [priceValue, setPriceValue] = useState(String(currentStation?.prices.SUPER ?? 840));
   const [showNewStation, setShowNewStation] = useState(false);
   const [stationForm, setStationForm] = useState({ code: '', name: '', city: '' });
+
+  useEffect(() => {
+    const livePrice = currentStation?.prices[priceGrade];
+    if (livePrice !== undefined) {
+      setPriceValue(String(livePrice));
+    }
+  }, [currentStation?.id, currentStation?.prices, priceGrade]);
 
   const filteredTanks = tanks.filter((t) => activeStationId === 'ALL' || t.stationId === activeStationId);
   const filteredShifts = shifts.filter((s) => activeStationId === 'ALL' || s.stationId === activeStationId);

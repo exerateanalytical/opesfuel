@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,12 +13,19 @@ import { StatusBar } from 'expo-status-bar';
 import {
   CheckCircle2,
   Circle,
+  CreditCard,
   Flame,
+  Fuel,
+  Gauge,
+  Menu,
   RefreshCw,
+  Shield,
   Sparkles,
+  TrendingUp,
   Wifi,
   WifiOff,
   Wrench,
+  X,
 } from 'lucide-react-native';
 import {
   DEFAULT_INSTITUTIONAL_FUELS,
@@ -88,6 +96,7 @@ const INITIAL_TANKS: MobileTankDto[] = [
 export default function App() {
   const [role, setRole] = useState<MobileRole>('OWNER');
   const [activeTab, setActiveTab] = useState<MobileTab>('shifts');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [tanks, setTanks] = useState<MobileTankDto[]>(INITIAL_TANKS);
   const [closingMeter, setClosingMeter] = useState('485420');
   const [cashFcfa, setCashFcfa] = useState('840000');
@@ -422,47 +431,160 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      {/* Native Slide-Over Hamburger Navigation Drawer */}
+      <Modal
+        visible={drawerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDrawerOpen(false)}
+      >
+        <View style={styles.drawerOverlay}>
+          <View style={styles.drawerPanel}>
+            <View style={styles.drawerHeader}>
+              <View style={styles.brandRow}>
+                <View style={styles.logoMark}>
+                  <Flame size={18} color="#F59E0B" />
+                </View>
+                <View>
+                  <Text style={styles.drawerBrand}>
+                    Opes<Text style={styles.brandAccent}>Fuel</Text> Mobile
+                  </Text>
+                  <Text style={styles.drawerSubtitle}>Station Plateau · FCFA</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setDrawerOpen(false)}
+                style={styles.drawerCloseBtn}
+                accessibilityLabel="Close navigation menu"
+              >
+                <X size={20} color="#CBD5E1" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.drawerRoleBox}>
+              <View style={styles.drawerRoleLabelRow}>
+                <Shield size={13} color="#F59E0B" />
+                <Text style={styles.drawerRoleLabel}>ACTIVE ROLE</Text>
+              </View>
+              <View style={styles.drawerRoleGrid}>
+                {(['OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as MobileRole[]).map((r) => (
+                  <TouchableOpacity
+                    key={r}
+                    style={[styles.drawerRoleChip, role === r && styles.drawerRoleChipActive]}
+                    onPress={() => setRole(r)}
+                  >
+                    <Text style={[styles.drawerRoleChipText, role === r && styles.drawerRoleChipTextActive]}>
+                      {r}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <ScrollView style={styles.drawerNavList}>
+              {([
+                { id: 'shifts' as MobileTab, label: 'Forecourt Shifts & Pumps', icon: Fuel },
+                { id: 'inventory' as MobileTab, label: 'Underground Tanks & Dipsticks', icon: Gauge },
+                { id: 'fleet' as MobileTab, label: 'Fleet Credit & Shop POS', icon: CreditCard },
+                { id: 'reports' as MobileTab, label: 'Financial Reports (FCFA)', icon: TrendingUp },
+                { id: 'ai' as MobileTab, label: 'AI Operations Copilot', icon: Sparkles },
+                { id: 'setup' as MobileTab, label: `Station Setup (${completedStepsCount}/5)`, icon: Wrench },
+              ]).map((item) => {
+                const Icon = item.icon;
+                const active = activeTab === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.drawerNavItem, active && styles.drawerNavItemActive]}
+                    onPress={() => {
+                      setActiveTab(item.id);
+                      setDrawerOpen(false);
+                    }}
+                  >
+                    <Icon size={18} color={active ? '#FFFFFF' : '#CBD5E1'} />
+                    <Text style={[styles.drawerNavText, active && styles.drawerNavTextActive]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.drawerFooter}>
+              {isMobileAuth0Configured && (
+                <TouchableOpacity
+                  style={styles.drawerAuthBtn}
+                  onPress={() => {
+                    setDrawerOpen(false);
+                    void handleMobileAuth0Toggle();
+                  }}
+                >
+                  <Text style={styles.drawerAuthBtnText}>
+                    {authToken ? 'Sign Out of Auth0 SSO' : 'Sign In with Auth0 SSO (PKCE)'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.drawerSyncBtn}
+                onPress={() => {
+                  setDrawerOpen(false);
+                  void (queue.length > 0 ? handleSyncQueue() : refreshSyncHealth());
+                }}
+              >
+                <RefreshCw size={14} color="#F59E0B" />
+                <Text style={styles.drawerSyncBtnText}>
+                  {queue.length > 0 ? `Flush Offline Queue (${queue.length})` : 'Check Spring Boot Connection'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.drawerBackdrop}
+            activeOpacity={1}
+            onPress={() => setDrawerOpen(false)}
+          />
+        </View>
+      </Modal>
+
+      {/* Clean Native Top App Bar */}
       <View style={styles.headerWrapper}>
         <View style={styles.header}>
           <View style={styles.brandRow}>
-            <View style={styles.logoMark}>
-              <Flame size={18} color="#F59E0B" />
-            </View>
+            <TouchableOpacity
+              style={styles.hamburgerBtn}
+              onPress={() => setDrawerOpen(true)}
+              accessibilityLabel="Open navigation menu"
+            >
+              <Menu size={20} color="#0F172A" />
+            </TouchableOpacity>
             <View>
               <Text style={styles.brand}>
-                Opes<Text style={styles.brandAccent}>Fuel</Text> Mobile
+                {activeTab === 'shifts'
+                  ? 'Forecourt Shifts'
+                  : activeTab === 'inventory'
+                  ? 'Underground Tanks'
+                  : activeTab === 'fleet'
+                  ? 'Fleet & Shop POS'
+                  : activeTab === 'reports'
+                  ? 'Financial Reports'
+                  : activeTab === 'ai'
+                  ? 'AI Copilot'
+                  : 'Station Setup'}
               </Text>
-              <Text style={styles.subtitle}>Android &amp; iPhone · Station Plateau · FCFA · {role}</Text>
+              <Text style={styles.subtitle}>OpesFuel · Station Plateau · {role}</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {isMobileAuth0Configured && (
-              <TouchableOpacity style={styles.roleButton} onPress={handleMobileAuth0Toggle}>
-                <Text style={styles.roleButtonText}>{authToken ? 'Auth0 Out' : 'Auth0 SSO'}</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.roleButton}
-              onPress={() => setRole(role === 'OWNER' ? 'ATTENDANT' : 'OWNER')}
-            >
-              <Text style={styles.roleButtonText}>{role === 'OWNER' ? 'Attendant View' : 'Owner View'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Real-Time Java Spring Boot Sync Status Indicator */}
-        <TouchableOpacity
-          style={[
-            styles.syncBar,
-            isLiveConnected
-              ? styles.syncBarLive
-              : syncHealth.state === 'CHECKING'
-              ? styles.syncBarChecking
-              : styles.syncBarOffline,
-          ]}
-          onPress={queue.length > 0 ? handleSyncQueue : refreshSyncHealth}
-        >
-          <View style={styles.syncLeft}>
+          <TouchableOpacity
+            style={[
+              styles.syncPill,
+              isLiveConnected
+                ? styles.syncBarLive
+                : syncHealth.state === 'CHECKING'
+                ? styles.syncBarChecking
+                : styles.syncBarOffline,
+            ]}
+            onPress={queue.length > 0 ? handleSyncQueue : refreshSyncHealth}
+          >
             <View
               style={[
                 styles.syncDot,
@@ -474,13 +596,13 @@ export default function App() {
               ]}
             />
             {isLiveConnected ? (
-              <Wifi size={14} color="#15803D" />
+              <Wifi size={12} color="#15803D" />
             ) : (
-              <WifiOff size={14} color={syncHealth.connected ? '#B45309' : '#B91C1C'} />
+              <WifiOff size={12} color={syncHealth.connected ? '#B45309' : '#B91C1C'} />
             )}
             <Text
               style={[
-                styles.syncStatusText,
+                styles.syncPillText,
                 isLiveConnected
                   ? styles.syncTextLive
                   : syncHealth.state === 'CHECKING'
@@ -489,38 +611,16 @@ export default function App() {
               ]}
             >
               {syncHealth.state === 'CHECKING'
-                ? 'Checking Java Spring Boot Backend...'
+                ? 'Sync…'
                 : isLiveConnected
-                ? `Live Server Connected · Java Spring Boot (${syncHealth.latencyMs ?? 12}ms)`
-                : syncHealth.connected
-                ? `Connected · ${queue.length} Command(s) Queued (Tap to Sync)`
-                : `Offline-Queued Mode · ${queue.length} Queued · Spring Boot Unreachable`}
-            </Text>
-          </View>
-          <RefreshCw size={13} color={isLiveConnected ? '#15803D' : '#991B1B'} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabBar}>
-        {([
-          { id: 'shifts', label: 'Shifts' },
-          { id: 'inventory', label: 'Tanks' },
-          { id: 'fleet', label: 'Fleet/POS' },
-          { id: 'reports', label: 'Reports' },
-          { id: 'ai', label: 'AI Copilot' },
-          { id: 'setup', label: `Setup (${completedStepsCount}/5)` },
-        ] as const).map((tab) => (
-          <TouchableOpacity
-            key={tab.id}
-            style={[styles.tab, activeTab === tab.id && styles.tabActive]}
-            onPress={() => setActiveTab(tab.id)}
-          >
-            <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
-              {tab.label}
+                ? `${syncHealth.latencyMs ?? 12}ms`
+                : queue.length > 0
+                ? `${queue.length} Q`
+                : 'Offline'}
             </Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
+      </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {banner ? (
@@ -796,15 +896,57 @@ export default function App() {
                 style={styles.dangerBtn}
                 onPress={() => {
                   setTanks([]);
-                  setBanner('Cleared mobile demo tanks. Tick fuels above to start with live station data.');
+                  setBanner('Cleared mobile station tanks. Tick fuels above to configure live station tanks.');
                 }}
               >
-                <Text style={styles.dangerBtnText}>Clear Demo Tanks</Text>
+                <Text style={styles.dangerBtnText}>Reset Tank Draft</Text>
               </TouchableOpacity>
             </View>
           </>
         )}
       </ScrollView>
+
+      {/* Fixed Native 5-Tab Bottom Navigation Bar */}
+      <View style={styles.bottomNav}>
+        {([
+          { id: 'shifts' as MobileTab, label: 'Shifts', icon: Fuel },
+          { id: 'inventory' as MobileTab, label: 'Tanks', icon: Gauge },
+          { id: 'fleet' as MobileTab, label: 'POS', icon: CreditCard },
+          { id: 'reports' as MobileTab, label: 'Reports', icon: TrendingUp },
+        ]).map((item) => {
+          const Icon = item.icon;
+          const active = activeTab === item.id;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.bottomNavItem, active && styles.bottomNavItemActive]}
+              onPress={() => setActiveTab(item.id)}
+            >
+              <Icon size={20} color={active ? '#D97706' : '#64748B'} />
+              <Text style={[styles.bottomNavLabel, active && styles.bottomNavLabelActive]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+        <TouchableOpacity
+          style={[
+            styles.bottomNavItem,
+            (activeTab === 'ai' || activeTab === 'setup') && styles.bottomNavItemActive,
+          ]}
+          onPress={() => setDrawerOpen(true)}
+        >
+          <Menu size={20} color={activeTab === 'ai' || activeTab === 'setup' ? '#D97706' : '#64748B'} />
+          <Text
+            style={[
+              styles.bottomNavLabel,
+              (activeTab === 'ai' || activeTab === 'setup') && styles.bottomNavLabelActive,
+            ]}
+          >
+            More
+          </Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -821,27 +963,36 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingVertical: 10,
   },
-  syncBar: {
+  hamburgerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
+  syncPillText: { fontSize: 11, fontWeight: '700' },
   syncBarLive: { backgroundColor: '#ECFDF5' },
   syncBarOffline: { backgroundColor: '#FEF2F2' },
   syncBarChecking: { backgroundColor: '#FFFBEB' },
-  syncLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
-  syncDot: { width: 8, height: 8, borderRadius: 4 },
+  syncDot: { width: 7, height: 7, borderRadius: 4 },
   syncDotLive: { backgroundColor: '#16A34A' },
   syncDotOffline: { backgroundColor: '#DC2626' },
   syncDotChecking: { backgroundColor: '#D97706' },
-  syncStatusText: { fontSize: 11, fontWeight: '700', flex: 1 },
   syncTextLive: { color: '#166534' },
   syncTextOffline: { color: '#991B1B' },
   syncTextChecking: { color: '#92400E' },
@@ -850,21 +1001,82 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brand: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
+  brand: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
   brandAccent: { color: '#D97706' },
   subtitle: { fontSize: 11, color: '#64748B', marginTop: 1 },
-  roleButton: { backgroundColor: '#0F172A', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 6 },
-  roleButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600' },
-  tabScroll: { maxHeight: 58, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-  tabBar: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  tab: { paddingHorizontal: 14, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: '#F1F5F9' },
-  tabActive: { backgroundColor: '#D97706' },
-  tabText: { fontSize: 12, fontWeight: '600', color: '#334155' },
-  tabTextActive: { color: '#FFFFFF' },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  bottomNavItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 3,
+  },
+  bottomNavItemActive: { backgroundColor: '#FFFBEB' },
+  bottomNavLabel: { fontSize: 10, fontWeight: '600', color: '#64748B' },
+  bottomNavLabelActive: { color: '#D97706', fontWeight: '700' },
+  drawerOverlay: { flex: 1, flexDirection: 'row' },
+  drawerPanel: { width: '80%', maxWidth: 310, backgroundColor: '#0F172A', height: '100%' },
+  drawerBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.55)' },
+  drawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  drawerBrand: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  drawerSubtitle: { fontSize: 11, color: '#94A3B8', marginTop: 1 },
+  drawerCloseBtn: { padding: 6 },
+  drawerRoleBox: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#1E293B', gap: 8 },
+  drawerRoleLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  drawerRoleLabel: { fontSize: 10, fontWeight: '700', color: '#94A3B8', letterSpacing: 1 },
+  drawerRoleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  drawerRoleChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#1E293B' },
+  drawerRoleChipActive: { backgroundColor: '#D97706' },
+  drawerRoleChipText: { fontSize: 10, fontWeight: '700', color: '#CBD5E1' },
+  drawerRoleChipTextActive: { color: '#FFFFFF' },
+  drawerNavList: { flex: 1, padding: 12 },
+  drawerNavItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  drawerNavItemActive: { backgroundColor: '#D97706' },
+  drawerNavText: { fontSize: 13, fontWeight: '600', color: '#CBD5E1' },
+  drawerNavTextActive: { color: '#FFFFFF', fontWeight: '700' },
+  drawerFooter: { padding: 14, borderTopWidth: 1, borderTopColor: '#1E293B', gap: 8 },
+  drawerAuthBtn: { backgroundColor: '#D97706', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  drawerAuthBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  drawerSyncBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1E293B',
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  drawerSyncBtnText: { color: '#E2E8F0', fontSize: 12, fontWeight: '600' },
   content: { padding: 16, gap: 14 },
   banner: { padding: 12, borderRadius: 8, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B' },
   bannerText: { color: '#78350F', fontSize: 13, fontWeight: '600' },

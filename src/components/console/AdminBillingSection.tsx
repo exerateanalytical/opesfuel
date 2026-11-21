@@ -118,6 +118,13 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  if (
+                    !window.confirm(
+                      `Delete station "${activeDetailStation.name}" (${activeDetailStation.code}) and all its pumps, tanks, and shifts?`
+                    )
+                  ) {
+                    return;
+                  }
                   onDeleteStation(activeDetailStation.id);
                   setDetailStationId(null);
                 }}
@@ -508,10 +515,18 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
           <div className="flex flex-wrap gap-2.5 shrink-0">
             <button
               type="button"
-              onClick={onClearDemoData}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Reset this workspace and permanently clear all pumps, tanks, shifts, staff, and journals? This cannot be undone.'
+                  )
+                ) {
+                  onClearDemoData();
+                }
+              }}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Clear All Demo Data
+              <Trash2 className="w-3.5 h-3.5" /> Reset Workspace Data
             </button>
             <button
               type="button"

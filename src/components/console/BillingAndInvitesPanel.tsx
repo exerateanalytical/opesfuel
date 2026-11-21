@@ -63,6 +63,12 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
     void loadAll();
   }, [loadAll]);
 
+  useEffect(() => {
+    if (stations.length > 0 && !stations.some((s) => s.id === inviteStationId)) {
+      setInviteStationId(stations[0].id);
+    }
+  }, [stations, inviteStationId]);
+
   const handleGenerateInvoice = async () => {
     try {
       await engine.generateBillingInvoice(periodLabel.trim() || undefined);

@@ -52,6 +52,12 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engi
 
   const handleToggleTenant = async (tenantId: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+    if (
+      nextStatus === 'SUSPENDED' &&
+      !window.confirm(`Suspend customer tenant ${tenantId}? Their stations will be marked suspended until reactivated.`)
+    ) {
+      return;
+    }
     try {
       await engine.updatePlatformTenantStatus(tenantId, nextStatus);
       onNotify('success', `Tenant ${tenantId} status updated to ${nextStatus}.`);

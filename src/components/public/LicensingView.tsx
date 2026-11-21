@@ -1,12 +1,22 @@
 import React, { useState } from 'react';
 import { Check, Code2, Monitor, Server, ShieldCheck, Smartphone } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
+import enterpriseImgUrl from '../../assets/images/opesfuel_team_operations_black_1795293395675.jpg';
 
 interface LicensingViewProps {
   onOpenConsole: () => void;
+  onLeadSubmitted?: (lead: {
+    referenceId: string;
+    fullName: string;
+    stationName: string;
+    email: string;
+    phone: string;
+    pumpCount: number;
+    selectedPlan: string;
+  }) => void;
 }
 
-const ENTERPRISE_IMG = '/src/assets/images/opesfuel_team_operations_black_1795293395675.jpg';
+const ENTERPRISE_IMG = enterpriseImgUrl;
 
 const DELIVERABLES = [
   'Web Operations & Accounting Portal (TypeScript + React)',
@@ -16,7 +26,7 @@ const DELIVERABLES = [
   'Full Intellectual Property (IP) & White-Label Assignment',
 ];
 
-export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole }) => {
+export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole, onLeadSubmitted }) => {
   const [imgFailed, setImgFailed] = useState(false);
   const [licenseTrack, setLicenseTrack] = useState<'PERPETUAL_5M' | 'CUSTOM_IP_BUYOUT' | 'HYBRID'>('PERPETUAL_5M');
   const [selectedDeliverables, setSelectedDeliverables] = useState<string[]>([
@@ -35,7 +45,13 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole }) =
     notes: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<string | null>(null);
+
+  const scrollToProposal = (track?: 'PERPETUAL_5M' | 'CUSTOM_IP_BUYOUT' | 'HYBRID') => {
+    if (track) setLicenseTrack(track);
+    document.getElementById('license-proposal')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const toggleDeliverable = (item: string) => {
     setSelectedDeliverables((prev) =>
@@ -59,36 +75,49 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole }) =
       return;
     }
 
+    setSubmitting(true);
     let refId = `LIC-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-    if (apiBase) {
-      try {
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+    const selectedPlan =
+      licenseTrack === 'PERPETUAL_5M'
+        ? 'Perpetual Managed License (5 000 000 FCFA/year)'
+        : licenseTrack === 'CUSTOM_IP_BUYOUT'
+        ? `Custom Source Code & IP Buyout [${selectedDeliverables.join(', ')}]`
+        : 'Hybrid Perpetual + Custom IP Transition';
+    const payload = {
+      fullName: form.fullName.trim(),
+      stationName: form.organization.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      pumpCount: (Number(form.stationCount) || 1) * 6,
+      selectedPlan,
+    };
+
+    try {
+      if (apiBase) {
         const res = await fetch(`${apiBase}/api/v1/public/leads`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fullName: form.fullName.trim(),
-            stationName: form.organization.trim(),
-            email: form.email.trim(),
-            phone: form.phone.trim(),
-            pumpCount: (Number(form.stationCount) || 1) * 6,
-            selectedPlan:
-              licenseTrack === 'PERPETUAL_5M'
-                ? 'Perpetual Managed License (5 000 000 FCFA/year)'
-                : licenseTrack === 'CUSTOM_IP_BUYOUT'
-                ? `Custom Source Code & IP Buyout [${selectedDeliverables.join(', ')}]`
-                : 'Hybrid Perpetual + Custom IP Transition',
-          }),
+          body: JSON.stringify(payload),
         });
-        if (res.ok) {
-          const data = (await res.json()) as { referenceId?: string };
-          if (data.referenceId) refId = data.referenceId;
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(
+            res.status === 429
+              ? 'Too many requests from this network. Please wait a minute and try again.'
+              : `Unable to submit licensing proposal (${res.status}): ${errText.slice(0, 140)}`
+          );
         }
-      } catch {
-        // Offline preview adapter fallback
+        const data = (await res.json()) as { referenceId?: string };
+        if (data.referenceId) refId = data.referenceId;
       }
+      onLeadSubmitted?.({ referenceId: refId, ...payload });
+      setReceipt(refId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to submit licensing request.');
+    } finally {
+      setSubmitting(false);
     }
-    setReceipt(refId);
   };
 
   return (
@@ -108,18 +137,19 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole }) =
             and Desktop platform with full intellectual property ownership.
           </p>
           <div className="flex flex-wrap gap-3 pt-1">
-            <a
-              href="#license-proposal"
+            <button
+              type="button"
+              onClick={() => scrollToProposal()}
               className="px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
             >
               Request License or IP Quote
-            </a>
+            </button>
             <button
               type="button"
               onClick={onOpenConsole}
               className="px-5 py-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-sm font-semibold transition-colors whitespace-nowrap"
             >
-              Sign In to Live Console
+              Sign In to Station Portal
             </button>
           </div>
         </div>
@@ -189,13 +219,13 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole }) =
             </ul>
           </div>
 
-          <a
-            href="#license-proposal"
-            onClick={() => setLicenseTrack('PERPETUAL_5M')}
+          <button
+            type="button"
+            onClick={() => scrollToProposal('PERPETUAL_5M')}
             className="w-full py-3 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold text-center transition-colors"
           >
             Select 5 000 000 FCFA/Year Perpetual License
-          </a>
+          </button>
         </div>
 
         {/* Custom-Built Dedicated System + Full Source Code & IP Buyout */}
@@ -258,13 +288,13 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole }) =
             </ul>
           </div>
 
-          <a
-            href="#license-proposal"
-            onClick={() => setLicenseTrack('CUSTOM_IP_BUYOUT')}
+          <button
+            type="button"
+            onClick={() => scrollToProposal('CUSTOM_IP_BUYOUT')}
             className="w-full py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold text-center transition-colors"
           >
             Negotiate Custom Build &amp; Source Code IP
-          </a>
+          </button>
         </div>
       </div>
 
@@ -453,9 +483,10 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole }) =
 
             <button
               type="submit"
-              className="px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors"
+              disabled={submitting}
+              className="px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
             >
-              Submit Licensing &amp; IP Proposal
+              {submitting ? 'Submitting Proposal…' : 'Submit Licensing & IP Proposal'}
             </button>
           </form>
         )}

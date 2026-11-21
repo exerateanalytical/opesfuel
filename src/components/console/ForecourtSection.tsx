@@ -83,14 +83,11 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
   const [fleetFcfa, setFleetFcfa] = useState('0');
 
   const openCloseModal = (shift: ShiftRecord) => {
-    const suggestedLitres = 650;
-    const suggestedClosing = shift.openingMeterLitres + suggestedLitres;
-    const expected = suggestedLitres * shift.unitPriceFcfa;
     setClosingShift(shift);
-    setClosingMeter(String(suggestedClosing));
-    setCashFcfa(String(Math.round(expected * 0.65)));
-    setMomoFcfa(String(Math.round(expected * 0.25)));
-    setCardFcfa(String(expected - Math.round(expected * 0.65) - Math.round(expected * 0.25)));
+    setClosingMeter(String(shift.openingMeterLitres));
+    setCashFcfa('0');
+    setMomoFcfa('0');
+    setCardFcfa('0');
     setFleetFcfa('0');
   };
 
@@ -703,12 +700,28 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
                   </span>
                 </div>
               </div>
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-              >
-                Commit Shift &amp; Post Accounting Journal
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {previewExpected > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCashFcfa(String(previewExpected));
+                      setMomoFcfa('0');
+                      setCardFcfa('0');
+                      setFleetFcfa('0');
+                    }}
+                    className="px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+                  >
+                    Fill Expected as Cash
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+                >
+                  Commit Shift &amp; Post Accounting Journal
+                </button>
+              </div>
             </div>
           </form>
         </div>

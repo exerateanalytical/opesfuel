@@ -91,6 +91,15 @@ export const OnboardingGuideModal: React.FC<OnboardingGuideModalProps> = ({
     }
   }, [open, initialTab, activeStationId, stations]);
 
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
   const effectiveStationId =
     stations.find((s) => s.id === targetStationId)?.id ?? stations[0]?.id ?? '';
 

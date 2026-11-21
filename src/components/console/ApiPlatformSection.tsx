@@ -235,7 +235,11 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onRevokeApiKey(k.id)}
+                  onClick={() => {
+                    if (window.confirm(`Revoke API key "${k.label}"? Any ERP or terminal using it will immediately receive 401 Unauthorized.`)) {
+                      onRevokeApiKey(k.id);
+                    }
+                  }}
                   aria-label={`Revoke API key ${k.label}`}
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-red-200 text-red-700 hover:bg-red-50 font-semibold shrink-0"
                 >
@@ -305,7 +309,11 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onDeleteWebhook(w.id)}
+                    onClick={() => {
+                      if (window.confirm(`Delete webhook subscription "${w.targetUrl}"? Outbound events will immediately stop delivering to this endpoint.`)) {
+                        onDeleteWebhook(w.id);
+                      }
+                    }}
                     aria-label={`Delete webhook ${w.targetUrl}`}
                     className="p-1.5 text-slate-400 hover:text-red-600"
                   >

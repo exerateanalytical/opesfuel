@@ -46,6 +46,16 @@ export const InventoryAdvancedPanel: React.FC<InventoryAdvancedPanelProps> = ({
     void loadSuppliers();
   }, [loadSuppliers]);
 
+  useEffect(() => {
+    if (tanks.length === 0) return;
+    if (!tanks.some((t) => t.id === shrinkTankId)) {
+      setShrinkTankId(tanks[0].id);
+    }
+    if (!tanks.some((t) => t.id === atgTankId)) {
+      setAtgTankId(tanks[0].id);
+    }
+  }, [tanks, shrinkTankId, atgTankId]);
+
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supName.trim()) return;

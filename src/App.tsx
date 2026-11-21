@@ -13,6 +13,7 @@ import {
   clearAuthSession,
   getStoredAuthSession,
   handleAuth0CallbackIfPresent,
+  isAuth0Configured,
   refreshAuth0SessionIfNeeded,
 } from './auth/auth0';
 import { ClassicLoginPage } from './components/auth/ClassicLoginPage';
@@ -221,6 +222,27 @@ export default function App() {
     }
   }, [mode, effectiveActiveStationId, refreshNotifications]);
 
+  // Production Auth0 route guard: prevent unauthenticated direct access to #/app/* when Auth0 is enabled
+  useEffect(() => {
+    if (isAuth0Configured && mode === 'console' && !authSession?.accessToken) {
+      setMode('login');
+    }
+  }, [mode, authSession]);
+
+  // Auto-dismiss success toasts after 5 seconds (keep error toasts visible until dismissed)
+  useEffect(() => {
+    if (!toast || toast.type !== 'success') return;
+    const timer = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  // Scroll cleanly to top when switching console sections
+  useEffect(() => {
+    if (mode === 'console') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [mode, consoleSection]);
+
   // Bidirectional URL hash sync for direct bookmarkable individual pages
   useEffect(() => {
     const nextHash =
@@ -241,14 +263,18 @@ export default function App() {
   useEffect(() => {
     const onHashChange = () => {
       const parsed = parseHashRoute();
-      setMode(parsed.mode);
+      if (isAuth0Configured && parsed.mode === 'console' && !authSession?.accessToken) {
+        setMode('login');
+      } else {
+        setMode(parsed.mode);
+      }
       setPublicPage(parsed.publicPage);
       setConsoleSection(parsed.consoleSection);
       setPendingInviteToken(parsed.inviteToken);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  }, [authSession]);
 
   const report = useMemo(
     () => computeFinancialReports(store, effectiveActiveStationId),

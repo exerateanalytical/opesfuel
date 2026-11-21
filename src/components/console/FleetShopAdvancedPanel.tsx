@@ -46,6 +46,13 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
     void loadVehiclesAndShop();
   }, [loadVehiclesAndShop]);
 
+  useEffect(() => {
+    if (fleetAccounts.length > 0 && !fleetAccounts.some((a) => a.id === selectedAccountId)) {
+      setSelectedAccountId(fleetAccounts[0].id);
+      setStatement(null);
+    }
+  }, [fleetAccounts, selectedAccountId]);
+
   const handleToggleHold = async (acc: FleetAccount) => {
     const nextStatus = acc.status === 'HOLD' ? 'ACTIVE' : 'HOLD';
     try {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Bell,
@@ -112,16 +112,30 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
   const displaySubtitle = authSession?.mode === 'AUTH0_OIDC' ? authSession.email : profile.title;
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  useEffect(() => {
+    if (!sidebarOpen && !alertsOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSidebarOpen(false);
+        setAlertsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [sidebarOpen, alertsOpen]);
+
   const permittedItems = NAV_ITEMS.filter((item) => canAccessSection(role, item.id));
-  const fourthMobileItem = canAccessSection(role, 'ai-assistant')
-    ? NAV_ITEMS.find((i) => i.id === 'ai-assistant')!
-    : NAV_ITEMS.find((i) => i.id === 'fleet')!;
-  const mobileBarItems = [
-    NAV_ITEMS.find((i) => i.id === 'overview')!,
-    NAV_ITEMS.find((i) => i.id === 'forecourt')!,
-    NAV_ITEMS.find((i) => i.id === 'inventory')!,
-    fourthMobileItem,
-  ].filter((item) => item && canAccessSection(role, item.id));
+  const preferredMobileIds: ConsoleSection[] =
+    role === 'PLATFORM_ADMIN'
+      ? ['platform-admin', 'overview', 'admin', 'api-platform']
+      : role === 'ACCOUNTANT'
+      ? ['overview', 'accounting', 'fleet', 'workforce']
+      : role === 'ATTENDANT'
+      ? ['overview', 'forecourt', 'fleet', 'mobile-app']
+      : ['overview', 'forecourt', 'inventory', 'accounting'];
+  const mobileBarItems = preferredMobileIds
+    .map((id) => NAV_ITEMS.find((i) => i.id === id))
+    .filter((item): item is (typeof NAV_ITEMS)[number] => Boolean(item && canAccessSection(role, item.id)));
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-900 text-slate-200">
@@ -228,7 +242,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
 
       {/* Mobile Drawer */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
+        <div role="dialog" aria-modal="true" aria-label="Navigation menu" className="fixed inset-0 z-50 lg:hidden flex">
           <div className="w-72 max-w-[85vw] h-full">{sidebarContent}</div>
           <div className="flex-1 bg-slate-900/50" onClick={() => setSidebarOpen(false)} />
         </div>
@@ -236,7 +250,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
 
       {/* Notifications Slide-Over Drawer */}
       {alertsOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end no-print">
+        <div role="dialog" aria-modal="true" aria-label="Operational alerts" className="fixed inset-0 z-50 flex justify-end no-print">
           <div className="flex-1 bg-slate-900/40" onClick={() => setAlertsOpen(false)} />
           <div className="w-full max-w-md bg-white h-full shadow-2xl border-l border-slate-200 flex flex-col">
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
@@ -378,19 +392,29 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
               <span>Setup Guide ({onboardingCompletedCount}/5)</span>
             </button>
 
-            <select
-              aria-label="Select petrol station"
-              value={activeStationId}
-              onChange={(e) => onChangeStation(e.target.value)}
-              className="px-2.5 sm:px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-900 min-h-[38px] max-w-[165px] sm:max-w-none"
-            >
-              <option value="ALL">All Stations ({stations.length})</option>
-              {stations.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.city})
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1.5">
+              <select
+                aria-label="Select petrol station"
+                value={activeStationId}
+                onChange={(e) => onChangeStation(e.target.value)}
+                className="px-2.5 sm:px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-900 min-h-[38px] max-w-[165px] sm:max-w-none"
+              >
+                <option value="ALL">All Stations ({stations.length})</option>
+                {stations.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.city})
+                  </option>
+                ))}
+              </select>
+              {activeStationId === 'ALL' && stations.length > 1 && (
+                <span
+                  title={`New shifts, expenses, and deliveries default to ${stations[0]?.name} unless a specific station is selected.`}
+                  className="hidden xl:inline-flex items-center px-2 py-1 rounded bg-amber-50 border border-amber-200 text-[10px] font-mono font-semibold text-amber-900 whitespace-nowrap"
+                >
+                  New entries → {stations[0]?.code}
+                </span>
+              )}
+            </div>
 
             <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-[38px]">
               <Shield className="w-3.5 h-3.5 text-amber-700 shrink-0" />

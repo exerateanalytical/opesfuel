@@ -5,6 +5,7 @@ import { AuthSession, isAuth0Configured, ROLE_PROFILES, startAuth0Login } from '
 import { formatFcfa } from '../../domain/formatters';
 import { Station, UserRole } from '../../domain/types';
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
+import loginCanopyImgUrl from '../../assets/images/opesfuel_login_canopy_black_1795293396503.jpg';
 
 interface ClassicLoginPageProps {
   organizationName: string;
@@ -29,7 +30,7 @@ interface ClassicLoginPageProps {
   onBackToSite: () => void;
 }
 
-const LOGIN_CANOPY_IMG = '/src/assets/images/opesfuel_login_canopy_black_1795293396503.jpg';
+const LOGIN_CANOPY_IMG = loginCanopyImgUrl;
 
 const EMAIL_TO_ROLE: Record<string, UserRole> = {
   'superadmin@opesware.com': 'PLATFORM_ADMIN',

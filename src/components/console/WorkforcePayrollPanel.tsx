@@ -40,8 +40,19 @@ export const WorkforcePayrollPanel: React.FC<WorkforcePayrollPanelProps> = ({
     void loadRuns();
   }, [loadRuns]);
 
+  useEffect(() => {
+    if (employees.length > 0 && !employees.some((e) => e.id === selectedEmpId)) {
+      setSelectedEmpId(employees[0].id);
+      setPayslip(null);
+      setAttendanceLogs(null);
+    }
+  }, [employees, selectedEmpId]);
+
   const handleRunPayroll = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!window.confirm(`Execute monthly payroll for ${periodLabel} and post Salaries journal (DR 6100)?`)) {
+      return;
+    }
     setRunning(true);
     try {
       await engine.executePayrollRun({

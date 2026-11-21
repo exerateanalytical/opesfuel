@@ -125,6 +125,13 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
 
   const handleClosePeriod = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (
+      !window.confirm(
+        `Close and permanently lock fiscal period ${closePeriodKey}? No further shifts, expenses, or manual journals can be posted into a locked period.`
+      )
+    ) {
+      return;
+    }
     try {
       await engine.closeFiscalPeriod(effectiveStationId, closePeriodKey.trim());
       onNotify('success', `Locked fiscal period ${closePeriodKey}. Future postings into this period will be blocked.`);
