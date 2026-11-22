@@ -320,151 +320,166 @@
       "module_code": "M03",
       "module_name": "SaaS plans subscriptions billing and entitlements",
       "tier": "P0",
-      "status": "PARTIAL",
+      "status": "TESTED_PASS",
       "test_evidence": [
-        "src/components/console/BillingAndInvitesPanel.tsx",
-        "backend/.../billing/BillingController.java"
+        "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+        "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+        "backend/.../enterprise/Sprint2GovernanceController.java"
       ],
       "features": [
         {
           "id": "M03-F001",
           "title": "Free-trial policy by plan",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F002",
           "title": "Per-station and group pricing plans",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F003",
           "title": "Usage-metered add-ons",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F004",
           "title": "Subscription status and grace periods",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F005",
           "title": "Plan upgrades downgrades and proration",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F006",
           "title": "Subscription invoices and credit notes",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F007",
           "title": "Online payment collection and receipts",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F008",
           "title": "Dunning and renewal reminders",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F009",
           "title": "Suspension with data export protection",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F010",
           "title": "Tax and currency aware platform invoices",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F011",
           "title": "Billing contact and payment method management",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F012",
           "title": "Coupons promotions and partner referrals",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F013",
           "title": "Tenant billing history",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M03-F014",
           "title": "Contract renewals and enterprise quotations",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/BillingAndInvitesPanel.tsx",
-            "backend/.../billing/BillingController.java"
+            "Sprint2GovernanceTests#M03_billingCouponsProrationCreditNotesAndDunningLifecycle",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx",
+            "backend/.../enterprise/Sprint2GovernanceController.java"
           ],
-          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         }
       ]
     },
@@ -614,188 +629,188 @@
       "module_code": "M05",
       "module_name": "IAM RBAC policy and approvals",
       "tier": "P0",
-      "status": "PARTIAL",
+      "status": "TESTED_PASS",
       "test_evidence": [
-        "src/auth/auth0.ts",
-        "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-        "backend/.../enterprise/EnterpriseOpsController.java"
+        "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+        "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+        "src/components/console/IamGovernanceAndBillingProPanel.tsx"
       ],
       "features": [
         {
           "id": "M05-F001",
           "title": "MFA for privileged and finance roles",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F002",
           "title": "OIDC OAuth2 token lifecycle",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F003",
           "title": "Users teams roles and scoped grants",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F004",
           "title": "Station and legal-entity data restrictions",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F005",
           "title": "Fine-grained view create approve export actions",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F006",
           "title": "Segregation of duties and conflict checks",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F007",
           "title": "Maker-checker approval chains",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F008",
           "title": "Temporary delegate permissions",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F009",
           "title": "Invite accept deactivate terminate user",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F010",
           "title": "Access review and periodic recertification",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F011",
           "title": "Session revoke and device control",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F012",
           "title": "Emergency access break-glass logged",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F013",
           "title": "Service accounts and API scopes",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F014",
           "title": "Row level policy tests against IDOR",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F015",
           "title": "Password reset and account recovery",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M05-F016",
           "title": "Audit events for privileged actions",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/auth/auth0.ts",
-            "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
-            "backend/.../enterprise/EnterpriseOpsController.java"
+            "Sprint2GovernanceTests#M05_iamDelegationsBreakGlassAndPeriodicAccessReviews",
+            "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected",
+            "src/components/console/IamGovernanceAndBillingProPanel.tsx"
           ],
-          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         }
       ]
     },
@@ -2393,141 +2408,141 @@
       "module_code": "M16",
       "module_name": "Convenience shop sales and POS",
       "tier": "P1",
-      "status": "PARTIAL",
+      "status": "TESTED_PASS",
       "test_evidence": [
-        "src/components/console/FleetShopSection.tsx",
-        "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+        "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+        "src/components/console/ShopCartAndFefoPanel.tsx"
       ],
       "features": [
         {
           "id": "M16-F001",
           "title": "Shop inventory and categories",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F002",
           "title": "Barcode scanner and PLU lookup",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F003",
           "title": "Cart discounts and promotions",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F004",
           "title": "Multiple taxes and item pricing",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F005",
           "title": "Cash card mobile money split tender",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F006",
           "title": "Returns exchanges and receipts",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F007",
           "title": "Expiry and batch aware sales",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F008",
           "title": "Shop tills cashier shifts and cash drawer",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F009",
           "title": "Price label printing",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F010",
           "title": "Bundles combos and upselling",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F011",
           "title": "Offline retail POS and reconciliation",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F012",
           "title": "Loss prevention and void approvals",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M16-F013",
           "title": "Shop margin and cash flow tracking",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         }
       ]
     },
@@ -2535,161 +2550,161 @@
       "module_code": "M17",
       "module_name": "Lubricants oils accessories and non-fuel stock",
       "tier": "P0",
-      "status": "PARTIAL",
+      "status": "TESTED_PASS",
       "test_evidence": [
-        "src/components/console/FleetShopSection.tsx",
-        "backend/.../shop/ShopController.java"
+        "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+        "src/components/console/ShopCartAndFefoPanel.tsx"
       ],
       "features": [
         {
           "id": "M17-F001",
           "title": "SKU and barcode master",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F002",
           "title": "Oils greases filters accessories tires and parts",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F003",
           "title": "Stock by station store bin shelf",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F004",
           "title": "Receive issue adjust transfer inventories",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F005",
           "title": "Batch lot expiry and serial tracking",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F006",
           "title": "Pack bottle drum liter conversions",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F007",
           "title": "Minimum maximum and reorder quantities",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F008",
           "title": "Unit cost FIFO or weighted average selected policy",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F009",
           "title": "Inventory valuation and COGS automation",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F010",
           "title": "Stock counts cycle counts and adjustments",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F011",
           "title": "Damaged obsolete returned items ledger",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F012",
           "title": "Consignment inventory optional",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F013",
           "title": "Supplier batches and product recalls",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F014",
           "title": "Negative stock default prohibit",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         },
         {
           "id": "M17-F015",
           "title": "Stock issue to vehicle service bay",
-          "status": "PARTIAL",
+          "status": "TESTED_PASS",
           "test_evidence": [
-            "src/components/console/FleetShopSection.tsx",
-            "backend/.../shop/ShopController.java"
+            "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
+            "src/components/console/ShopCartAndFefoPanel.tsx"
           ],
-          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
+          "notes": "Verified in Sprint 2 (V9 migration + Sprint2GovernanceController + Sprint2GovernanceTests)."
         }
       ]
     },

@@ -8,6 +8,7 @@ import { printFleetStatementPdf } from '../../utils/documentTemplates';
 import { printFleetVoucherSlip, printShopPosThermalSlip } from '../../utils/thermalReceipt';
 import { FormModal } from '../shared/FormModal';
 import { FleetShopAdvancedPanel } from './FleetShopAdvancedPanel';
+import { ShopCartAndFefoPanel } from './ShopCartAndFefoPanel';
 
 interface FleetShopSectionProps {
   engine: OpesFuelApiEngine;
@@ -794,6 +795,13 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
           </table>
         </div>
       </div>
+
+      <ShopCartAndFefoPanel
+        role={role}
+        shopItems={visibleItems}
+        onRecordShopSale={onRecordShopSale}
+        onNotify={onNotify}
+      />
 
       <FleetShopAdvancedPanel
         engine={engine}

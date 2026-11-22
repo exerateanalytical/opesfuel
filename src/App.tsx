@@ -39,6 +39,7 @@ import { ForecourtSection } from './components/console/ForecourtSection';
 import { GlobalSearchModal } from './components/console/GlobalSearchModal';
 import { HrManagementPanel } from './components/console/HrManagementPanel';
 import { HseFraudQcSection } from './components/console/HseFraudQcSection';
+import { IamGovernanceAndBillingProPanel } from './components/console/IamGovernanceAndBillingProPanel';
 import { InventorySection } from './components/console/InventorySection';
 import { OnboardingGuideModal } from './components/console/OnboardingGuideModal';
 import { OverviewSection } from './components/console/OverviewSection';
@@ -1554,6 +1555,7 @@ export default function App() {
                 }
                 onNotify={notify}
               />
+              <IamGovernanceAndBillingProPanel role={role} onNotify={notify} />
               <SecurityAuditAndProfilePanel
                 accounts={extOps.accounts}
                 auditLogs={extOps.auditLogs}
