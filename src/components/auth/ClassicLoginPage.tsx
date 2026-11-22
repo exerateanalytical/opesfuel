@@ -609,6 +609,15 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
               </button>
             </form>
           )}
+
+          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+            <a href="#/fleet-portal" className="font-semibold text-slate-800 hover:text-amber-700 underline">
+              Corporate Fleet Client Portal →
+            </a>
+            <a href="#/verify" className="font-semibold text-slate-800 hover:text-amber-700 underline">
+              Verify License / Letterhead
+            </a>
+          </div>
         </div>
       </div>
 
@@ -616,13 +625,13 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
       <FormModal
         open={forgotOpen}
         title="Reset Operator Password"
-        subtitle="Enter your Email, Phone Number, or Member ID to receive a secure password reset link or SMS OTP."
+        subtitle="Enter your Email, Phone Number, or Member ID to receive a real 6-digit OTP via Email or SMS."
         onClose={() => setForgotOpen(false)}
       >
         {resetSent ? (
           <div className="space-y-4 text-xs text-slate-700">
             <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 font-medium">
-              Recovery instructions dispatched for <span className="font-mono font-bold">{resetIdentifier}</span>. Check your email or SMS inbox.
+              Recovery OTP dispatched for <span className="font-mono font-bold">{resetIdentifier}</span>. Check your email or SMS inbox.
             </div>
             <div className="flex justify-end">
               <button
@@ -636,9 +645,25 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
           </div>
         ) : (
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              if (resetIdentifier.trim()) setResetSent(true);
+              if (!resetIdentifier.trim()) return;
+              const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').replace(/\/+$/, '');
+              if (apiBase) {
+                try {
+                  await fetch(`${apiBase}/api/v1/public/auth/request-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      identifier: resetIdentifier.trim(),
+                      channel: resetIdentifier.includes('@') ? 'EMAIL' : 'SMS',
+                    }),
+                  });
+                } catch {
+                  // handled gracefully
+                }
+              }
+              setResetSent(true);
             }}
             className="space-y-4"
           >

@@ -252,6 +252,16 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
         { label: 'API Keys & Webhooks', target: 'api-platform' as const, primary: false },
       ],
     },
+    GROUP_CFO: {
+      badge: 'HOLDING GROUP CFO CONSOLIDATION WORKSPACE',
+      title: 'Multi-Subsidiary Consolidation (XAF / XOF / USD) & Inter-Company Eliminations',
+      summary: 'Review consolidated group P&L, balance sheets, minority interest (NCI), and inter-company elimination journals across subsidiaries.',
+      actions: [
+        { label: 'Open Group Consolidation & Ledger', target: 'accounting' as const, primary: true },
+        { label: 'LPG & Wet-Stock Inventory', target: 'inventory' as const, primary: false },
+        { label: 'AI Executive Copilot', target: 'ai-assistant' as const, primary: false },
+      ],
+    },
     OWNER: {
       badge: 'STATION NETWORK OWNER WORKSPACE',
       title: `Executive Overview — ${currentStation ? currentStation.name : 'All Network Stations'}`,

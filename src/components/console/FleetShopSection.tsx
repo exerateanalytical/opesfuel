@@ -100,6 +100,11 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
   const [settleAmount, setSettleAmount] = useState('500000');
   const [settleMethod, setSettleMethod] = useState<'BANK_TRANSFER' | 'MOBILE_MONEY' | 'CASH'>('BANK_TRANSFER');
 
+  const [portalInviteAccount, setPortalInviteAccount] = useState<FleetAccount | null>(null);
+  const [portalEmail, setPortalEmail] = useState('');
+  const [portalName, setPortalName] = useState('');
+  const [portalPassword, setPortalPassword] = useState('FleetPass2026!');
+
   const [skuQuantities, setSkuQuantities] = useState<Record<string, number>>({});
 
   const visibleItems = shopItems.filter((i) => stationId === 'ALL' || i.stationId === stationId);
@@ -420,6 +425,15 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
                         >
                           <Printer className="w-3 h-3" /> Statement PDF
                         </button>
+                        {canSettle && (
+                          <button
+                            type="button"
+                            onClick={() => setPortalInviteAccount(acc)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-semibold"
+                          >
+                            Invite Portal Client
+                          </button>
+                        )}
                         {canDelete && (
                           <button
                             type="button"
@@ -444,6 +458,70 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
               </tbody>
             </table>
           </div>
+
+          <FormModal
+            open={Boolean(portalInviteAccount)}
+            onClose={() => setPortalInviteAccount(null)}
+            title={`Invite Corporate Fleet Portal User — ${portalInviteAccount?.companyName ?? ''}`}
+          >
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!portalInviteAccount || !portalEmail.trim() || !portalName.trim()) return;
+                const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').replace(/\/+$/, '');
+                if (apiBase) {
+                  try {
+                    const res = await fetch(
+                      `${apiBase}/api/v1/fleet/accounts/${encodeURIComponent(portalInviteAccount.id)}/portal-users`,
+                      {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          email: portalEmail.trim(),
+                          fullName: portalName.trim(),
+                          temporaryPassword: portalPassword,
+                        }),
+                      }
+                    );
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  } catch (err) {
+                    onNotify('error', err instanceof Error ? err.message : 'Unable to invite fleet portal user.');
+                    return;
+                  }
+                }
+                onNotify(
+                  'success',
+                  `Invited ${portalEmail.trim()} to Corporate Fleet Self-Service Portal (/#/fleet-portal) for ${portalInviteAccount.companyName}.`
+                );
+                setPortalInviteAccount(null);
+                setPortalEmail('');
+                setPortalName('');
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="opes-label">Client Manager Full Name</label>
+                <input required value={portalName} onChange={(e) => setPortalName(e.target.value)} placeholder="e.g. Marc Fotso" className="opes-input text-xs" />
+              </div>
+              <div>
+                <label className="opes-label">Corporate Email</label>
+                <input type="email" required value={portalEmail} onChange={(e) => setPortalEmail(e.target.value)} placeholder="fleetmgr@company.cm" className="opes-input text-xs" />
+              </div>
+              <div>
+                <label className="opes-label">Temporary Portal Password</label>
+                <input type="text" required minLength={6} value={portalPassword} onChange={(e) => setPortalPassword(e.target.value)} className="opes-input text-xs font-mono" />
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <a href="#/fleet-portal" className="text-[11px] font-semibold text-amber-700 underline">
+                  Preview Fleet Portal →
+                </a>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setPortalInviteAccount(null)} className="px-3.5 py-2 rounded-lg border border-slate-300 text-xs font-semibold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Send Portal Invite</button>
+                </div>
+              </div>
+            </form>
+          </FormModal>
 
           <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 space-y-2">
             <div className="text-xs font-semibold text-slate-700">Recent Fleet Vouchers</div>

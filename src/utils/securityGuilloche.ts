@@ -6,6 +6,8 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CompanyBrandingProfile, getCompanyBranding, hexToRgb } from './companyBranding';
+import { cacheIssuedDocumentLocally } from '../components/public/VerifyDocumentPage';
+import { getStoredAuthSession } from '../auth/auth0';
 
 export type LetterheadTemplateStyle =
   | 'SOVEREIGN_GUILLOCHE'
@@ -14,6 +16,44 @@ export type LetterheadTemplateStyle =
   | 'MINIMAL_SWISS';
 
 type JsPdfAuto = jsPDF & { lastAutoTable?: { finalY: number } };
+
+export function buildVerifyUrl(fingerprint: string): string {
+  const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://app.opesfuel.com';
+  return `${origin}/#/verify/${encodeURIComponent(fingerprint.toUpperCase())}`;
+}
+
+/** Registers issued security document in backend V16 registry + local cache so /verify/:code confirms authenticity */
+export function registerIssuedSecurityDocument(doc: {
+  fingerprint: string;
+  docType: string;
+  docSerial?: string;
+  organizationName: string;
+  subjectName: string;
+  expiresAt?: string | null;
+}): void {
+  const issuedAt = new Date().toISOString();
+  cacheIssuedDocumentLocally({ ...doc, issuedAt });
+  const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').replace(/\/+$/, '');
+  if (!apiBase) return;
+  const session = getStoredAuthSession();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+  void fetch(`${apiBase}/api/v1/documents/register`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      fingerprint: doc.fingerprint,
+      docType: doc.docType,
+      docSerial: doc.docSerial || null,
+      organizationName: doc.organizationName,
+      subjectName: doc.subjectName,
+      sha256Hash: `${doc.fingerprint}:${issuedAt}`,
+      expiresAt: doc.expiresAt || null,
+    }),
+  }).catch(() => {
+    // non-blocking background registration
+  });
+}
 
 /** Deterministic cryptographic-style verification fingerprint (works synchronously offline) */
 export function computeSecurityFingerprint(seed: string): string {
@@ -198,9 +238,10 @@ export function drawSecurityVerificationMatrix(
   doc.rect(x - 1, y - 1, sizeMm + 2, sizeMm + 2, 'FD');
 
   doc.setFillColor(15, 23, 42);
+  const verifyUrl = buildVerifyUrl(fingerprint);
   let hash = 2166136261;
-  for (let i = 0; i < fingerprint.length; i++) {
-    hash = Math.imul(hash ^ fingerprint.charCodeAt(i), 16777619) >>> 0;
+  for (let i = 0; i < verifyUrl.length; i++) {
+    hash = Math.imul(hash ^ verifyUrl.charCodeAt(i), 16777619) >>> 0;
   }
 
   for (let r = 0; r < grid; r++) {
@@ -229,9 +270,9 @@ export function drawSecurityVerificationMatrix(
   doc.setTextColor(15, 23, 42);
   doc.text(fingerprint, x + sizeMm / 2, y + sizeMm + 3.8, { align: 'center' });
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5.5);
+  doc.setFontSize(5.0);
   doc.setTextColor(100, 116, 139);
-  doc.text('VERIFY ONLINE · TAMPER-EVIDENT', x + sizeMm / 2, y + sizeMm + 6.6, { align: 'center' });
+  doc.textWithLink('VERIFY: /#/verify/' + fingerprint, x + sizeMm / 2, y + sizeMm + 6.6, { align: 'center', url: verifyUrl });
 }
 
 /**
@@ -358,6 +399,14 @@ export function printSecurityLicenseCertificatePdf(params: {
 
   // Verification QR Matrix bottom right
   drawSecurityVerificationMatrix(doc, fingerprint, w - 42, h - 42, 17);
+  registerIssuedSecurityDocument({
+    fingerprint,
+    docType: 'LICENSE_CERTIFICATE',
+    docSerial: params.licenseKey,
+    organizationName: b.legalName || 'Opesware Technologies',
+    subjectName: params.organizationName,
+    expiresAt: params.expiresAt,
+  });
 
   doc.save(`opesfuel-security-license-${params.licenseKey.toLowerCase()}.pdf`);
 }
@@ -508,6 +557,13 @@ export function printExecutiveSecurityLetterheadPdf(params: {
   doc.text(b.signatoryTitle || 'Authorized Signatory', 20, footerY + 9.5);
 
   drawSecurityVerificationMatrix(doc, fingerprint, w - 38, footerY - 8, 17);
+  registerIssuedSecurityDocument({
+    fingerprint,
+    docType: 'LETTERHEAD',
+    docSerial: refNo,
+    organizationName: b.legalName || 'OpesFuel Tenant',
+    subjectName: params.documentTitle || 'Official Company Correspondence',
+  });
 
   // Legal Footer
   doc.setFontSize(7);
@@ -606,6 +662,13 @@ export function printStationComplianceCertificatePdf(params: {
   doc.text(`NIU: ${b.taxIdNiu || '—'} · RCCM: ${b.rccmNumber || '—'}`, 26, sigY + 9.5);
 
   drawSecurityVerificationMatrix(doc, fingerprint, w - 42, h - 42, 17);
+  registerIssuedSecurityDocument({
+    fingerprint,
+    docType: 'COMPLIANCE_CERTIFICATE',
+    docSerial: certNo,
+    organizationName: b.legalName || 'OpesFuel',
+    subjectName: `${params.stationName} (${params.stationCode})`,
+  });
   doc.save(`station-compliance-certificate-${params.stationCode.toLowerCase()}.pdf`);
 }
 
@@ -675,5 +738,13 @@ export function printDealerAuthorizationCertificatePdf(params: {
   doc.text(b.signatoryTitle || 'Brand Licensor Signatory', 26, sigY + 9.5);
 
   drawSecurityVerificationMatrix(doc, fingerprint, w - 42, h - 42, 17);
+  registerIssuedSecurityDocument({
+    fingerprint,
+    docType: 'DEALER_AUTHORIZATION',
+    docSerial: authNo,
+    organizationName: b.legalName || 'OpesFuel',
+    subjectName: params.dealerName,
+    expiresAt: params.validUntil,
+  });
   doc.save(`dealer-authorization-${authNo.toLowerCase()}.pdf`);
 }

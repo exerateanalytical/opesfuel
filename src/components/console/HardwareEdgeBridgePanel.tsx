@@ -119,6 +119,7 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
   const [devProtocol, setDevProtocol] = useState<'DOMS_PTS2' | 'VEEDER_ROOT_ATG' | 'OCPP_201_EV'>('DOMS_PTS2');
   const [devUri, setDevUri] = useState('wss://edge-site.opesfuel.local:8443');
   const [devFirmware, setDevFirmware] = useState('v2.4.1');
+  const [provisionedKey, setProvisionedKey] = useState<{ deviceName: string; apiKey: string } | null>(null);
 
   const handleRegisterDevice = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -514,6 +515,49 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
           </div>
         </form>
       </FormModal>
+
+      <div className="border-t border-slate-200 pt-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="font-display text-sm font-bold text-slate-900">
+              Deployable On-Site Edge Agent (Raspberry Pi / Linux Daemon — <span className="font-mono">edge-agent/</span>)
+            </h4>
+            <p className="text-xs text-slate-500">
+              Generate a SHA-256 hashed site API key (<span className="font-mono">X-Edge-Key</span>) for physical PTS-2 jsonPTS, Veeder-Root TLS-350/450, and OCPP 2.0.1 EVSE hardware.
+            </p>
+          </div>
+          {canManage && (
+            <button
+              type="button"
+              onClick={async () => {
+                const name = `Edge-${stationName.replace(/[^a-zA-Z0-9]+/g, '-')}-${Math.floor(10 + Math.random() * 89)}`;
+                const res = await onPostBackend('/api/v1/edge/devices', 'POST', {
+                  stationId,
+                  deviceName: name,
+                  driversCsv: 'DOMS_PTS2,VEEDER_ROOT_ATG,OCPP_201_EV',
+                });
+                const key = String(res?.apiKey ?? `opf_edge_${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`);
+                setProvisionedKey({ deviceName: name, apiKey: key });
+                onNotify('success', `Provisioned on-site Edge Agent key for ${name}.`);
+              }}
+              className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              Provision Edge Agent Key
+            </button>
+          )}
+        </div>
+        {provisionedKey && (
+          <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-1.5 text-xs">
+            <div className="font-bold text-amber-950">One-Time Edge API Key for {provisionedKey.deviceName}</div>
+            <div className="font-mono text-slate-900 break-all bg-white border border-amber-200 rounded px-3 py-2">
+              OPESFUEL_EDGE_KEY={provisionedKey.apiKey}
+            </div>
+            <div className="text-[11px] text-amber-900">
+              Paste into <span className="font-mono">/etc/opesfuel-edge/edge.env</span> and run <span className="font-mono">sudo systemctl restart opesfuel-edge</span>.
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { Employee, Station, UserRole } from '../../domain/types';
 import { useCurrency } from '../../i18n/CurrencyContext';
 import { printSaasInvoicePdf } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
+import { MomoPaymentModal } from './MomoPaymentModal';
 
 interface BillingAndInvitesPanelProps {
   engine: OpesFuelApiEngine;
@@ -37,8 +38,9 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
   const [payChannel, setPayChannel] = useState<'ORANGE_MONEY' | 'MTN_MOMO' | 'BANK_TRANSFER' | 'CARD'>('ORANGE_MONEY');
   const [payRef, setPayRef] = useState('');
 
-  // Online Payment Gateway Checkout Modal
+  // Online Payment Gateway Checkout Modal & Cameroon MTN/Orange MoMo Modal
   const [checkoutInvoice, setCheckoutInvoice] = useState<Record<string, unknown> | null>(null);
+  const [momoInvoice, setMomoInvoice] = useState<Record<string, unknown> | null>(null);
   const [gatewayProvider, setGatewayProvider] = useState<'ORANGE_MONEY' | 'MTN_MOMO' | 'CINETPAY' | 'STRIPE'>('ORANGE_MONEY');
   const [payerPhone, setPayerPhone] = useState('+237 699 112 233');
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
@@ -362,10 +364,17 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                             <>
                               <button
                                 type="button"
-                                onClick={() => setCheckoutInvoice(inv)}
+                                onClick={() => setMomoInvoice(inv)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold"
                               >
-                                <Wallet className="w-3 h-3" /> Pay Online
+                                <Wallet className="w-3 h-3" /> Pay MTN/Orange MoMo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCheckoutInvoice(inv)}
+                                className="inline-flex items-center gap-1 px-2 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                              >
+                                Card / Gateway
                               </button>
                               <button
                                 type="button"
@@ -711,6 +720,17 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
           </div>
         </form>
       </FormModal>
+
+      <MomoPaymentModal
+        open={Boolean(momoInvoice)}
+        onClose={() => setMomoInvoice(null)}
+        title={`Pay SaaS Invoice ${String(momoInvoice?.invoiceNumber ?? momoInvoice?.id ?? '')}`}
+        amountFcfa={Math.max(100, Number(momoInvoice?.totalFcfa ?? 0) - Number(momoInvoice?.paidFcfa ?? 0))}
+        targetType="SAAS_INVOICE"
+        targetId={String(momoInvoice?.id ?? '')}
+        onSettled={() => void loadAll()}
+        onNotify={onNotify}
+      />
     </div>
   );
 };

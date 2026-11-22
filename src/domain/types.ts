@@ -1,4 +1,4 @@
-export type UserRole = 'PLATFORM_ADMIN' | 'OWNER' | 'MANAGER' | 'ATTENDANT' | 'ACCOUNTANT';
+export type UserRole = 'PLATFORM_ADMIN' | 'GROUP_CFO' | 'OWNER' | 'MANAGER' | 'ATTENDANT' | 'ACCOUNTANT';
 
 export type FuelGrade = 'SUPER' | 'GASOIL' | 'KEROSENE' | 'LPG_BULK' | 'HEAVY_FUEL';
 

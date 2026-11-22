@@ -39,6 +39,15 @@ export const ROLE_PROFILES: Record<
     summary:
       'Controls every aspect of the OpesFuel SaaS platform: all customer tenants, global FCFA/USD plan pricing, FX rates, feature flags, suspension, enterprise licenses, and broadcasts.',
   },
+  GROUP_CFO: {
+    name: 'Dr. Olivier Nkomo',
+    email: 'group.cfo@opesfuel.com',
+    phone: '+237690000006',
+    memberId: 'OPF-CFO-001',
+    title: 'Holding Group Chief Financial Officer',
+    summary:
+      'Consolidates multi-subsidiary P&L and Balance Sheets across XAF/XOF/USD entities, runs inter-company eliminations, and tracks controlling vs. minority interest.',
+  },
   OWNER: {
     name: 'Jean-Paul Mbarga',
     email: 'owner@opesfuel.com',
@@ -82,6 +91,15 @@ export function canAccessSection(role: UserRole, section: ConsoleSection): boole
   switch (role) {
     case 'PLATFORM_ADMIN':
       return true;
+    case 'GROUP_CFO':
+      return (
+        section === 'overview' ||
+        section === 'accounting' ||
+        section === 'enterprise-ops' ||
+        section === 'fleet' ||
+        section === 'inventory' ||
+        section === 'ai-assistant'
+      );
     case 'OWNER':
       return true;
     case 'MANAGER':
@@ -137,7 +155,7 @@ export function canPerformAction(
       return role === 'OWNER' || role === 'MANAGER' || role === 'ATTENDANT';
     case 'SETTLE_FLEET':
     case 'RECORD_EXPENSE_DEPOSIT':
-      return role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT';
+      return role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'GROUP_CFO';
   }
 }
 
@@ -179,6 +197,7 @@ export function resolveRoleFromClaims(claims: Record<string, unknown>): UserRole
   if (Array.isArray(rawRoles)) {
     const normalized = rawRoles.map((r) => String(r).trim().toUpperCase());
     if (normalized.includes('PLATFORM_ADMIN')) return 'PLATFORM_ADMIN';
+    if (normalized.includes('GROUP_CFO')) return 'GROUP_CFO';
     if (normalized.includes('OWNER')) return 'OWNER';
     if (normalized.includes('MANAGER')) return 'MANAGER';
     if (normalized.includes('ACCOUNTANT')) return 'ACCOUNTANT';

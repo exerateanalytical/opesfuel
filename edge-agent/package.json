@@ -1,0 +1,15 @@
+{
+  "name": "@opesfuel/edge-agent",
+  "version": "1.0.0",
+  "description": "OpesFuel On-Site Forecourt Hardware Edge Agent (DOMS/PTS-2 jsonPTS, Veeder-Root TLS-350/450, OCPP 2.0.1 CSMS)",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "npm run build && node --test test/parsers.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

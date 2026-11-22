@@ -261,3 +261,36 @@ export function printPrepaidVoucherThermalSlip(params: {
   `;
   openThermalPrintWindow(`Fuel Voucher ${params.voucherCode}`, body);
 }
+
+export function printThermalReceipt(params: {
+  title: string;
+  stationName: string;
+  receiptNo: string;
+  dateIso: string;
+  customerName?: string;
+  lines: Array<{ label: string; amountFcfa: number }>;
+  totalFcfa: number;
+  footerNote?: string;
+}): void {
+  const rowsHtml = params.lines
+    .map(
+      (l) =>
+        `<div class="row"><span>${escapeHtml(l.label)}</span><span class="bold">${escapeHtml(formatFcfa(l.amountFcfa))}</span></div>`
+    )
+    .join('');
+  const body = `
+    ${buildBrandedThermalHeader(params.stationName, params.title)}
+    <div class="hr"></div>
+    <div class="row"><span>Receipt #:</span><span class="bold">${escapeHtml(params.receiptNo)}</span></div>
+    <div class="row"><span>Date:</span><span>${escapeHtml(params.dateIso.slice(0, 16).replace('T', ' '))}</span></div>
+    ${params.customerName ? `<div class="row"><span>Customer:</span><span>${escapeHtml(params.customerName)}</span></div>` : ''}
+    <div class="hr"></div>
+    ${rowsHtml}
+    <div class="hr"></div>
+    <div class="row bold" style="font-size:12px;"><span>TOTAL</span><span>${escapeHtml(formatFcfa(params.totalFcfa))}</span></div>
+    ${params.footerNote ? `<div class="center" style="margin-top:8px;font-size:9px;">${escapeHtml(params.footerNote)}</div>` : ''}
+    ${buildBrandedThermalFooter()}
+  `;
+  openThermalPrintWindow(`${params.title} ${params.receiptNo}`, body);
+}
+

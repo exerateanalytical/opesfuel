@@ -58,6 +58,13 @@ const PumpCalibrationPanel = lazy(() => import('./components/console/PumpCalibra
 const SecurityAuditAndProfilePanel = lazy(() => import('./components/console/SecurityAuditAndProfilePanel').then((m) => ({ default: m.SecurityAuditAndProfilePanel })));
 const WetStockCalibrationAndCatalogPanel = lazy(() => import('./components/console/WetStockCalibrationAndCatalogPanel').then((m) => ({ default: m.WetStockCalibrationAndCatalogPanel })));
 const WorkforceSection = lazy(() => import('./components/console/WorkforceSection').then((m) => ({ default: m.WorkforceSection })));
+const VerifyDocumentPage = lazy(() => import('./components/public/VerifyDocumentPage').then((m) => ({ default: m.VerifyDocumentPage })));
+const PublicLoyaltyPassPage = lazy(() => import('./components/public/PublicLoyaltyPassPage').then((m) => ({ default: m.PublicLoyaltyPassPage })));
+const FleetClientPortalPage = lazy(() => import('./components/fleet/FleetClientPortalPage').then((m) => ({ default: m.FleetClientPortalPage })));
+const LpgCylinderExchangePanel = lazy(() => import('./components/console/LpgCylinderExchangePanel').then((m) => ({ default: m.LpgCylinderExchangePanel })));
+const MaintenanceCmmsPanel = lazy(() => import('./components/console/MaintenanceCmmsPanel').then((m) => ({ default: m.MaintenanceCmmsPanel })));
+const LoyaltyCampaignsPanel = lazy(() => import('./components/console/LoyaltyCampaignsPanel').then((m) => ({ default: m.LoyaltyCampaignsPanel })));
+const HoldingConsolidationPanel = lazy(() => import('./components/console/HoldingConsolidationPanel').then((m) => ({ default: m.HoldingConsolidationPanel })));
 
 const PUBLIC_PAGES: PublicPage[] = [
   'home',
@@ -166,36 +173,52 @@ const CONSOLE_SECTIONS: ConsoleSection[] = [
   'admin',
 ];
 
+type AppMode = 'public' | 'login' | 'console' | 'verify' | 'fleet-portal' | 'loyalty-pass';
+
 function parseHashRoute(hashStr = window.location.hash): {
-  mode: 'public' | 'login' | 'console';
+  mode: AppMode;
   publicPage: PublicPage;
   consoleSection: ConsoleSection;
   inviteToken: string | null;
+  verifyCode: string | null;
+  loyaltyToken: string | null;
   unknownHash: string | null;
 } {
-  const rawOriginal = hashStr.replace(/^#\/?/, '');
+  const pathFallback = !hashStr && typeof window !== 'undefined' ? window.location.pathname.replace(/^\/+/, '') : '';
+  const rawOriginal = (hashStr ? hashStr.replace(/^#\/?/, '') : pathFallback);
   const raw = rawOriginal.toLowerCase();
   if (!raw) {
-    return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null, unknownHash: null };
+    return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null, verifyCode: null, loyaltyToken: null, unknownHash: null };
+  }
+  if (raw === 'verify' || raw.startsWith('verify/')) {
+    const code = raw.startsWith('verify/') ? decodeURIComponent(rawOriginal.slice('verify/'.length).trim()) : null;
+    return { mode: 'verify', publicPage: 'home', consoleSection: 'overview', inviteToken: null, verifyCode: code || null, loyaltyToken: null, unknownHash: null };
+  }
+  if (raw === 'fleet-portal' || raw.startsWith('fleet-portal/')) {
+    return { mode: 'fleet-portal', publicPage: 'home', consoleSection: 'overview', inviteToken: null, verifyCode: null, loyaltyToken: null, unknownHash: null };
+  }
+  if (raw.startsWith('loyalty/')) {
+    const tok = decodeURIComponent(rawOriginal.slice('loyalty/'.length).trim());
+    return { mode: 'loyalty-pass', publicPage: 'home', consoleSection: 'overview', inviteToken: null, verifyCode: null, loyaltyToken: tok || 'demo', unknownHash: null };
   }
   if (raw.startsWith('invite/')) {
     const token = rawOriginal.slice('invite/'.length).trim();
-    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: token || null, unknownHash: null };
+    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: token || null, verifyCode: null, loyaltyToken: null, unknownHash: null };
   }
   if (raw === 'login') {
-    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: null, unknownHash: null };
+    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: null, verifyCode: null, loyaltyToken: null, unknownHash: null };
   }
   if (raw.startsWith('app/')) {
     const seg = raw.slice(4) as ConsoleSection;
     if (CONSOLE_SECTIONS.includes(seg)) {
-      return { mode: 'console', publicPage: 'home', consoleSection: seg, inviteToken: null, unknownHash: null };
+      return { mode: 'console', publicPage: 'home', consoleSection: seg, inviteToken: null, verifyCode: null, loyaltyToken: null, unknownHash: null };
     }
-    return { mode: 'console', publicPage: 'home', consoleSection: 'overview', inviteToken: null, unknownHash: null };
+    return { mode: 'console', publicPage: 'home', consoleSection: 'overview', inviteToken: null, verifyCode: null, loyaltyToken: null, unknownHash: null };
   }
   if (PUBLIC_PAGES.includes(raw as PublicPage)) {
-    return { mode: 'public', publicPage: raw as PublicPage, consoleSection: 'overview', inviteToken: null, unknownHash: null };
+    return { mode: 'public', publicPage: raw as PublicPage, consoleSection: 'overview', inviteToken: null, verifyCode: null, loyaltyToken: null, unknownHash: null };
   }
-  return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null, unknownHash: rawOriginal };
+  return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null, verifyCode: null, loyaltyToken: null, unknownHash: rawOriginal };
 }
 
 export default function App() {
@@ -210,11 +233,13 @@ export default function App() {
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   const initialRoute = useMemo(() => parseHashRoute(), []);
-  const [mode, setMode] = useState<'public' | 'login' | 'console'>(initialRoute.mode);
+  const [mode, setMode] = useState<AppMode>(initialRoute.mode);
   const [publicPage, setPublicPage] = useState<PublicPage>(initialRoute.publicPage);
   const [unknownHash, setUnknownHash] = useState<string | null>(initialRoute.unknownHash);
   const [consoleSection, setConsoleSection] = useState<ConsoleSection>(initialRoute.consoleSection);
   const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(initialRoute.inviteToken);
+  const [verifyCode, setVerifyCode] = useState<string | null>(initialRoute.verifyCode);
+  const [loyaltyToken, setLoyaltyToken] = useState<string | null>(initialRoute.loyaltyToken);
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => getStoredAuthSession());
   const [authError, setAuthError] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>(() => getStoredAuthSession()?.role ?? 'OWNER');
@@ -375,7 +400,15 @@ export default function App() {
   // Bidirectional URL hash sync for direct bookmarkable individual pages
   useEffect(() => {
     const nextHash =
-      mode === 'login'
+      mode === 'verify'
+        ? verifyCode
+          ? `#/verify/${encodeURIComponent(verifyCode)}`
+          : '#/verify'
+        : mode === 'fleet-portal'
+        ? '#/fleet-portal'
+        : mode === 'loyalty-pass'
+        ? `#/loyalty/${encodeURIComponent(loyaltyToken || 'demo')}`
+        : mode === 'login'
         ? pendingInviteToken
           ? `#/invite/${pendingInviteToken}`
           : '#/login'
@@ -387,7 +420,7 @@ export default function App() {
     if (window.location.hash !== nextHash) {
       window.history.replaceState(null, '', nextHash);
     }
-  }, [mode, publicPage, consoleSection, pendingInviteToken]);
+  }, [mode, publicPage, consoleSection, pendingInviteToken, verifyCode, loyaltyToken]);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -400,6 +433,8 @@ export default function App() {
       setPublicPage(parsed.publicPage);
       setConsoleSection(parsed.consoleSection);
       setPendingInviteToken(parsed.inviteToken);
+      setVerifyCode(parsed.verifyCode);
+      setLoyaltyToken(parsed.loyaltyToken);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -580,6 +615,30 @@ export default function App() {
       `Seeded flagship demo petrol station with ${totalCount.toLocaleString()} balanced records across Fuel, Shifts, Tanks, Fleet, HR, Salaries, Taxes, Safe & SYSCOHADA Ledger.`
     );
   }, [defaultStationId, notify, postOptionalBackend, role]);
+
+  if (mode === 'verify') {
+    return (
+      <Suspense fallback={<div className="p-10 text-center text-xs text-slate-500">Loading document verification portal...</div>}>
+        <VerifyDocumentPage initialCode={verifyCode} onBackHome={() => setMode('public')} />
+      </Suspense>
+    );
+  }
+
+  if (mode === 'fleet-portal') {
+    return (
+      <Suspense fallback={<div className="p-10 text-center text-xs text-slate-500">Loading corporate fleet client portal...</div>}>
+        <FleetClientPortalPage onBackHome={() => setMode('public')} />
+      </Suspense>
+    );
+  }
+
+  if (mode === 'loyalty-pass') {
+    return (
+      <Suspense fallback={<div className="p-10 text-center text-xs text-slate-500">Loading digital loyalty pass...</div>}>
+        <PublicLoyaltyPassPage passToken={loyaltyToken || 'demo'} onBackHome={() => setMode('public')} />
+      </Suspense>
+    );
+  }
 
   if (mode === 'login') {
     return (
@@ -943,6 +1002,13 @@ export default function App() {
             onPostBackend={postOptionalBackend}
             onNotify={notify}
           />
+          <LpgCylinderExchangePanel
+            role={role}
+            stationId={scopedStationId}
+            stationName={scopedStationName}
+            onPostBackend={postOptionalBackend}
+            onNotify={notify}
+          />
         </div>
       )}
 
@@ -1210,6 +1276,11 @@ export default function App() {
                   notify('success', `Approval request ${status.toLowerCase()}.`);
                 }}
               />
+              <HoldingConsolidationPanel
+                role={role}
+                onPostBackend={postOptionalBackend}
+                onNotify={notify}
+              />
             </div>
           }
         />
@@ -1380,6 +1451,23 @@ export default function App() {
             )
           }
         />
+      )}
+      {consoleSection === 'enterprise-ops' && (
+        <div className="space-y-6 mt-6">
+          <MaintenanceCmmsPanel
+            role={role}
+            stationId={scopedStationId}
+            stationName={scopedStationName}
+            onPostBackend={postOptionalBackend}
+            onNotify={notify}
+          />
+          <LoyaltyCampaignsPanel
+            role={role}
+            stationName={scopedStationName}
+            onPostBackend={postOptionalBackend}
+            onNotify={notify}
+          />
+        </div>
       )}
 
       {consoleSection === 'ai-assistant' && (

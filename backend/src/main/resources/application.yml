@@ -73,3 +73,52 @@ opesfuel:
     encryption-key: ${OPESFUEL_ENCRYPTION_KEY:dev-only-opesfuel-32-byte-secret-key-change-me}
   notifications:
     webhook-url: ${OPESFUEL_ALERTS_WEBHOOK_URL:}
+  momo:
+    reconcile-enabled: ${OPESFUEL_MOMO_RECONCILE_ENABLED:true}
+    reconcile-interval-ms: ${OPESFUEL_MOMO_RECONCILE_INTERVAL_MS:60000}
+    tx-expiry-minutes: ${OPESFUEL_MOMO_TX_EXPIRY_MINUTES:15}
+    mtn:
+      base-url: ${OPESFUEL_MTN_BASE_URL:https://sandbox.momodeveloper.mtn.com}
+      target-environment: ${OPESFUEL_MTN_TARGET_ENV:sandbox}
+      api-user: ${OPESFUEL_MTN_API_USER:}
+      api-key: ${OPESFUEL_MTN_API_KEY:}
+      collection-subscription-key: ${OPESFUEL_MTN_COLLECTION_SUBSCRIPTION_KEY:}
+      disbursement-subscription-key: ${OPESFUEL_MTN_DISBURSEMENT_SUBSCRIPTION_KEY:}
+      callback-url: ${OPESFUEL_MTN_CALLBACK_URL:}
+    orange:
+      base-url: ${OPESFUEL_ORANGE_BASE_URL:https://api.orange.com}
+      environment: ${OPESFUEL_ORANGE_ENV:dev}
+      client-id: ${OPESFUEL_ORANGE_CLIENT_ID:}
+      client-secret: ${OPESFUEL_ORANGE_CLIENT_SECRET:}
+      merchant-key: ${OPESFUEL_ORANGE_MERCHANT_KEY:}
+      return-url: ${OPESFUEL_ORANGE_RETURN_URL:https://app.opesfuel.com/#/app/admin}
+      cancel-url: ${OPESFUEL_ORANGE_CANCEL_URL:https://app.opesfuel.com/#/app/admin}
+      notif-url: ${OPESFUEL_ORANGE_NOTIF_URL:}
+      lang: ${OPESFUEL_ORANGE_LANG:fr}
+  mail:
+    provider: ${OPESFUEL_MAIL_PROVIDER:LOG_ONLY}
+    api-key: ${OPESFUEL_MAIL_API_KEY:}
+    from: ${OPESFUEL_MAIL_FROM:noreply@opesfuel.com}
+    smtp:
+      host: ${OPESFUEL_SMTP_HOST:}
+      port: ${OPESFUEL_SMTP_PORT:587}
+      username: ${OPESFUEL_SMTP_USERNAME:}
+      password: ${OPESFUEL_SMTP_PASSWORD:}
+      starttls: ${OPESFUEL_SMTP_STARTTLS:true}
+      ssl: ${OPESFUEL_SMTP_SSL:false}
+  sms:
+    provider: ${OPESFUEL_SMS_PROVIDER:LOG_ONLY}
+    africastalking:
+      username: ${OPESFUEL_AT_USERNAME:}
+      api-key: ${OPESFUEL_AT_API_KEY:}
+      from: ${OPESFUEL_AT_FROM:OPESFUEL}
+    twilio:
+      account-sid: ${OPESFUEL_TWILIO_ACCOUNT_SID:}
+      auth-token: ${OPESFUEL_TWILIO_AUTH_TOKEN:}
+      from: ${OPESFUEL_TWILIO_FROM:}
+  whatsapp:
+    provider: ${OPESFUEL_WHATSAPP_PROVIDER:LOG_ONLY}
+    meta:
+      phone-number-id: ${OPESFUEL_WHATSAPP_PHONE_NUMBER_ID:}
+      access-token: ${OPESFUEL_WHATSAPP_ACCESS_TOKEN:}
+

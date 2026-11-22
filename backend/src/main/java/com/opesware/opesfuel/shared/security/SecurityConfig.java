@@ -37,6 +37,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JdbcTemplate jdbcTemplate) throws Exception {
         ApiKeyAuthFilter apiKeyAuthFilter = new ApiKeyAuthFilter(jdbcTemplate);
+        FleetPortalAuthFilter fleetPortalAuthFilter = new FleetPortalAuthFilter(jdbcTemplate);
         IdempotencyFilter idempotencyFilter = new IdempotencyFilter(jdbcTemplate, idempotencyTtlHours);
 
         http
@@ -49,14 +50,25 @@ public class SecurityConfig {
                     "/api/v1/billing/plans",
                     "/api/v1/billing/enterprise-licenses",
                     "/api/v1/catalog/institutional-fuels",
+                    "/api/v1/public/verify/**",
+                    "/api/v1/public/loyalty/pass/**",
                     "/api/v1/openapi.json",
                     "/api/v1/docs/**"
                 ).permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/public/leads", "/api/v1/public/webhooks/payments/**").permitAll()
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/public/leads",
+                    "/api/v1/public/webhooks/payments/**",
+                    "/api/v1/public/webhooks/momo/**",
+                    "/api/v1/public/auth/**",
+                    "/api/v1/public/fleet-portal/login",
+                    "/api/v1/public/edge/**"
+                ).permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(apiKeyAuthFilter, BearerTokenAuthenticationFilter.class)
+            .addFilterBefore(fleetPortalAuthFilter, BearerTokenAuthenticationFilter.class)
             .addFilterAfter(idempotencyFilter, BearerTokenAuthenticationFilter.class)
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(auth0RoleConverter()))
@@ -69,7 +81,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-API-Key"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-API-Key", "X-Fleet-Token", "X-Edge-Key"));
         config.setExposedHeaders(List.of("Idempotency-Replayed"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

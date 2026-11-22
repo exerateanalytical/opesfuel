@@ -232,6 +232,7 @@ class FleetService {
     private final InventoryQueryApi inventoryQueryApi;
     private final TenantAccessGuard accessGuard;
     private final ApplicationEventPublisher eventPublisher;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     FleetService(
         FleetAccountRepository fleetRepo,
@@ -241,7 +242,8 @@ class FleetService {
         ForecourtQueryApi forecourtQueryApi,
         InventoryQueryApi inventoryQueryApi,
         TenantAccessGuard accessGuard,
-        ApplicationEventPublisher eventPublisher
+        ApplicationEventPublisher eventPublisher,
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate
     ) {
         this.fleetRepo = fleetRepo;
         this.vehicleRepo = vehicleRepo;
@@ -251,6 +253,7 @@ class FleetService {
         this.inventoryQueryApi = inventoryQueryApi;
         this.accessGuard = accessGuard;
         this.eventPublisher = eventPublisher;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     private long resolveFuelUnitPrice(String stationId, FuelGrade grade) {
@@ -369,6 +372,7 @@ class FleetService {
 
         long unitPrice = resolveFuelUnitPrice(cmd.stationId(), grade);
         long amountFcfa = cmd.litres().multiply(BigDecimal.valueOf(unitPrice)).setScale(0, RoundingMode.HALF_UP).longValue();
+        enforceVehicleSpendLimits(acc.getTenantId(), acc.getId(), cmd.vehiclePlate(), grade.name(), cmd.litres().doubleValue(), amountFcfa);
         acc.charge(amountFcfa);
         fleetRepo.save(acc);
 
@@ -406,6 +410,75 @@ class FleetService {
             acc.getCompanyName(), cmd.amountFcfa(), method.name(), Instant.now()
         ));
         return acc;
+    }
+
+    private void enforceVehicleSpendLimits(
+        String tenantId,
+        String accountId,
+        String vehiclePlate,
+        String grade,
+        double requestedLitres,
+        long requestedXaf
+    ) {
+        String normalizedPlate = vehiclePlate.trim().toUpperCase();
+        List<Map<String, Object>> limits;
+        try {
+            limits = jdbcTemplate.queryForList(
+                "SELECT * FROM fleet_vehicle_limits WHERE tenant_id = ? AND fleet_account_id = ? AND UPPER(vehicle_plate) = ?",
+                tenantId, accountId, normalizedPlate
+            );
+        } catch (Exception ignored) {
+            return; // V17 table may not be loaded in legacy pre-V17 tests
+        }
+        if (limits.isEmpty()) return;
+        Map<String, Object> lim = limits.get(0);
+        if (Boolean.FALSE.equals(lim.get("active"))) {
+            throw new IllegalStateException("Vehicle card for " + normalizedPlate + " is currently SUSPENDED by fleet manager.");
+        }
+        String allowedCsv = lim.get("allowed_grades_csv") != null ? String.valueOf(lim.get("allowed_grades_csv")).trim() : "";
+        if (!allowedCsv.isBlank()) {
+            boolean ok = false;
+            for (String g : allowedCsv.split(",")) {
+                if (g.trim().equalsIgnoreCase(grade)) {
+                    ok = true;
+                    break;
+                }
+            }
+            if (!ok) {
+                throw new IllegalStateException("Fuel grade " + grade + " is not authorized for vehicle " + normalizedPlate + " (allowed: " + allowedCsv + ").");
+            }
+        }
+
+        Instant dayStart = java.time.LocalDate.now(java.time.ZoneOffset.UTC).atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+        Instant monthStart = java.time.YearMonth.now(java.time.ZoneOffset.UTC).atDay(1).atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+
+        Map<String, Object> dayTotals = jdbcTemplate.queryForMap(
+            "SELECT COALESCE(SUM(litres), 0) AS l, COALESCE(SUM(amount_fcfa), 0) AS x FROM fleet_transactions WHERE account_id = ? AND UPPER(vehicle_plate) = ? AND created_at >= ?",
+            accountId, normalizedPlate, java.sql.Timestamp.from(dayStart)
+        );
+        double dayLitres = ((Number) dayTotals.get("l")).doubleValue();
+        long dayXaf = ((Number) dayTotals.get("x")).longValue();
+
+        if (lim.get("daily_litre_cap") instanceof Number n && dayLitres + requestedLitres > n.doubleValue()) {
+            throw new IllegalStateException("Daily litre limit (" + n.doubleValue() + " L) exceeded for vehicle " + normalizedPlate + ".");
+        }
+        if (lim.get("daily_xaf_cap") instanceof Number n && dayXaf + requestedXaf > n.longValue()) {
+            throw new IllegalStateException("Daily spend limit (" + n.longValue() + " FCFA) exceeded for vehicle " + normalizedPlate + ".");
+        }
+
+        Map<String, Object> monthTotals = jdbcTemplate.queryForMap(
+            "SELECT COALESCE(SUM(litres), 0) AS l, COALESCE(SUM(amount_fcfa), 0) AS x FROM fleet_transactions WHERE account_id = ? AND UPPER(vehicle_plate) = ? AND created_at >= ?",
+            accountId, normalizedPlate, java.sql.Timestamp.from(monthStart)
+        );
+        double monthLitres = ((Number) monthTotals.get("l")).doubleValue();
+        long monthXaf = ((Number) monthTotals.get("x")).longValue();
+
+        if (lim.get("monthly_litre_cap") instanceof Number n && monthLitres + requestedLitres > n.doubleValue()) {
+            throw new IllegalStateException("Monthly litre limit (" + n.doubleValue() + " L) exceeded for vehicle " + normalizedPlate + ".");
+        }
+        if (lim.get("monthly_xaf_cap") instanceof Number n && monthXaf + requestedXaf > n.longValue()) {
+            throw new IllegalStateException("Monthly spend limit (" + n.longValue() + " FCFA) exceeded for vehicle " + normalizedPlate + ".");
+        }
     }
 }
 

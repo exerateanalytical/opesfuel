@@ -1,0 +1,18 @@
+[Unit]
+Description=OpesFuel Forecourt Hardware Edge Agent (PTS-2 / Veeder-Root ATG / OCPP 2.0.1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=opesfuel-edge
+EnvironmentFile=/etc/opesfuel-edge/edge.env
+WorkingDirectory=/opt/opesfuel-edge
+ExecStart=/usr/bin/node /opt/opesfuel-edge/dist/index.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
