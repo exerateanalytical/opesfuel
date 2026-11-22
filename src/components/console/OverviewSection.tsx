@@ -16,13 +16,14 @@ import {
   Tag,
   Trophy,
 } from 'lucide-react';
-import { PriceHistoryItem } from '../../api/demoDataset1000';
+import { CashVaultEntryItem, PriceHistoryItem } from '../../api/demoDataset1000';
 import { MakerCheckerApprovalItem } from '../../api/enterpriseModulesData';
 import { SUBSCRIPTION_PLANS } from '../../api/opesfuelClient';
 import { canAccessSection, canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import {
   DomainEventLog,
+  Employee,
   FinancialReportBundle,
   FuelGrade,
   FuelTank,
@@ -32,9 +33,11 @@ import {
   UserRole,
 } from '../../domain/types';
 import {
+  exportManagerDailyOpsExcel,
   exportOwnerNetworkExcel,
   exportShiftsExcel,
   printDailyZReportPdf,
+  printManagerDailyHandoverPdf,
   printOwnerNetworkExecutivePdf,
 } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
@@ -42,15 +45,26 @@ import { FormModal } from '../shared/FormModal';
 interface OverviewSectionProps {
   role: UserRole;
   organizationName?: string;
+  managerName?: string;
   activeStationId: string;
   stations: Station[];
   tanks: FuelTank[];
   pumps: Pump[];
   shifts: ShiftRecord[];
+  employees?: Employee[];
+  vaultEntries?: CashVaultEntryItem[];
+  pendingLeavesCount?: number;
+  quarantinedTanksCount?: number;
   events: DomainEventLog[];
   priceHistory?: PriceHistoryItem[];
   approvals?: MakerCheckerApprovalItem[];
   onDecideApproval?: (id: string, status: 'APPROVED' | 'REJECTED') => void;
+  onSubmitApprovalRequest?: (input: {
+    stationId: string;
+    requestType: MakerCheckerApprovalItem['requestType'];
+    title: string;
+    amountFcfa: number;
+  }) => void;
   onSelectStation?: (stationId: string) => void;
   report: FinancialReportBundle;
   onboardingCompletedCount: number;
@@ -71,6 +85,7 @@ interface OverviewSectionProps {
       | 'fleet'
       | 'workforce'
       | 'accounting'
+      | 'hse-fraud'
       | 'api-platform'
       | 'ai-assistant'
       | 'mobile-app'
@@ -82,15 +97,21 @@ interface OverviewSectionProps {
 export const OverviewSection: React.FC<OverviewSectionProps> = ({
   role,
   organizationName = 'OpesFuel Station Network',
+  managerName = 'Station Manager',
   activeStationId,
   stations,
   tanks,
   pumps,
   shifts,
+  employees = [],
+  vaultEntries = [],
+  pendingLeavesCount = 0,
+  quarantinedTanksCount = 0,
   events,
   priceHistory = [],
   approvals = [],
   onDecideApproval,
+  onSubmitApprovalRequest,
   onSelectStation,
   report,
   onboardingCompletedCount,
@@ -110,6 +131,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const canAccessFleet = canAccessSection(role, 'fleet');
   const canRunSetup = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
   const isAttendant = role === 'ATTENDANT';
+  const currentSafeBalanceFcfa = vaultEntries[0]?.runningBalanceFcfa ?? 0;
 
   const [priceGrade, setPriceGrade] = useState<FuelGrade>('SUPER');
   const [priceValue, setPriceValue] = useState(String(currentStation?.prices.SUPER ?? 840));
@@ -117,8 +139,27 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [showNewStation, setShowNewStation] = useState(false);
   const [stationForm, setStationForm] = useState({ code: '', name: '', city: '', planId: 'growth' });
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalForm, setApprovalForm] = useState<{
+    requestType: MakerCheckerApprovalItem['requestType'];
+    title: string;
+    amountFcfa: string;
+  }>({ requestType: 'PO_APPROVAL', title: '', amountFcfa: '50000' });
 
   const pendingApprovals = approvals.filter((a) => a.status === 'PENDING');
+  const visibleEvents = canViewFinancials
+    ? events
+    : events.filter((evt) => {
+        const key = `${evt.eventType} ${evt.aggregateType}`.toUpperCase();
+        return (
+          !key.includes('PAYROLL') &&
+          !key.includes('EXPENSE') &&
+          !key.includes('DEPOSIT') &&
+          !key.includes('JOURNAL') &&
+          !key.includes('TAX') &&
+          !key.includes('DIVIDEND')
+        );
+      });
   const stationScorecard = stations.map((st) => {
     const stShifts = shifts.filter((s) => s.stationId === st.id);
     const stClosed = stShifts.filter((s) => s.status === 'CLOSED');
@@ -202,7 +243,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
     title: string;
     detail: string;
     actionLabel: string;
-    target: 'inventory' | 'forecourt' | 'accounting' | 'onboarding';
+    target: 'inventory' | 'forecourt' | 'accounting' | 'hse-fraud' | 'onboarding';
   }
 
   const operationalAlerts: HealthAlert[] = [];
@@ -231,14 +272,24 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       }
     }
   }
-  if (canAccessAccounting && report.cashVarianceFcfa > 0) {
+  if (quarantinedTanksCount > 0 && canAccessSection(role, 'hse-fraud')) {
+    operationalAlerts.push({
+      id: 'qc-quarantine',
+      severity: 'CRITICAL',
+      title: `${quarantinedTanksCount} Tank(s) Under STOP-SALE Quarantine`,
+      detail: 'Water-paste or fuel density QC failure active — verify tank release clearance',
+      actionLabel: 'Open Fuel QC',
+      target: 'hse-fraud',
+    });
+  }
+  if ((canAccessAccounting || role === 'MANAGER') && report.cashVarianceFcfa > 0) {
     operationalAlerts.push({
       id: 'cash-var',
       severity: 'AUDIT',
       title: `Shift Cash Shortfall: ${formatFcfa(report.cashVarianceFcfa)}`,
       detail: 'Verify attendant cash/MoMo tenders against closing meter totals',
-      actionLabel: 'Inspect Ledger',
-      target: 'accounting',
+      actionLabel: canAccessAccounting ? 'Inspect Ledger' : 'Inspect Shifts',
+      target: canAccessAccounting ? 'accounting' : 'forecourt',
     });
   }
   if (canAccessAccounting && !report.trialBalanceBalanced) {
@@ -775,6 +826,83 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
         </div>
       )}
 
+      {/* Station Manager Custody, Approvals & Daily Handover Bar */}
+      {role === 'MANAGER' && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+            <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/70">
+              <div className="text-[11px] font-mono uppercase text-slate-500">Current Cash in Safe</div>
+              <div className="font-mono tabular-nums text-lg font-bold text-slate-950 mt-0.5">
+                {formatFcfa(currentSafeBalanceFcfa)}
+              </div>
+              <button
+                type="button"
+                onClick={() => onJumpTo('forecourt')}
+                className="text-[11px] font-semibold text-amber-700 hover:underline mt-0.5"
+              >
+                Open Cash Safe Ledger →
+              </button>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/70">
+              <div className="text-[11px] font-mono uppercase text-slate-500">Pending Staff Leaves</div>
+              <div className="font-mono tabular-nums text-lg font-bold text-slate-950 mt-0.5">
+                {pendingLeavesCount} Request{pendingLeavesCount === 1 ? '' : 's'}
+              </div>
+              <button
+                type="button"
+                onClick={() => onJumpTo('workforce')}
+                className="text-[11px] font-semibold text-amber-700 hover:underline mt-0.5"
+              >
+                Review Roster &amp; Leaves →
+              </button>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/70">
+              <div className="text-[11px] font-mono uppercase text-slate-500">Fuel QC Quarantine</div>
+              <div className={`font-mono tabular-nums text-lg font-bold mt-0.5 ${quarantinedTanksCount > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                {quarantinedTanksCount > 0 ? `${quarantinedTanksCount} STOP-SALE` : 'All Clear'}
+              </div>
+              <button
+                type="button"
+                onClick={() => onJumpTo('hse-fraud')}
+                className="text-[11px] font-semibold text-amber-700 hover:underline mt-0.5"
+              >
+                Open HSE &amp; Fuel QC →
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {onSubmitApprovalRequest && (
+              <button
+                type="button"
+                onClick={() => setShowApprovalModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
+              >
+                <Plus className="w-3.5 h-3.5" /> Request Owner Approval
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() =>
+                printManagerDailyHandoverPdf({
+                  stationName: currentStation?.name ?? organizationName,
+                  managerName,
+                  dateLabel: new Date().toISOString().slice(0, 10),
+                  shifts: filteredShifts,
+                  tanks: filteredTanks,
+                  safeBalanceFcfa: currentSafeBalanceFcfa,
+                  recentVaultEntries: vaultEntries,
+                  quarantinedTanksCount,
+                  pendingLeavesCount,
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              <Printer className="w-3.5 h-3.5 text-amber-400" /> Print Daily Handover PDF
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Multi-Station Branch Performance Comparison Scorecard (For Network Owners & Finance Executives) */}
       {canViewFinancials && stationScorecard.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -1288,6 +1416,50 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                 </button>
               </>
             )}
+            {(role === 'MANAGER' || role === 'OWNER' || role === 'PLATFORM_ADMIN') && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    printManagerDailyHandoverPdf({
+                      stationName: currentStation?.name ?? organizationName,
+                      managerName,
+                      dateLabel: new Date().toISOString().slice(0, 10),
+                      shifts: filteredShifts,
+                      tanks: filteredTanks,
+                      safeBalanceFcfa: currentSafeBalanceFcfa,
+                      recentVaultEntries: vaultEntries,
+                      quarantinedTanksCount,
+                      pendingLeavesCount,
+                    })
+                  }
+                  className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-400" /> Manager Daily Handover PDF
+                  </span>
+                  <span className="font-mono text-[10px] text-amber-300">A4</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportManagerDailyOpsExcel({
+                      stationName: currentStation?.name ?? organizationName,
+                      shifts: filteredShifts,
+                      vaultEntries,
+                      tanks: filteredTanks,
+                      employees,
+                    })
+                  }
+                  className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Station Daily Ops Excel
+                  </span>
+                  <span className="font-mono text-[10px] text-slate-500">4-Sheet</span>
+                </button>
+              </>
+            )}
             {!isAttendant && (
               <button
                 type="button"
@@ -1442,8 +1614,14 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-bold text-slate-900">Recent Domain Events</h2>
-            <p className="text-xs text-slate-500">Event-driven audit trail updating tanks, shifts, and double-entry journals</p>
+            <h2 className="font-display text-lg font-bold text-slate-900">
+              {canViewFinancials ? 'Recent Domain Events' : 'Recent Operational Events'}
+            </h2>
+            <p className="text-xs text-slate-500">
+              {canViewFinancials
+                ? 'Event-driven audit trail updating tanks, shifts, and double-entry journals'
+                : 'Live forecourt shifts, wet-stock deliveries, dipsticks, and station custody events'}
+            </p>
           </div>
           <div className="flex gap-2">
             {canAccessForecourt && (
@@ -1468,7 +1646,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
         </div>
 
         <div className="divide-y divide-slate-100">
-          {events.slice(0, 6).map((evt) => (
+          {visibleEvents.slice(0, 6).map((evt) => (
             <div key={evt.eventId} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm">
               <div className="space-y-0.5">
                 <div className="font-mono text-xs font-semibold text-amber-700">
@@ -1622,6 +1800,88 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
             >
               Create Petrol Station
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Popup FormModal: Station Manager Maker-Checker Approval Request */}
+      <FormModal
+        open={showApprovalModal}
+        onClose={() => setShowApprovalModal(false)}
+        title="Submit Owner Maker-Checker Approval Request"
+        subtitle={`Routes directly to the Owner & CFO Approval Inbox for ${currentStation?.name ?? organizationName}.`}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!approvalForm.title.trim() || !onSubmitApprovalRequest) return;
+            onSubmitApprovalRequest({
+              stationId: currentStation?.id ?? activeStationId,
+              requestType: approvalForm.requestType,
+              title: approvalForm.title.trim(),
+              amountFcfa: Math.max(0, Number(approvalForm.amountFcfa) || 0),
+            });
+            setApprovalForm({ requestType: 'PO_APPROVAL', title: '', amountFcfa: '50000' });
+            setShowApprovalModal(false);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Approval Category</label>
+              <select
+                value={approvalForm.requestType}
+                onChange={(e) =>
+                  setApprovalForm({
+                    ...approvalForm,
+                    requestType: e.target.value as MakerCheckerApprovalItem['requestType'],
+                  })
+                }
+                className="opes-input"
+              >
+                <option value="PO_APPROVAL">Fuel PO / Replenishment Approval</option>
+                <option value="CAPEX_EXPENSE">Station Maintenance / Capex Exception</option>
+                <option value="CREDIT_LIMIT">Fleet Credit Limit Adjustment</option>
+                <option value="PRICE_CHANGE">Tariff / Pump Price Change Request</option>
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Estimated Amount (FCFA)</label>
+              <input
+                type="number"
+                min={0}
+                required
+                value={approvalForm.amountFcfa}
+                onChange={(e) => setApprovalForm({ ...approvalForm, amountFcfa: e.target.value })}
+                className="opes-input font-mono tabular-nums"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="opes-label">Request Summary &amp; Operational Justification</label>
+            <input
+              type="text"
+              required
+              value={approvalForm.title}
+              onChange={(e) => setApprovalForm({ ...approvalForm, title: e.target.value })}
+              placeholder="e.g. Emergency SCDP 20,000L Gasoil order or generator overhaul"
+              className="opes-input"
+            />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setShowApprovalModal(false)}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              Send to Owner Inbox
             </button>
           </div>
         </form>

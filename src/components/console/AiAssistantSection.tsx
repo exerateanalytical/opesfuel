@@ -146,23 +146,32 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
         balanceOwedFcfa: f.balanceOwedFcfa,
         creditLimitFcfa: f.creditLimitFcfa,
       })),
-      financialReportFcfa: {
-        totalRevenueFcfa: report.totalRevenueFcfa,
-        nonFuelRevenueFcfa: report.nonFuelRevenueFcfa,
-        grossProfitFcfa: report.grossProfitFcfa,
-        operatingExpensesFcfa: report.operatingExpensesFcfa,
-        netIncomeFcfa: report.netIncomeFcfa,
-        cashVarianceFcfa: report.cashVarianceFcfa,
-        cashOnHandFcfa: report.cashOnHandFcfa,
-        mobileMoneyClearingFcfa: report.mobileMoneyClearingFcfa,
-        bankBalanceFcfa: report.bankBalanceFcfa,
-        fleetReceivablesFcfa: report.fleetReceivablesFcfa,
-        inventoryAssetFcfa: report.inventoryAssetFcfa,
-        accountsPayableFcfa: report.accountsPayableFcfa,
-        trialBalanceBalanced: report.trialBalanceBalanced,
-      },
+      ...(canPerformAction(role, 'VIEW_FINANCIALS')
+        ? {
+            financialReportFcfa: {
+              totalRevenueFcfa: report.totalRevenueFcfa,
+              nonFuelRevenueFcfa: report.nonFuelRevenueFcfa,
+              grossProfitFcfa: report.grossProfitFcfa,
+              operatingExpensesFcfa: report.operatingExpensesFcfa,
+              netIncomeFcfa: report.netIncomeFcfa,
+              cashVarianceFcfa: report.cashVarianceFcfa,
+              cashOnHandFcfa: report.cashOnHandFcfa,
+              mobileMoneyClearingFcfa: report.mobileMoneyClearingFcfa,
+              bankBalanceFcfa: report.bankBalanceFcfa,
+              fleetReceivablesFcfa: report.fleetReceivablesFcfa,
+              inventoryAssetFcfa: report.inventoryAssetFcfa,
+              accountsPayableFcfa: report.accountsPayableFcfa,
+              trialBalanceBalanced: report.trialBalanceBalanced,
+            },
+          }
+        : {
+            operationalScopeOnly: {
+              shiftCashVarianceFcfa: report.cashVarianceFcfa,
+              note: 'Company P&L, margins, bank balance, and AP/VAT are restricted for Station Manager.',
+            },
+          }),
     };
-  }, [tenant.organizationName, activeStationId, stations, tanks, pumps, shifts, fleetAccounts, report]);
+  }, [tenant.organizationName, activeStationId, stations, tanks, pumps, shifts, fleetAccounts, report, role]);
 
   const runAnalysis = async () => {
     setAnalyzing(true);

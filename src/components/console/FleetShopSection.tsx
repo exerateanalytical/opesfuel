@@ -71,7 +71,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
   const canVoucher = canPerformAction(role, 'OPEN_CLOSE_SHIFT');
   const canSettle = canPerformAction(role, 'SETTLE_FLEET');
   const canRestock = canPerformAction(role, 'RECORD_DELIVERY');
-  const canDelete = canPerformAction(role, 'MANAGE_EMPLOYEES');
+  const canDelete = canPerformAction(role, 'VOID_FINANCIAL_RECORDS');
   const effectiveStation = stationId === 'ALL' ? defaultStationId : stationId;
 
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null);

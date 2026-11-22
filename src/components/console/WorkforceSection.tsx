@@ -160,7 +160,7 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 <Printer className="w-3.5 h-3.5" /> Print Payslip PDF
               </button>
             )}
-            {canManage && (
+            {canManage && (role !== 'MANAGER' || activeDetailEmp.role === 'ATTENDANT') && (
               <>
                 <button
                   type="button"
@@ -385,7 +385,7 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                             <Printer className="w-3 h-3" /> Payslip PDF
                           </button>
                         )}
-                        {canManage && (
+                        {canManage && (role !== 'MANAGER' || emp.role === 'ATTENDANT') && (
                           <>
                             <button
                               type="button"
@@ -453,7 +453,11 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
       <FormModal
         open={showOnboardModal}
         title="Onboard Station Employee"
-        subtitle="Create a staff member profile with station role, shift schedule, and monthly base salary."
+        subtitle={
+          canRunPayroll
+            ? 'Create a staff member profile with station role, shift schedule, and monthly base salary.'
+            : 'Create a pump island attendant profile and shift schedule (base salary configured by Owner / Accountant).'
+        }
         onClose={() => setShowOnboardModal(false)}
       >
         <form
@@ -478,13 +482,17 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
             <div>
               <label className="opes-label">Station Role</label>
               <select
-                value={empRole}
+                value={role === 'MANAGER' ? 'ATTENDANT' : empRole}
                 onChange={(e) => setEmpRole(e.target.value as UserRole)}
                 className="opes-input"
               >
                 <option value="ATTENDANT">Pump Attendant</option>
-                <option value="MANAGER">Station Manager</option>
-                <option value="ACCOUNTANT">Station Accountant</option>
+                {role !== 'MANAGER' && (
+                  <>
+                    <option value="MANAGER">Station Manager</option>
+                    <option value="ACCOUNTANT">Station Accountant</option>
+                  </>
+                )}
               </select>
             </div>
             <div>
@@ -498,7 +506,7 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 required
               />
             </div>
-            <div>
+            <div className={canRunPayroll ? '' : 'sm:col-span-2'}>
               <label className="opes-label">Shift Window</label>
               <input
                 type="text"
@@ -509,18 +517,20 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 required
               />
             </div>
-            <div>
-              <label className="opes-label">Monthly Base Salary (FCFA)</label>
-              <input
-                type="number"
-                min={0}
-                placeholder="135000"
-                value={salary}
-                onChange={(e) => setSalary(e.target.value)}
-                className="opes-input font-mono tabular-nums"
-                required
-              />
-            </div>
+            {canRunPayroll && (
+              <div>
+                <label className="opes-label">Monthly Base Salary (FCFA)</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="135000"
+                  value={salary}
+                  onChange={(e) => setSalary(e.target.value)}
+                  className="opes-input font-mono tabular-nums"
+                  required
+                />
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
             <button
@@ -544,7 +554,11 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
       <FormModal
         open={Boolean(editingEmployeeId && canManage)}
         title="Edit Station Employee"
-        subtitle="Update role assignment, contact phone, shift schedule, or monthly salary."
+        subtitle={
+          canRunPayroll
+            ? 'Update role assignment, contact phone, shift schedule, or monthly salary.'
+            : 'Update attendant contact phone and shift schedule (compensation restricted to Owner / Accountant).'
+        }
         onClose={() => setEditingEmployeeId(null)}
       >
         <form onSubmit={handleEditSave} className="space-y-4">
@@ -555,24 +569,34 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
             </div>
             <div>
               <label className="opes-label">Role</label>
-              <select value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)} className="opes-input">
+              <select
+                value={role === 'MANAGER' ? 'ATTENDANT' : editRole}
+                onChange={(e) => setEditRole(e.target.value as UserRole)}
+                className="opes-input"
+              >
                 <option value="ATTENDANT">Pump Attendant</option>
-                <option value="MANAGER">Station Manager</option>
-                <option value="ACCOUNTANT">Station Accountant</option>
+                {role !== 'MANAGER' && (
+                  <>
+                    <option value="MANAGER">Station Manager</option>
+                    <option value="ACCOUNTANT">Station Accountant</option>
+                  </>
+                )}
               </select>
             </div>
             <div>
               <label className="opes-label">Phone</label>
               <input type="text" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="opes-input font-mono" required />
             </div>
-            <div>
+            <div className={canRunPayroll ? '' : 'sm:col-span-2'}>
               <label className="opes-label">Shift Window</label>
               <input type="text" value={editWindow} onChange={(e) => setEditWindow(e.target.value)} className="opes-input font-mono" required />
             </div>
-            <div>
-              <label className="opes-label">Base Salary (FCFA)</label>
-              <input type="number" value={editSalary} onChange={(e) => setEditSalary(e.target.value)} className="opes-input font-mono" required />
-            </div>
+            {canRunPayroll && (
+              <div>
+                <label className="opes-label">Base Salary (FCFA)</label>
+                <input type="number" value={editSalary} onChange={(e) => setEditSalary(e.target.value)} className="opes-input font-mono" required />
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
             <button type="button" onClick={() => setEditingEmployeeId(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">

@@ -55,6 +55,7 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
 }) => {
   const canOperate = canPerformAction(role, 'OPEN_CLOSE_SHIFT');
   const canManage = canPerformAction(role, 'MANAGE_EMPLOYEES');
+  const canVoidFinancials = canPerformAction(role, 'VOID_FINANCIAL_RECORDS');
 
   const visiblePumps = pumps.filter((p) => stationId === 'ALL' || p.stationId === stationId);
   const visibleTanks = tanks.filter((t) => stationId === 'ALL' || t.stationId === stationId);
@@ -342,7 +343,7 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
                 <Printer className="w-3.5 h-3.5" /> Print 80mm Shift Slip
               </button>
             )}
-            {canManage && (
+            {canVoidFinancials && (
               <button
                 type="button"
                 onClick={() => {
@@ -880,7 +881,7 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
                           <Printer className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      {canManage && (
+                      {canVoidFinancials && (
                         <button
                           type="button"
                           onClick={() => {

@@ -16,6 +16,7 @@ import {
   FinancialReportBundle,
   FleetAccount,
   FleetTransaction,
+  FuelTank,
   PurchaseOrder,
   ShiftRecord,
   TankDeliveryRecord,
@@ -1434,6 +1435,161 @@ export function exportOwnerNetworkExcel(params: {
   XLSX.writeFile(wb, `opesfuel-network-executive-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
+/** 29. Station Manager End-of-Day Handover & Forecourt Operations Report PDF (Zero P&L / Salary Leakage) */
+export function printManagerDailyHandoverPdf(params: {
+  stationName: string;
+  managerName: string;
+  dateLabel: string;
+  shifts: ShiftRecord[];
+  tanks: FuelTank[];
+  safeBalanceFcfa: number;
+  recentVaultEntries: CashVaultEntryItem[];
+  quarantinedTanksCount: number;
+  pendingLeavesCount: number;
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const closed = params.shifts.filter((s) => s.status === 'CLOSED');
+  const open = params.shifts.filter((s) => s.status === 'OPEN');
+  const totalLitres = closed.reduce((acc, s) => acc + s.litresSold, 0);
+  const totalCashDrop = closed.reduce((acc, s) => acc + s.cashFcfa, 0);
+  const totalMoMo = closed.reduce((acc, s) => acc + s.mobileMoneyFcfa, 0);
+  const totalVariance = closed.reduce((acc, s) => acc + s.varianceFcfa, 0);
 
+  let y = drawDocumentHeader(
+    doc,
+    'STATION MANAGER DAILY OPERATIONS & SHIFT HANDOVER REPORT',
+    `${params.stationName} · Forecourt Custody, Wet-Stock Dipstick & Cash Safe Reconciliation`,
+    `Date: ${params.dateLabel} | Manager: ${params.managerName} | Shifts: ${closed.length} Closed / ${open.length} Open`
+  );
 
+  autoTable(doc, {
+    startY: y,
+    head: [['Forecourt & Custody KPI', 'Value', 'Operational Status', 'Value']],
+    body: [
+      ['Metered Fuel Dispensed', `${Math.round(totalLitres).toLocaleString('en-US')} L`, 'Current Cash in Station Safe', pdfMoney(params.safeBalanceFcfa)],
+      ['Closed Shift Cash Tenders', pdfMoney(totalCashDrop), 'Closed Shift MoMo Tenders', pdfMoney(totalMoMo)],
+      ['Cumulative Shift Cash Variance', pdfMoney(totalVariance), 'Quarantined Fuel Tanks', `${params.quarantinedTanksCount} tank(s)`],
+      ['Open Nozzle Shifts at Handover', `${open.length}`, 'Pending Staff Leave Requests', `${params.pendingLeavesCount}`],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.2 },
+    bodyStyles: { fontSize: 8.2 },
+    columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } },
+  });
 
+  y = (doc.lastAutoTable?.finalY ?? y) + 6;
+  autoTable(doc, {
+    startY: y,
+    head: [['Pump', 'Attendant', 'Grade', 'Status', 'Litres', 'Cash + MoMo', 'Variance (FCFA)']],
+    body: params.shifts.slice(0, 14).map((s) => [
+      s.pumpCode,
+      s.attendantName,
+      s.grade,
+      s.status,
+      `${Math.round(s.litresSold).toLocaleString('en-US')} L`,
+      pdfMoney(s.cashFcfa + s.mobileMoneyFcfa),
+      pdfMoney(s.varianceFcfa),
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7.8 },
+    bodyStyles: { fontSize: 7.8 },
+    columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  y = (doc.lastAutoTable?.finalY ?? y) + 6;
+  autoTable(doc, {
+    startY: y,
+    head: [['Underground Tank', 'Grade', 'Book Stock (L)', 'Last Dipstick (L)', 'Variance (L)', 'Status']],
+    body: params.tanks.map((t) => [
+      t.name,
+      t.grade,
+      `${Math.round(t.bookVolumeLitres).toLocaleString('en-US')} L`,
+      `${Math.round(t.lastDipLitres).toLocaleString('en-US')} L`,
+      `${t.varianceLitres > 0 ? '+' : ''}${t.varianceLitres} L`,
+      t.status,
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7.8 },
+    bodyStyles: { fontSize: 7.8 },
+    columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  if (params.recentVaultEntries.length > 0) {
+    y = (doc.lastAutoTable?.finalY ?? y) + 6;
+    autoTable(doc, {
+      startY: y,
+      head: [['Ref', 'Vault Movement', 'Handed By -> Received By', 'Amount (FCFA)', 'Safe Balance']],
+      body: params.recentVaultEntries.slice(0, 6).map((v) => [
+        v.referenceCode,
+        v.entryType,
+        `${v.handedBy} -> ${v.receivedBy}`,
+        pdfMoney(v.amountFcfa),
+        pdfMoney(v.runningBalanceFcfa),
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7.8 },
+      bodyStyles: { fontSize: 7.8 },
+      columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right', fontStyle: 'bold' } },
+    });
+  }
+
+  drawSignatureFooter(doc, `Outgoing Station Manager (${params.managerName})`, 'Incoming Shift Supervisor / Auditor');
+  doc.save(`opesfuel-manager-handover-${params.dateLabel}.pdf`);
+}
+
+/** 30. Station Manager Daily Operations Pack (.xlsx, 4 operational sheets — zero salary/P&L columns) */
+export function exportManagerDailyOpsExcel(params: {
+  stationName: string;
+  shifts: ShiftRecord[];
+  vaultEntries: CashVaultEntryItem[];
+  tanks: FuelTank[];
+  employees: Employee[];
+}): void {
+  const wb = XLSX.utils.book_new();
+  const shiftRows = params.shifts.map((s) => ({
+    ShiftId: s.id,
+    Pump: s.pumpCode,
+    Grade: s.grade,
+    Attendant: s.attendantName,
+    Status: s.status,
+    LitresSold: s.litresSold,
+    CashFcfa: s.cashFcfa,
+    MoMoFcfa: s.mobileMoneyFcfa,
+    CardFcfa: s.cardFcfa,
+    FleetCreditFcfa: s.fleetCreditFcfa,
+    VarianceFcfa: s.varianceFcfa,
+  }));
+  const vaultRows = params.vaultEntries.map((v) => ({
+    Reference: v.referenceCode,
+    Type: v.entryType,
+    HandedBy: v.handedBy,
+    ReceivedBy: v.receivedBy,
+    AmountFcfa: v.amountFcfa,
+    RunningSafeBalanceFcfa: v.runningBalanceFcfa,
+    RecordedAt: v.recordedAt,
+  }));
+  const tankRows = params.tanks.map((t) => ({
+    Tank: t.name,
+    Grade: t.grade,
+    CapacityLitres: t.capacityLitres,
+    BookLitres: t.bookVolumeLitres,
+    LastDipstickLitres: t.lastDipLitres,
+    VarianceLitres: t.varianceLitres,
+    Status: t.status,
+  }));
+  const rosterRows = params.employees.map((e) => ({
+    FullName: e.fullName,
+    Role: e.role,
+    Phone: e.phone,
+    ShiftWindow: e.shiftWindow,
+    ClockedIn: e.clockedIn ? 'YES' : 'NO',
+    CumulativeShiftVarianceFcfa: e.cumulativeVarianceFcfa,
+  }));
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(shiftRows.length ? shiftRows : [{ info: 'No shifts' }]), 'Forecourt Shifts');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(vaultRows.length ? vaultRows : [{ info: 'No safe entries' }]), 'Cash Safe Ledger');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tankRows.length ? tankRows : [{ info: 'No tanks' }]), 'Tanks & Dipsticks');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rosterRows.length ? rosterRows : [{ info: 'No staff' }]), 'Staff Attendance');
+  const slug = params.stationName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  XLSX.writeFile(wb, `opesfuel-station-ops-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}

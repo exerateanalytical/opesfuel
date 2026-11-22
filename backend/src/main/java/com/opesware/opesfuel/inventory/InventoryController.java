@@ -870,7 +870,7 @@ public class InventoryController {
 
     @DeleteMapping("/tanks/{tankId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER') or hasAuthority('SCOPE_inventory:write')")
     public void deleteTank(@PathVariable String tankId) {
         inventoryService.deleteTank(tankId);
     }
@@ -928,7 +928,7 @@ public class InventoryController {
 
     @DeleteMapping("/deliveries/{deliveryId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_inventory:write')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER') or hasAuthority('SCOPE_inventory:write')")
     public void voidDelivery(@PathVariable String deliveryId) {
         inventoryService.voidDelivery(deliveryId);
     }

@@ -145,6 +145,7 @@ export function canPerformAction(
     | 'MANAGE_AI_ADDON'
     | 'MANAGE_PLATFORM_SAAS'
     | 'MANAGE_COMPANY_BRANDING'
+    | 'VOID_FINANCIAL_RECORDS'
 ): boolean {
   if (role === 'PLATFORM_ADMIN') return true;
   switch (action) {
@@ -152,13 +153,14 @@ export function canPerformAction(
       return false;
     case 'MANAGE_STATIONS_PRICES':
     case 'MANAGE_API_PLATFORM':
+    case 'MANAGE_COMPANY_BRANDING':
+    case 'MANAGE_AI_ADDON':
+    case 'VOID_FINANCIAL_RECORDS':
       return role === 'OWNER';
     case 'RUN_PAYROLL':
       return role === 'OWNER' || role === 'ACCOUNTANT';
     case 'VIEW_FINANCIALS':
       return role === 'OWNER' || role === 'ACCOUNTANT' || role === 'GROUP_CFO';
-    case 'MANAGE_COMPANY_BRANDING':
-    case 'MANAGE_AI_ADDON':
     case 'RECORD_DELIVERY':
     case 'MANAGE_EMPLOYEES':
       return role === 'OWNER' || role === 'MANAGER';

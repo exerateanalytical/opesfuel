@@ -688,7 +688,7 @@ public class ForecourtController {
 
     @DeleteMapping("/shifts/{shiftId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_forecourt:write')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER') or hasAuthority('SCOPE_forecourt:write')")
     public void deleteShift(@PathVariable String shiftId) {
         shiftCommandHandler.voidShift(shiftId);
     }

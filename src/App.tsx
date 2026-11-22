@@ -23,6 +23,7 @@ import {
   handleAuth0CallbackIfPresent,
   isAuth0Configured,
   refreshAuth0SessionIfNeeded,
+  ROLE_PROFILES,
 } from './auth/auth0';
 import { ClassicLoginPage } from './components/auth/ClassicLoginPage';
 import { ActiveImpersonationSession, ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
@@ -276,16 +277,28 @@ export default function App() {
     }
   }, [mode, publicPage, consoleSection]);
 
-  // Keep activeStationId valid and enforce single-station scoping for ATTENDANT / MANAGER
+  // Keep activeStationId valid and enforce assigned-station scoping (Auth0 station_ids + single-station lock for MANAGER / ATTENDANT)
   const canQueryAllStations =
     role === 'PLATFORM_ADMIN' || role === 'GROUP_CFO' || role === 'OWNER' || role === 'ACCOUNTANT';
+  const authorizedStations = useMemo(() => {
+    const claimedIds = authSession?.allowedStationIds ?? [];
+    if (claimedIds.length > 0 && !canQueryAllStations) {
+      const matched = store.stations.filter((s) => claimedIds.includes(s.id));
+      if (matched.length > 0) return matched;
+    }
+    if (!canQueryAllStations && store.stations.length > 1) {
+      return store.stations.slice(0, 1);
+    }
+    return store.stations;
+  }, [authSession?.allowedStationIds, canQueryAllStations, store.stations]);
+
   const effectiveActiveStationId = useMemo(() => {
     if (activeStationId === 'ALL' && canQueryAllStations) return 'ALL';
-    if (activeStationId !== 'ALL' && store.stations.some((s) => s.id === activeStationId)) return activeStationId;
-    return store.stations[0]?.id ?? 'ALL';
-  }, [activeStationId, canQueryAllStations, store.stations]);
+    if (activeStationId !== 'ALL' && authorizedStations.some((s) => s.id === activeStationId)) return activeStationId;
+    return authorizedStations[0]?.id ?? 'ALL';
+  }, [activeStationId, canQueryAllStations, authorizedStations]);
 
-  const defaultStationId = store.stations[0]?.id ?? 'st_plateau';
+  const defaultStationId = authorizedStations[0]?.id ?? 'st_plateau';
 
   const refreshNotifications = useCallback(async (stationScope = effectiveActiveStationId) => {
     try {
@@ -815,11 +828,28 @@ export default function App() {
 
   const scopedStationId = effectiveActiveStationId === 'ALL' ? defaultStationId : effectiveActiveStationId;
   const scopedStationName =
-    store.stations.find((s) => s.id === scopedStationId)?.name ??
+    authorizedStations.find((s) => s.id === scopedStationId)?.name ??
     store.tenant.organizationName ??
     'OpesFuel Station';
-  const scopedPumps = store.pumps.filter((p) => effectiveActiveStationId === 'ALL' || p.stationId === effectiveActiveStationId);
-  const scopedEmployees = store.employees.filter((e) => effectiveActiveStationId === 'ALL' || e.stationId === effectiveActiveStationId);
+  const matchesStationScope = (stId?: string) =>
+    effectiveActiveStationId === 'ALL' || !stId || stId === effectiveActiveStationId;
+  const scopedPumps = store.pumps.filter((p) => matchesStationScope(p.stationId));
+  const scopedTanks = store.tanks.filter((t) => matchesStationScope(t.stationId));
+  const scopedTankIds = new Set(scopedTanks.map((t) => t.id));
+  const scopedEmployees = store.employees.filter((e) => matchesStationScope(e.stationId));
+  const scopedVaultEntries = extOps.vaultEntries.filter((v) => matchesStationScope(v.stationId));
+  const scopedHrContracts = extOps.hrContracts.filter((c) => matchesStationScope(c.stationId));
+  const scopedHrLeaves = extOps.hrLeaves.filter((l) => matchesStationScope(l.stationId));
+  const scopedHrCerts = extOps.hrCerts.filter((c) => matchesStationScope(c.stationId));
+  const scopedHrDisciplinary = extOps.hrDisciplinary.filter((d) => matchesStationScope(d.stationId));
+  const scopedDeliveries = store.deliveries.filter(
+    (d) => effectiveActiveStationId === 'ALL' || scopedTankIds.has(d.tankId)
+  );
+  const scopedHseRecords = entOps.hseRecords.filter((h) => matchesStationScope(h.stationId));
+  const scopedFraudCases = entOps.fraudCases.filter((f) => matchesStationScope(f.stationId));
+  const scopedQualitySamples = entOps.qualitySamples.filter((q) => matchesStationScope(q.stationId));
+  const pendingLeavesCount = scopedHrLeaves.filter((l) => l.status === 'PENDING').length;
+  const quarantinedTanksCount = scopedQualitySamples.filter((q) => q.quarantined).length;
   const canManageOps = role === 'OWNER' || role === 'MANAGER' || role === 'PLATFORM_ADMIN';
 
   const handleStartImpersonation = async (payload: {
@@ -870,7 +900,7 @@ export default function App() {
       }}
       activeStationId={effectiveActiveStationId}
       onChangeStation={setActiveStationId}
-      stations={store.stations}
+      stations={authorizedStations}
       activeSection={consoleSection}
       onSelectSection={setConsoleSection}
       platformAdminTab={platformAdminTab}
@@ -938,14 +968,35 @@ export default function App() {
         <OverviewSection
           role={role}
           organizationName={store.tenant.organizationName}
+          managerName={authSession?.userName || ROLE_PROFILES[role].name}
           activeStationId={effectiveActiveStationId}
-          stations={store.stations}
+          stations={authorizedStations}
           tanks={store.tanks}
           pumps={store.pumps}
           shifts={store.shifts}
+          employees={scopedEmployees}
+          vaultEntries={scopedVaultEntries}
+          pendingLeavesCount={pendingLeavesCount}
+          quarantinedTanksCount={quarantinedTanksCount}
           events={store.events}
           priceHistory={extOps.priceHistory}
           approvals={entOps.approvals}
+          onSubmitApprovalRequest={(aprInput) => {
+            const rec = {
+              ...aprInput,
+              id: `apr_${Date.now().toString(36)}`,
+              requestedBy: currentActorEmail,
+              status: 'PENDING' as const,
+              createdAt: new Date().toISOString(),
+            };
+            setEntOps((prev) => ({ ...prev, approvals: [rec, ...prev.approvals] }));
+            void postOptionalBackend('/api/v1/enterprise/approvals', 'POST', {
+              ...aprInput,
+              requestedBy: currentActorEmail,
+            });
+            appendAudit('APPROVAL_REQUESTED', 'APPROVAL', rec.id, `${role} submitted "${aprInput.title}" (${aprInput.amountFcfa} FCFA)`, aprInput.stationId);
+            notify('success', `Submitted "${aprInput.title}" to Owner Maker-Checker Approval Inbox.`);
+          }}
           onDecideApproval={(id, status) => {
             const target = entOps.approvals.find((a) => a.id === id);
             if (target && target.requestedBy.toLowerCase() === currentActorEmail.toLowerCase()) {
@@ -1077,10 +1128,10 @@ export default function App() {
           <CashVaultPanel
             stationId={scopedStationId}
             stationName={scopedStationName}
-            entries={extOps.vaultEntries}
+            entries={scopedVaultEntries}
             canRecord
             onRecordEntry={(entry) => {
-              const prevBal = extOps.vaultEntries[0]?.runningBalanceFcfa ?? 0;
+              const prevBal = scopedVaultEntries[0]?.runningBalanceFcfa ?? 0;
               const delta =
                 entry.entryType === 'SHIFT_DROP'
                   ? entry.amountFcfa
@@ -1292,10 +1343,10 @@ export default function App() {
                 stationName={scopedStationName}
                 employees={scopedEmployees}
                 role={role}
-                contracts={extOps.hrContracts}
-                leaves={extOps.hrLeaves}
-                certs={extOps.hrCerts}
-                disciplinary={extOps.hrDisciplinary}
+                contracts={scopedHrContracts}
+                leaves={scopedHrLeaves}
+                certs={scopedHrCerts}
+                disciplinary={scopedHrDisciplinary}
                 onCreateContract={(c) => {
                   const rec = { ...c, id: `hrc_${Date.now().toString(36)}`, status: 'ACTIVE' as const };
                   setExtOps((prev) => ({ ...prev, hrContracts: [rec, ...prev.hrContracts] }));
@@ -1475,10 +1526,10 @@ export default function App() {
           stationName={scopedStationName}
           tanks={store.tanks.filter((t) => effectiveActiveStationId === 'ALL' || t.stationId === effectiveActiveStationId)}
           shifts={store.shifts.filter((s) => effectiveActiveStationId === 'ALL' || s.stationId === effectiveActiveStationId)}
-          deliveries={store.deliveries}
-          hseRecords={entOps.hseRecords}
-          fraudCases={entOps.fraudCases}
-          qualitySamples={entOps.qualitySamples}
+          deliveries={scopedDeliveries}
+          hseRecords={scopedHseRecords}
+          fraudCases={scopedFraudCases}
+          qualitySamples={scopedQualitySamples}
           onCreateHseRecord={(recInput) => {
             const rec = { ...recInput, id: `hse_${Date.now().toString(36)}`, status: 'OPEN' as const, recordedAt: new Date().toISOString() };
             setEntOps((prev) => ({ ...prev, hseRecords: [rec, ...prev.hseRecords] }));

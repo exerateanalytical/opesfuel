@@ -526,7 +526,7 @@ export const EnterpriseOperationsSection: React.FC<EnterpriseOperationsSectionPr
 
       {/* TAB 6: EV CHARGING, SOLAR & FRANCHISE DEALERS (M53 & M51) */}
       {tab === 'ev' && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className={`grid grid-cols-1 ${(role === 'OWNER' || role === 'GROUP_CFO' || role === 'PLATFORM_ADMIN') ? 'xl:grid-cols-2' : ''} gap-6`}>
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-2">
               <div>
@@ -570,47 +570,49 @@ export const EnterpriseOperationsSection: React.FC<EnterpriseOperationsSectionPr
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-2">
-              <h3 className="font-display text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-slate-900" /> Franchise &amp; Dealer Operations (M51)
-              </h3>
-              {canManage && (
-                <button
-                  type="button"
-                  onClick={() => setModal('franchise')}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Dealer
-                </button>
-              )}
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-2.5">Dealer / Model</th>
-                    <th className="px-4 py-2.5 text-right">Royalty/L</th>
-                    <th className="px-4 py-2.5 text-right">Target Vol.</th>
-                    <th className="px-4 py-2.5 text-right">Audit Score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {franchises.map((f) => (
-                    <tr key={f.id}>
-                      <td className="px-4 py-2.5">
-                        <div className="font-semibold text-slate-950">{f.dealerName}</div>
-                        <div className="font-mono text-[11px] text-slate-500">{f.operatingModel} · Renews {f.renewalDate}</div>
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono">{f.royaltyFcfaPerLitre} FCFA</td>
-                      <td className="px-4 py-2.5 text-right font-mono">{formatLitres(f.monthlyTargetLitres)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-700">{f.complianceScorePct}%</td>
+          {(role === 'OWNER' || role === 'GROUP_CFO' || role === 'PLATFORM_ADMIN') && (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-2">
+                <h3 className="font-display text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-slate-900" /> Franchise &amp; Dealer Operations (M51)
+                </h3>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => setModal('franchise')}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Dealer
+                  </button>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2.5">Dealer / Model</th>
+                      <th className="px-4 py-2.5 text-right">Royalty/L</th>
+                      <th className="px-4 py-2.5 text-right">Target Vol.</th>
+                      <th className="px-4 py-2.5 text-right">Audit Score</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {franchises.map((f) => (
+                      <tr key={f.id}>
+                        <td className="px-4 py-2.5">
+                          <div className="font-semibold text-slate-950">{f.dealerName}</div>
+                          <div className="font-mono text-[11px] text-slate-500">{f.operatingModel} · Renews {f.renewalDate}</div>
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono">{f.royaltyFcfaPerLitre} FCFA</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{formatLitres(f.monthlyTargetLitres)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-700">{f.complianceScorePct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 

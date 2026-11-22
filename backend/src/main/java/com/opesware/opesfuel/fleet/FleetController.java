@@ -539,7 +539,7 @@ public class FleetController {
 
     @DeleteMapping("/accounts/{accountId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_fleet:write')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER') or hasAuthority('SCOPE_fleet:write')")
     public void deleteFleetAccount(@PathVariable String accountId) {
         service.deleteFleetAccount(accountId);
     }

@@ -70,6 +70,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
 }) => {
   const canDeliver = canPerformAction(role, 'RECORD_DELIVERY');
   const canDip = canPerformAction(role, 'RECORD_DIPSTICK');
+  const canVoidFinancials = canPerformAction(role, 'VOID_FINANCIAL_RECORDS');
   const effectiveStation = stationId === 'ALL' ? defaultStationId : stationId;
 
   const visibleTanks = tanks.filter((t) => stationId === 'ALL' || t.stationId === stationId);
@@ -169,7 +170,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
           >
             <ArrowLeft className="w-4 h-4" /> Back to Underground Tanks
           </button>
-          {canDeliver && (
+          {canVoidFinancials && (
             <button
               type="button"
               onClick={() => {
@@ -435,7 +436,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
                 <th className="px-4 py-3 text-right">Variance</th>
                 <th className="px-4 py-3 text-right">Unit Cost</th>
                 <th className="px-4 py-3">Health</th>
-                {canDeliver && <th className="px-4 py-3 text-right">Actions</th>}
+                {canVoidFinancials && <th className="px-4 py-3 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -472,7 +473,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
                       <span className="text-emerald-700">Nominal</span>
                     )}
                   </td>
-                  {canDeliver && (
+                  {canVoidFinancials && (
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
@@ -488,7 +489,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
               ))}
               {visibleTanks.length === 0 && (
                 <tr>
-                  <td colSpan={canDeliver ? 9 : 8} className="px-4 py-8 text-center text-xs text-slate-500">
+                  <td colSpan={canVoidFinancials ? 9 : 8} className="px-4 py-8 text-center text-xs text-slate-500">
                     No underground tanks provisioned for this station scope. Click Add Underground Tank above to begin.
                   </td>
                 </tr>
@@ -783,7 +784,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
                           >
                             <Printer className="w-3 h-3" /> GRN PDF
                           </button>
-                          {canDeliver && (
+                          {canVoidFinancials && (
                             <button
                               type="button"
                               onClick={() => onDeleteDelivery(del.id)}

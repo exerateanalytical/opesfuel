@@ -46,6 +46,7 @@ export const HrManagementPanel: React.FC<HrManagementPanelProps> = ({
   const [modal, setModal] = useState<'contract' | 'leave' | 'cert' | 'disciplinary' | null>(null);
 
   const canManage = role === 'OWNER' || role === 'MANAGER' || role === 'PLATFORM_ADMIN';
+  const canViewCompensation = role === 'OWNER' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN';
   const defaultEmp = employees[0];
 
   // Contract form state
@@ -93,13 +94,15 @@ export const HrManagementPanel: React.FC<HrManagementPanelProps> = ({
             Human Resources (HR), Contracts, Leave &amp; HSE Safety
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Manage CNPS contracts, staff leave approvals, mandatory fire-safety certificates, and conduct records.
+            {canViewCompensation
+              ? 'Manage CNPS contracts, staff leave approvals, mandatory fire-safety certificates, and conduct records.'
+              : 'Manage staff leave approvals, CNPS compliance status, fire-safety certificates, and forecourt conduct notices (salary schedules restricted to Owner & Accountant).'}
           </p>
         </div>
 
         {/* Action Buttons Only — Forms Pop Up Cleanly in FormModal */}
         <div className="flex flex-wrap gap-2">
-          {canManage && (
+          {canViewCompensation && (
             <button
               type="button"
               onClick={() => setModal('contract')}
@@ -200,11 +203,11 @@ export const HrManagementPanel: React.FC<HrManagementPanelProps> = ({
                 <th className="px-4 py-3">Employee</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">CNPS #</th>
-                <th className="px-4 py-3 text-right">Base Salary</th>
-                <th className="px-4 py-3 text-right">Allowances</th>
+                {canViewCompensation && <th className="px-4 py-3 text-right">Base Salary</th>}
+                {canViewCompensation && <th className="px-4 py-3 text-right">Allowances</th>}
                 <th className="px-4 py-3">Emergency Contact</th>
                 <th className="px-4 py-3">Start</th>
-                <th className="px-4 py-3 text-right">Certificate</th>
+                {canViewCompensation && <th className="px-4 py-3 text-right">Certificate</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -213,25 +216,31 @@ export const HrManagementPanel: React.FC<HrManagementPanelProps> = ({
                   <td className="px-4 py-3 font-semibold text-slate-900">{c.employeeName}</td>
                   <td className="px-4 py-3 font-mono font-semibold text-slate-700">{c.contractType}</td>
                   <td className="px-4 py-3 font-mono text-slate-600">{c.cnpsNumber || '—'}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums font-semibold text-slate-900">
-                    {formatFcfa(c.baseSalaryFcfa)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-600">
-                    {formatFcfa(c.transportAllowanceFcfa + c.housingAllowanceFcfa)}
-                  </td>
+                  {canViewCompensation && (
+                    <td className="px-4 py-3 text-right font-mono tabular-nums font-semibold text-slate-900">
+                      {formatFcfa(c.baseSalaryFcfa)}
+                    </td>
+                  )}
+                  {canViewCompensation && (
+                    <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-600">
+                      {formatFcfa(c.transportAllowanceFcfa + c.housingAllowanceFcfa)}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-slate-600">
                     {c.emergencyContactName} ({c.emergencyContactPhone})
                   </td>
                   <td className="px-4 py-3 font-mono text-slate-500">{c.startDate}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => printHrContractPdf(stationName, c)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
-                    >
-                      <Printer className="w-3 h-3" /> Contract PDF
-                    </button>
-                  </td>
+                  {canViewCompensation && (
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => printHrContractPdf(stationName, c)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                      >
+                        <Printer className="w-3 h-3" /> Contract PDF
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

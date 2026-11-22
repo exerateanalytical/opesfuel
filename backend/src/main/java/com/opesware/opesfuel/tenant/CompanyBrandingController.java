@@ -125,7 +125,7 @@ public class CompanyBrandingController {
     }
 
     @PutMapping
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER')")
     @Transactional
     public Map<String, Object> upsertCurrentBranding(@Valid @RequestBody UpsertCompanyBrandingCmd cmd) {
         String tenantId = accessGuard.currentTenantId();

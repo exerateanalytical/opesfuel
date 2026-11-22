@@ -557,21 +557,31 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
 
           <div className="flex items-center gap-2 shrink-0">
             {activeSection !== 'platform-admin' && activeSection !== 'group-consolidation' && stations.length > 0 && (
-              <select
-                aria-label="Select petrol station"
-                value={activeStationId}
-                onChange={(e) => onChangeStation(e.target.value)}
-                className="px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-900 min-h-[36px] max-w-[155px] sm:max-w-[210px]"
-              >
-                {(role === 'OWNER' || role === 'PLATFORM_ADMIN' || role === 'ACCOUNTANT' || role === 'GROUP_CFO') && (
-                  <option value="ALL">All Stations ({stations.length})</option>
-                )}
-                {stations.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.city})
-                  </option>
-                ))}
-              </select>
+              (role === 'MANAGER' || role === 'ATTENDANT') && stations.length === 1 ? (
+                <div
+                  title="Assigned Station Scope"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-slate-50 text-xs font-semibold text-slate-900 min-h-[36px] max-w-[210px] truncate"
+                >
+                  <Shield className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span className="truncate">{stations[0].name} ({stations[0].city})</span>
+                </div>
+              ) : (
+                <select
+                  aria-label="Select petrol station"
+                  value={activeStationId}
+                  onChange={(e) => onChangeStation(e.target.value)}
+                  className="px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-900 min-h-[36px] max-w-[155px] sm:max-w-[210px]"
+                >
+                  {(role === 'OWNER' || role === 'PLATFORM_ADMIN' || role === 'ACCOUNTANT' || role === 'GROUP_CFO') && (
+                    <option value="ALL">All Stations ({stations.length})</option>
+                  )}
+                  {stations.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.city})
+                    </option>
+                  ))}
+                </select>
+              )
             )}
 
             {onOpenGlobalSearch && (
