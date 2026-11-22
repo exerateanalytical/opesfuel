@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check, Code2, Monitor, Server, ShieldCheck, Smartphone } from 'lucide-react';
-import { formatFcfa } from '../../domain/formatters';
+import { useCurrency } from '../../i18n/CurrencyContext';
 import enterpriseImgUrl from '../../assets/images/opesfuel_team_operations_black_1795293395675.jpg';
 
 interface LicensingViewProps {
@@ -27,6 +27,7 @@ const DELIVERABLES = [
 ];
 
 export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole, onLeadSubmitted }) => {
+  const { currency, formatFromXaf, formatUsdFromXaf } = useCurrency();
   const [imgFailed, setImgFailed] = useState(false);
   const [licenseTrack, setLicenseTrack] = useState<'PERPETUAL_5M' | 'CUSTOM_IP_BUYOUT' | 'HYBRID'>('PERPETUAL_5M');
   const [selectedDeliverables, setSelectedDeliverables] = useState<string[]>([
@@ -195,9 +196,14 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole, onL
 
             <div className="pt-4 border-t border-slate-100">
               <div className="font-mono tabular-nums text-3xl font-bold text-slate-900">
-                {formatFcfa(5000000)}
+                {formatFromXaf(5000000)}
                 <span className="text-sm font-sans font-normal text-slate-500"> / year</span>
               </div>
+              {currency !== 'USD' && (
+                <div className="font-mono text-xs font-semibold text-amber-700 mt-1">
+                  ≈ {formatUsdFromXaf(5000000)} USD / year
+                </div>
+              )}
               <div className="text-xs text-slate-500 mt-1">
                 All-inclusive management, security updates, database backups &amp; 24/7 SLA maintenance
               </div>
@@ -222,9 +228,9 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole, onL
           <button
             type="button"
             onClick={() => scrollToProposal('PERPETUAL_5M')}
-            className="w-full py-3 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold text-center transition-colors"
+            className="w-full py-3 px-4 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-sm font-semibold text-center transition-colors"
           >
-            Select 5 000 000 FCFA/Year Perpetual License
+            Select {formatFromXaf(5000000)}/Year Perpetual License
           </button>
         </div>
 

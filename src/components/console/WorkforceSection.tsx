@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, Download, Edit3, Plus, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, Edit3, FileText, Plus, Printer, Trash2, Users } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction, ROLE_PROFILES } from '../../auth/auth0';
 import { formatFcfa } from '../../domain/formatters';
 import { Employee, UserRole } from '../../domain/types';
+import { printEmployeePayslipPdf, printPayrollRegisterPdf } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 import { WorkforcePayrollPanel } from './WorkforcePayrollPanel';
 
@@ -142,30 +143,45 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
           >
             <ArrowLeft className="w-4 h-4" /> Back to Staff &amp; Payroll Roster
           </button>
-          {canManage && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  beginEdit(activeDetailEmp);
-                  setDetailEmployeeId(null);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-50 text-xs font-semibold"
-              >
-                <Edit3 className="w-3.5 h-3.5" /> Edit Profile
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onDeleteEmployee(activeDetailEmp.id);
-                  setDetailEmployeeId(null);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Remove Employee
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                printEmployeePayslipPdf({
+                  stationName: stationId === 'ALL' ? 'OpesFuel Station' : stationId,
+                  periodLabel: new Date().toISOString().slice(0, 7),
+                  employee: activeDetailEmp,
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print Payslip PDF
+            </button>
+            {canManage && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    beginEdit(activeDetailEmp);
+                    setDetailEmployeeId(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-50 text-xs font-semibold"
+                >
+                  <Edit3 className="w-3.5 h-3.5" /> Edit Profile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteEmployee(activeDetailEmp.id);
+                    setDetailEmployeeId(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Remove Employee
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
@@ -257,10 +273,23 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
             )}
             <button
               type="button"
+              onClick={() =>
+                printPayrollRegisterPdf({
+                  stationName: stationId === 'ALL' ? 'OpesFuel Station Network' : stationId,
+                  periodLabel: new Date().toISOString().slice(0, 7),
+                  employees: visibleEmployees,
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-xs font-semibold text-white whitespace-nowrap"
+            >
+              <FileText className="w-3.5 h-3.5" /> Print Payroll Register PDF
+            </button>
+            <button
+              type="button"
               onClick={exportPayrollCsv}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 whitespace-nowrap"
             >
-              <Download className="w-3.5 h-3.5" /> Export Monthly Payroll CSV
+              <Download className="w-3.5 h-3.5" /> Payroll CSV
             </button>
           </div>
         </div>
@@ -276,7 +305,7 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 <th className="px-4 py-3 text-right">Shift Variance</th>
                 <th className="px-4 py-3 text-right">Net Payroll</th>
                 <th className="px-4 py-3">Attendance</th>
-                {canManage && <th className="px-4 py-3 text-right">Actions</th>}
+                <th className="px-4 py-3 text-right">Payslip &amp; Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -321,38 +350,54 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                         {emp.clockedIn ? 'Clocked In' : 'Clock In'}
                       </button>
                     </td>
-                    {canManage && (
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => beginEdit(emp)}
-                            aria-label={`Edit ${emp.fullName}`}
-                            className="p-1.5 text-slate-500 hover:text-slate-900"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`Remove employee "${emp.fullName}" from this station?`)) {
-                                onDeleteEmployee(emp.id);
-                              }
-                            }}
-                            aria-label={`Delete ${emp.fullName}`}
-                            className="p-1.5 text-slate-500 hover:text-red-600"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    )}
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            printEmployeePayslipPdf({
+                              stationName: stationId === 'ALL' ? 'OpesFuel Station' : stationId,
+                              periodLabel: new Date().toISOString().slice(0, 7),
+                              employee: emp,
+                            })
+                          }
+                          title={`Print Monthly Payslip PDF for ${emp.fullName}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                        >
+                          <Printer className="w-3 h-3" /> Payslip PDF
+                        </button>
+                        {canManage && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => beginEdit(emp)}
+                              aria-label={`Edit ${emp.fullName}`}
+                              className="p-1.5 text-slate-500 hover:text-slate-900"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Remove employee "${emp.fullName}" from this station?`)) {
+                                  onDeleteEmployee(emp.id);
+                                }
+                              }}
+                              aria-label={`Delete ${emp.fullName}`}
+                              className="p-1.5 text-slate-500 hover:text-red-600"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
               {visibleEmployees.length === 0 && (
                 <tr>
-                  <td colSpan={canManage ? 8 : 7} className="px-4 py-6 text-center text-xs text-slate-500">
+                  <td colSpan={8} className="px-4 py-6 text-center text-xs text-slate-500">
                     No employees onboarded for this station scope yet.
                   </td>
                 </tr>

@@ -129,3 +129,30 @@ export function printFleetVoucherSlip(params: {
   `;
   openThermalPrintWindow(`Fleet Voucher ${params.voucherId}`, body);
 }
+
+export function printShopPosThermalSlip(params: {
+  stationName: string;
+  sku: string;
+  itemName: string;
+  quantity: number;
+  unitPriceFcfa: number;
+  paymentMethod: string;
+}): void {
+  const total = params.quantity * params.unitPriceFcfa;
+  const body = `
+    <div class="center bold" style="font-size:13px;">OPESFUEL SHOP POS</div>
+    <div class="center">${params.stationName}</div>
+    <div class="center" style="font-size:10px;">LUBRICANT &amp; SHOP RECEIPT (80mm)</div>
+    <div class="hr"></div>
+    <div class="row"><span>Date:</span><span>${new Date().toLocaleString()}</span></div>
+    <div class="row"><span>SKU:</span><span class="bold">${params.sku}</span></div>
+    <div class="row"><span>Item:</span><span>${params.itemName}</span></div>
+    <div class="row"><span>Qty x Price:</span><span>${params.quantity} x ${formatFcfa(params.unitPriceFcfa)}</span></div>
+    <div class="hr"></div>
+    <div class="row bold" style="font-size:13px;"><span>TOTAL PAID:</span><span>${formatFcfa(total)}</span></div>
+    <div class="row"><span>Tender:</span><span>${params.paymentMethod}</span></div>
+    <div class="hr"></div>
+    <div class="center" style="margin-top:10px;font-size:9px;">Thank you for fueling with us · OpesFuel</div>
+  `;
+  openThermalPrintWindow(`Shop Receipt ${params.sku}`, body);
+}

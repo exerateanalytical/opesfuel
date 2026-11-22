@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, Fuel, Plus, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileSpreadsheet, Fuel, Plus, Printer, Trash2 } from 'lucide-react';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { Employee, FuelGrade, FuelTank, Pump, ShiftRecord, UserRole } from '../../domain/types';
+import { exportShiftsExcel } from '../../utils/documentTemplates';
 import { printShiftThermalSlip } from '../../utils/thermalReceipt';
 import { FormModal } from '../shared/FormModal';
 
@@ -312,18 +313,48 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
           >
             <ArrowLeft className="w-4 h-4" /> Back to Shift Ledger
           </button>
-          {canManage && (
-            <button
-              type="button"
-              onClick={() => {
-                onDeleteShift(activeDetailShift.id);
-                setDetailShiftId(null);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Delete Shift Record
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {activeDetailShift.status === 'CLOSED' && (
+              <button
+                type="button"
+                onClick={() =>
+                  printShiftThermalSlip({
+                    stationName: 'OpesFuel Forecourt Station',
+                    shiftId: activeDetailShift.id,
+                    pumpCode: activeDetailShift.pumpCode,
+                    grade: activeDetailShift.grade,
+                    attendantName: activeDetailShift.attendantName,
+                    openingMeter: activeDetailShift.openingMeterLitres,
+                    closingMeter: activeDetailShift.closingMeterLitres ?? activeDetailShift.openingMeterLitres,
+                    litresDispensed: activeDetailShift.litresSold,
+                    unitPriceFcfa: activeDetailShift.unitPriceFcfa,
+                    expectedFcfa: activeDetailShift.expectedRevenueFcfa,
+                    cashFcfa: activeDetailShift.cashFcfa,
+                    mobileMoneyFcfa: activeDetailShift.mobileMoneyFcfa,
+                    cardFcfa: activeDetailShift.cardFcfa,
+                    fleetCreditFcfa: activeDetailShift.fleetCreditFcfa,
+                    varianceFcfa: activeDetailShift.varianceFcfa,
+                    closedAt: activeDetailShift.closedAt ?? activeDetailShift.openedAt,
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print 80mm Shift Slip
+              </button>
+            )}
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteShift(activeDetailShift.id);
+                  setDetailShiftId(null);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete Shift Record
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
@@ -751,9 +782,18 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
 
       {/* Shift Ledger Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="font-display text-base font-bold text-slate-900">Shift Handover Ledger</h3>
-          <p className="text-xs text-slate-500">Click any shift row for complete meter &amp; tender reconciliation details</p>
+        <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-display text-base font-bold text-slate-900">Shift Handover Ledger</h3>
+            <p className="text-xs text-slate-500">Click any shift row for complete meter &amp; tender reconciliation details</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => exportShiftsExcel(visibleShifts, stationId === 'ALL' ? 'Network' : stationId)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold whitespace-nowrap"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Export Shifts Excel (.xlsx)
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">

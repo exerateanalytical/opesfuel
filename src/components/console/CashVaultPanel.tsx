@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Plus, Vault } from 'lucide-react';
+import { Plus, Printer, Vault } from 'lucide-react';
 import { CashVaultEntryItem } from '../../api/demoDataset1000';
 import { formatFcfa, formatShortDate } from '../../domain/formatters';
+import { printCashVaultSlipPdf } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 
 interface CashVaultPanelProps {
   stationId: string;
+  stationName?: string;
   entries: CashVaultEntryItem[];
   canRecord: boolean;
   onRecordEntry: (entry: {
@@ -21,6 +23,7 @@ interface CashVaultPanelProps {
 
 export const CashVaultPanel: React.FC<CashVaultPanelProps> = ({
   stationId,
+  stationName = 'OpesFuel Station',
   entries,
   canRecord,
   onRecordEntry,
@@ -81,6 +84,7 @@ export const CashVaultPanel: React.FC<CashVaultPanelProps> = ({
               <th className="px-4 py-3">Handed By → Received By</th>
               <th className="px-4 py-3 text-right">Amount</th>
               <th className="px-4 py-3 text-right">Safe Balance</th>
+              <th className="px-4 py-3 text-right">Custody Slip</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -102,6 +106,15 @@ export const CashVaultPanel: React.FC<CashVaultPanelProps> = ({
                 </td>
                 <td className="px-4 py-3 text-right font-mono tabular-nums font-bold text-slate-950">
                   {formatFcfa(e.runningBalanceFcfa)}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => printCashVaultSlipPdf(stationName, e)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                  >
+                    <Printer className="w-3 h-3" /> Slip PDF
+                  </button>
                 </td>
               </tr>
             ))}

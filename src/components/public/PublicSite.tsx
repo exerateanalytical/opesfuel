@@ -33,6 +33,7 @@ import { FaqPage } from './FaqPage';
 import { LicensingView } from './LicensingView';
 import { PublicPagesExtra } from './PublicPagesExtra';
 import { MobileAppShowcase } from '../mobile/MobileAppShowcase';
+import { useCurrency, SUPPORTED_CURRENCIES, SupportedCurrency } from '../../i18n/CurrencyContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface PublicSiteProps {
@@ -109,6 +110,17 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   onLeadSubmitted,
 }) => {
   const { t } = useLanguage();
+  const {
+    currency,
+    setCurrency,
+    detectedCountry,
+    isCemacVisitor,
+    liveRateSource,
+    ratesUpdatedAt,
+    formatFromXaf,
+    formatUsdFromXaf,
+    xafPerUsd,
+  } = useCurrency();
   // Interactive home page controls
   const [simLitres, setSimLitres] = useState(4200);
   const [activeRoleTab, setActiveRoleTab] = useState<'OWNER' | 'MANAGER' | 'ATTENDANT' | 'ACCOUNTANT'>('OWNER');
@@ -376,6 +388,37 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
           </div>
         </div>
 
+        {/* Live Geo-Aware Currency & Exchange Rate Bar */}
+        <div className="bg-white border border-slate-200 rounded-xl px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-slate-700">
+            <span className="px-2 py-0.5 rounded bg-[#0F172A] text-white font-mono text-[10px] font-bold">
+              {liveRateSource === 'LIVE_FX' ? 'LIVE FX RATES' : 'REFERENCE FX'}
+            </span>
+            <span>
+              {isCemacVisitor
+                ? `CEMAC Zone detected (${detectedCountry}) — native FCFA (XAF) billing active.`
+                : `International visitor detected (${detectedCountry}) — showing ${currency} with live USD conversion.`}
+            </span>
+            <span className="font-mono text-slate-500">
+              1 USD ≈ {xafPerUsd} XAF ({ratesUpdatedAt})
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 font-medium">Display Currency:</span>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900"
+            >
+              {SUPPORTED_CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code} · {c.name} ({c.symbol})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Station Cost Estimator */}
         <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -411,14 +454,19 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
             </div>
           </div>
 
-          <div className="bg-slate-900 text-white rounded-lg p-5 flex flex-col justify-between gap-2">
+          <div className="bg-[#0F172A] text-white rounded-lg p-5 flex flex-col justify-between gap-2">
             <div className="text-xs text-slate-400">
               Recommended Plan · {recommendedPlan.name}
             </div>
             <div className="font-mono tabular-nums text-2xl font-bold text-white">
-              {formatFcfa(effectiveMonthlyFcfa)}
+              {formatFromXaf(effectiveMonthlyFcfa)}
               <span className="text-sm font-sans font-normal text-slate-400"> / month</span>
             </div>
+            {currency !== 'USD' && (
+              <div className="font-mono text-xs text-amber-400">
+                ≈ {formatUsdFromXaf(effectiveMonthlyFcfa)} USD / month
+              </div>
+            )}
             <button
               type="button"
               onClick={() => onNavigate('contact')}
@@ -452,14 +500,24 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
 
                   <div className="pt-2 border-t border-slate-100">
                     <div className="font-mono tabular-nums text-3xl font-bold text-slate-900">
-                      {formatFcfa(displayPrice)}
+                      {formatFromXaf(displayPrice)}
                     </div>
                     <div className="text-xs text-slate-500 mt-1">
                       per station / month {annualBilling ? '(billed annually)' : '(billed monthly)'}
                     </div>
+                    {currency !== 'USD' && (
+                      <div className="font-mono text-xs font-semibold text-amber-700 mt-1">
+                        ≈ {formatUsdFromXaf(displayPrice)} USD / mo
+                      </div>
+                    )}
+                    {currency !== 'XAF' && (
+                      <div className="font-mono text-[11px] text-slate-400 mt-0.5">
+                        Base CEMAC rate: {formatFcfa(displayPrice)}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="text-xs font-mono text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
+                  <div className="text-xs font-mono text-slate-700 bg-white border border-slate-200 rounded-lg p-3 space-y-1">
                     <div>{plan.pumpLimit}</div>
                     <div className="text-slate-500">{plan.apiQuotaPerMonth}</div>
                   </div>
@@ -480,14 +538,14 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                     onClick={() => {
                       setLeadForm((f) => ({
                         ...f,
-                        selectedPlan: `${plan.name} (${formatFcfa(displayPrice)}/mo)`,
+                        selectedPlan: `${plan.name} (${formatFromXaf(displayPrice)}/mo)`,
                       }));
                       onNavigate('contact');
                     }}
                     className={`w-full py-3 px-4 rounded-lg text-sm font-semibold transition-colors ${
                       plan.recommended
                         ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                        : 'bg-slate-900 hover:bg-slate-800 text-white'
+                        : 'bg-[#0F172A] hover:bg-slate-800 text-white'
                     }`}
                   >
                     Start with {plan.name}
@@ -499,7 +557,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
         </div>
 
         {/* Private Server & Perpetual License Cross-Link */}
-        <div className="bg-slate-900 text-white rounded-xl p-7 sm:p-9 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="bg-[#0F172A] text-white rounded-xl p-7 sm:p-9 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="text-xs font-mono text-amber-400">
               Private Server Hosting · Perpetual License &amp; Full Ownership
@@ -508,8 +566,9 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               Prefer to host OpesFuel on your own private server or own a dedicated license?
             </h2>
             <p className="text-sm text-slate-300">
-              Large fuel marketers and petroleum groups can deploy OpesFuel on private in-country servers at
-              5 000 000 FCFA/year or acquire a full custom-branded software license.
+              Large fuel marketers and petroleum groups can deploy OpesFuel on private in-country servers at{' '}
+              <span className="font-mono font-bold text-white">{formatFromXaf(5000000)}/year</span>{' '}
+              {currency !== 'USD' ? `(${formatUsdFromXaf(5000000)} USD/year)` : ''} or acquire a full custom-branded software license.
             </p>
           </div>
           <button
@@ -874,7 +933,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
         <div className="absolute inset-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex flex-col justify-between">
           <div className="max-w-xl space-y-5 my-auto">
             <div className="text-xs font-mono uppercase tracking-[0.16em] text-slate-300 font-semibold">
-              {t('Petrol Station Management · From 25 000 FCFA / Month', 'Gestion de Station-Service · Dès 25 000 FCFA / Mois')}
+              {t(`Petrol Station Management · From ${formatFromXaf(25000)} / Month`, `Gestion de Station-Service · Dès ${formatFromXaf(25000)} / Mois`)}
             </div>
             <h1 className="font-display text-3xl sm:text-5xl font-extrabold leading-[1.06] tracking-tight text-white">
               {t('Every litre metered. Every franc accounted for.', 'Chaque litre mesuré. Chaque franc justifié.')}
@@ -905,7 +964,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/15 rounded-xl overflow-hidden border border-white/15">
             {[
-              [t('Starting Plan', 'Offre Départ'), t('25 000 FCFA / mo', '25 000 FCFA / mois')],
+              [t('Starting Plan', 'Offre Départ'), `${formatFromXaf(25000)} / mo`],
               [t('Payments Verified', 'Paiements Vérifiés'), 'Cash · Orange · MoMo'],
               [t('Stock Control', 'Contrôle Cuves'), t('Dipsticks & 15°C Gauges', 'Jaugeage & Sondes 15°C')],
               [t('Accounting & Mobile', 'Compta & Mobile'), t('SYSCOHADA · Offline App', 'SYSCOHADA · App Hors-Ligne')],

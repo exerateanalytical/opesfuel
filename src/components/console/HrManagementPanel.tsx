@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Award, CalendarDays, FileText, Plus, ShieldAlert } from 'lucide-react';
+import { Award, CalendarDays, FileText, Plus, Printer, ShieldAlert } from 'lucide-react';
 import {
   HrCertItem,
   HrContractItem,
@@ -8,10 +8,12 @@ import {
 } from '../../api/demoDataset1000';
 import { formatFcfa, formatShortDate } from '../../domain/formatters';
 import { Employee, UserRole } from '../../domain/types';
+import { printHrContractPdf } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 
 interface HrManagementPanelProps {
   stationId: string;
+  stationName?: string;
   employees: Employee[];
   role: UserRole;
   contracts: HrContractItem[];
@@ -27,6 +29,7 @@ interface HrManagementPanelProps {
 
 export const HrManagementPanel: React.FC<HrManagementPanelProps> = ({
   stationId,
+  stationName = 'OpesFuel Station',
   employees,
   role,
   contracts,
@@ -201,6 +204,7 @@ export const HrManagementPanel: React.FC<HrManagementPanelProps> = ({
                 <th className="px-4 py-3 text-right">Allowances</th>
                 <th className="px-4 py-3">Emergency Contact</th>
                 <th className="px-4 py-3">Start</th>
+                <th className="px-4 py-3 text-right">Certificate</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -219,6 +223,15 @@ export const HrManagementPanel: React.FC<HrManagementPanelProps> = ({
                     {c.emergencyContactName} ({c.emergencyContactPhone})
                   </td>
                   <td className="px-4 py-3 font-mono text-slate-500">{c.startDate}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => printHrContractPdf(stationName, c)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                    >
+                      <Printer className="w-3 h-3" /> Contract PDF
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

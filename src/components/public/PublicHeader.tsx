@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { PublicPage } from '../../domain/types';
+import { useCurrency, SUPPORTED_CURRENCIES, SupportedCurrency } from '../../i18n/CurrencyContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
 
@@ -149,6 +150,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
   onOpenConsole,
 }) => {
   const { lang, toggleLang, t } = useLanguage();
+  const { currency, setCurrency } = useCurrency();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<NavGroup['key'] | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -319,6 +321,18 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
         </nav>
 
         <div className="flex items-center gap-2 shrink-0">
+          <select
+            aria-label="Select pricing currency"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
+            className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-mono text-xs font-semibold text-slate-900"
+          >
+            {SUPPORTED_CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.code} ({c.symbol})
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={toggleLang}

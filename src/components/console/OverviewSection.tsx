@@ -1,5 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, CheckCircle2, Compass, Droplets, Gauge, History, Plus, Smartphone, Sparkles, Tag } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Compass,
+  Droplets,
+  FileSpreadsheet,
+  FileText,
+  Gauge,
+  History,
+  Plus,
+  Printer,
+  Smartphone,
+  Sparkles,
+  Tag,
+  Trophy,
+} from 'lucide-react';
 import { PriceHistoryItem } from '../../api/demoDataset1000';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
@@ -13,6 +29,7 @@ import {
   Station,
   UserRole,
 } from '../../domain/types';
+import { exportShiftsExcel, printDailyZReportPdf } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 
 interface OverviewSectionProps {
@@ -879,6 +896,166 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           </div>
         </div>
       )}
+
+      {/* Printable Document & Report Center + Attendant Performance Leaderboard */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="xl:col-span-5 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h2 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Printer className="w-4 h-4 text-slate-900" />
+                Station Printable Document Center
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Instant A4 PDF reports, Excel ledgers, and 80mm thermal receipts across every module.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() =>
+                printDailyZReportPdf({
+                  stationName: currentStation?.name ?? 'OpesFuel Station Network',
+                  dateLabel: new Date().toISOString().slice(0, 10),
+                  shifts: filteredShifts,
+                  report,
+                })
+              }
+              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-amber-400" /> Daily Z-Report PDF
+              </span>
+              <span className="font-mono text-[10px] text-amber-300">A4</span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                exportShiftsExcel(filteredShifts, currentStation?.name ?? 'Network')
+              }
+              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Shifts Ledger Excel
+              </span>
+              <span className="font-mono text-[10px] text-slate-500">.xlsx</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onJumpTo('accounting')}
+              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+            >
+              <span>SYSCOHADA P&amp;L &amp; Vault Slips</span>
+              <span className="font-mono text-[10px] text-amber-700">Open →</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onJumpTo('workforce')}
+              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+            >
+              <span>Payslips, Payroll &amp; Contracts</span>
+              <span className="font-mono text-[10px] text-amber-700">Open →</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onJumpTo('inventory')}
+              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+            >
+              <span>Fuel POs &amp; Tanker GRN PDFs</span>
+              <span className="font-mono text-[10px] text-amber-700">Open →</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onJumpTo('fleet')}
+              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+            >
+              <span>Fleet Tax Statements &amp; 80mm</span>
+              <span className="font-mono text-[10px] text-amber-700">Open →</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="xl:col-span-7 bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-2">
+            <div>
+              <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-slate-900" />
+                Attendant Shift Performance Leaderboard
+              </h2>
+              <p className="text-xs text-slate-500">
+                Closed forecourt volume, sales accuracy, and cash reconciliation variance by attendant.
+              </p>
+            </div>
+            <span className="font-mono text-xs text-slate-500">{closedShifts.length} Closed Shifts</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2.5">Attendant</th>
+                  <th className="px-4 py-2.5 text-right">Shifts</th>
+                  <th className="px-4 py-2.5 text-right">Volume Sold</th>
+                  <th className="px-4 py-2.5 text-right">Expected Sales</th>
+                  <th className="px-4 py-2.5 text-right">Net Variance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {(() => {
+                  const byAttendant = new Map<
+                    string,
+                    { name: string; shifts: number; litres: number; expected: number; variance: number }
+                  >();
+                  for (const s of closedShifts) {
+                    const prev = byAttendant.get(s.attendantName) ?? {
+                      name: s.attendantName,
+                      shifts: 0,
+                      litres: 0,
+                      expected: 0,
+                      variance: 0,
+                    };
+                    prev.shifts += 1;
+                    prev.litres += s.litresSold;
+                    prev.expected += s.expectedRevenueFcfa;
+                    prev.variance += s.varianceFcfa;
+                    byAttendant.set(s.attendantName, prev);
+                  }
+                  const ranked = Array.from(byAttendant.values()).sort((a, b) => b.litres - a.litres);
+                  if (ranked.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                          Close your first forecourt shift to populate attendant performance rankings.
+                        </td>
+                      </tr>
+                    );
+                  }
+                  return ranked.slice(0, 6).map((row) => (
+                    <tr key={row.name} className="hover:bg-slate-50">
+                      <td className="px-4 py-2.5 font-semibold text-slate-900">{row.name}</td>
+                      <td className="px-4 py-2.5 text-right font-mono">{row.shifts}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
+                        {formatLitres(row.litres)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono text-slate-700">
+                        {formatFcfa(row.expected)}
+                      </td>
+                      <td
+                        className={`px-4 py-2.5 text-right font-mono font-semibold ${
+                          row.variance < 0 ? 'text-red-600' : 'text-emerald-700'
+                        }`}
+                      >
+                        {row.variance > 0 ? `+${formatFcfa(row.variance)}` : formatFcfa(row.variance)}
+                      </td>
+                    </tr>
+                  ));
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       {/* Recent Domain Events */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">

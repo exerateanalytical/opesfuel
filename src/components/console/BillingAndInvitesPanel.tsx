@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, CreditCard, FileText, MailPlus, RefreshCw, ShieldCheck, Trash2, Wallet } from 'lucide-react';
+import { Check, Copy, CreditCard, FileText, MailPlus, Printer, RefreshCw, ShieldCheck, Trash2, Wallet } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { formatFcfa, formatShortDate } from '../../domain/formatters';
 import { Employee, Station, UserRole } from '../../domain/types';
+import { useCurrency } from '../../i18n/CurrencyContext';
+import { printSaasInvoicePdf } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 
 interface BillingAndInvitesPanelProps {
@@ -20,6 +22,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
   employees,
   onNotify,
 }) => {
+  const { formatFromXaf, formatUsdFromXaf, currency } = useCurrency();
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [invoices, setInvoices] = useState<Array<Record<string, unknown>>>([]);
   const [invites, setInvites] = useState<Array<Record<string, unknown>>>([]);
@@ -220,7 +223,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
               SaaS Invoices &amp; Online Payment Gateway
             </h3>
             <p className="text-xs text-slate-500">
-              Live billing ledger &amp; automated Orange Money / MTN MoMo / CinetPay / Card settlement.
+              Live billing ledger, printable tax invoices, and automated Orange Money / MTN MoMo / CinetPay / Card settlement.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -258,17 +261,29 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
               <div className="font-mono text-lg font-bold text-slate-900 mt-1">
                 {formatFcfa(Number(summary.monthlyRecurringTotalFcfa ?? 0))}
               </div>
+              <div className="font-mono text-[11px] text-slate-500 mt-0.5">
+                ≈ {formatUsdFromXaf(Number(summary.monthlyRecurringTotalFcfa ?? 0))}
+                {currency !== 'XAF' && currency !== 'USD'
+                  ? ` · ${formatFromXaf(Number(summary.monthlyRecurringTotalFcfa ?? 0))}`
+                  : ''}
+              </div>
             </div>
             <div className="p-4 rounded-xl bg-white border border-slate-200">
               <div className="text-slate-500 font-medium">Outstanding Invoice Balance</div>
               <div className="font-mono text-lg font-bold text-slate-900 mt-1">
                 {formatFcfa(Number(summary.outstandingBalanceFcfa ?? 0))}
               </div>
+              <div className="font-mono text-[11px] text-slate-500 mt-0.5">
+                ≈ {formatUsdFromXaf(Number(summary.outstandingBalanceFcfa ?? 0))}
+              </div>
             </div>
             <div className="p-4 rounded-xl bg-white border border-slate-200">
               <div className="text-slate-500 font-medium">AI Copilot Add-on</div>
               <div className="font-mono text-lg font-bold text-slate-900 mt-1">
                 {formatFcfa(Number(summary.aiAddonMonthlyFcfa ?? 0))} / mo
+              </div>
+              <div className="font-mono text-[11px] text-slate-500 mt-0.5">
+                ≈ {formatUsdFromXaf(Number(summary.aiAddonMonthlyFcfa ?? 0))} / mo
               </div>
             </div>
           </div>
@@ -283,7 +298,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                 <th className="px-4 py-2.5 text-right">Total (incl. VAT)</th>
                 <th className="px-4 py-2.5 text-right">Paid</th>
                 <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5 text-right">Settlement</th>
+                <th className="px-4 py-2.5 text-right">Invoice PDF &amp; Settlement</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -299,13 +314,16 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                   const paid = Number(inv.paidFcfa ?? 0);
                   const remaining = Math.max(0, total - paid);
                   const status = String(inv.status ?? 'ISSUED');
+                  const invNum = String(inv.invoiceNumber ?? inv.id);
+                  const invPeriod = String(inv.periodLabel ?? '-');
                   return (
                     <tr key={String(inv.id)} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-mono font-semibold text-slate-900">
-                        {String(inv.invoiceNumber ?? inv.id)}
+                      <td className="px-4 py-3 font-mono font-semibold text-slate-900">{invNum}</td>
+                      <td className="px-4 py-3 font-mono">{invPeriod}</td>
+                      <td className="px-4 py-3 text-right font-mono">
+                        <div className="font-semibold text-slate-900">{formatFcfa(total)}</div>
+                        <div className="text-[10px] text-slate-500">≈ {formatUsdFromXaf(total)}</div>
                       </td>
-                      <td className="px-4 py-3 font-mono">{String(inv.periodLabel ?? '-')}</td>
-                      <td className="px-4 py-3 text-right font-mono font-semibold">{formatFcfa(total)}</td>
                       <td className="px-4 py-3 text-right font-mono text-emerald-700">{formatFcfa(paid)}</td>
                       <td className="px-4 py-3">
                         <span
@@ -320,29 +338,49 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                           {status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        {remaining > 0 && role === 'OWNER' && (
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setCheckoutInvoice(inv)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold"
-                            >
-                              <Wallet className="w-3 h-3" /> Pay Online
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPayingInvoice(inv);
-                                setPayAmount(String(remaining));
-                                setPayRef(`MOMO-${Date.now().toString().slice(-6)}`);
-                              }}
-                              className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-[11px] font-semibold"
-                            >
-                              Manual Receipt
-                            </button>
-                          </div>
-                        )}
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              printSaasInvoicePdf({
+                                invoiceNumber: invNum,
+                                organizationName: stations[0]?.name ?? 'OpesFuel Tenant Workspace',
+                                periodLabel: invPeriod,
+                                totalFcfa: total,
+                                paidFcfa: paid,
+                                status,
+                                displayTotalFormatted: formatFromXaf(total),
+                                usdEquivalent: formatUsdFromXaf(total),
+                              })
+                            }
+                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                          >
+                            <Printer className="w-3 h-3" /> PDF
+                          </button>
+                          {remaining > 0 && role === 'OWNER' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setCheckoutInvoice(inv)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold"
+                              >
+                                <Wallet className="w-3 h-3" /> Pay Online
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPayingInvoice(inv);
+                                  setPayAmount(String(remaining));
+                                  setPayRef(`MOMO-${Date.now().toString().slice(-6)}`);
+                                }}
+                                className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-[11px] font-semibold"
+                              >
+                                Manual Receipt
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

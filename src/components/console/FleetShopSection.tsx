@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, CreditCard, Plus, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, CreditCard, FileText, Plus, Printer, Trash2 } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { FleetAccount, FleetTransaction, FuelGrade, ShopItem, UserRole } from '../../domain/types';
-import { printFleetVoucherSlip } from '../../utils/thermalReceipt';
+import { printFleetStatementPdf } from '../../utils/documentTemplates';
+import { printFleetVoucherSlip, printShopPosThermalSlip } from '../../utils/thermalReceipt';
 import { FormModal } from '../shared/FormModal';
 import { FleetShopAdvancedPanel } from './FleetShopAdvancedPanel';
 
@@ -174,18 +175,33 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
           >
             <ArrowLeft className="w-4 h-4" /> Back to Fleet Credit &amp; POS
           </button>
-          {canDelete && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                onDeleteFleetAccount(activeDetailAccount.id);
-                setDetailAccountId(null);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
+              onClick={() =>
+                printFleetStatementPdf({
+                  stationName: 'OpesFuel Forecourt Station',
+                  account: activeDetailAccount,
+                  transactions: accountVouchers,
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Delete Corporate Client
+              <FileText className="w-3.5 h-3.5" /> Print Statement &amp; Tax Invoice PDF
             </button>
-          )}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteFleetAccount(activeDetailAccount.id);
+                  setDetailAccountId(null);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete Corporate Client
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
@@ -365,7 +381,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
                   <th className="px-4 py-3 text-right">Credit Limit</th>
                   <th className="px-4 py-3 text-right">Balance Owed</th>
                   <th className="px-4 py-3">Status</th>
-                  {canDelete && <th className="px-4 py-3 text-right">Action</th>}
+                  <th className="px-4 py-3 text-right">Statement / Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -387,23 +403,39 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
                       {formatFcfa(acc.balanceOwedFcfa)}
                     </td>
                     <td className="px-4 py-3 text-xs font-semibold text-emerald-700">{acc.status}</td>
-                    {canDelete && (
-                      <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => onDeleteFleetAccount(acc.id)}
-                          aria-label={`Delete fleet account ${acc.companyName}`}
-                          className="p-1.5 text-slate-400 hover:text-red-600"
+                          onClick={() =>
+                            printFleetStatementPdf({
+                              stationName: 'OpesFuel Forecourt Station',
+                              account: acc,
+                              transactions: fleetTransactions.filter((t) => t.accountId === acc.id),
+                            })
+                          }
+                          title="Print Corporate Fleet Statement & Tax Invoice PDF"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Printer className="w-3 h-3" /> Statement PDF
                         </button>
-                      </td>
-                    )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteFleetAccount(acc.id)}
+                            aria-label={`Delete fleet account ${acc.companyName}`}
+                            className="p-1.5 text-slate-400 hover:text-red-600"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
                 {fleetAccounts.length === 0 && (
                   <tr>
-                    <td colSpan={canDelete ? 6 : 5} className="px-4 py-6 text-center text-xs text-slate-500">
+                    <td colSpan={6} className="px-4 py-6 text-center text-xs text-slate-500">
                       No corporate fleet accounts onboarded yet.
                     </td>
                   </tr>
@@ -707,6 +739,23 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
                               className="px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap"
                             >
                               Sell (Cash)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                printShopPosThermalSlip({
+                                  stationName: 'OpesFuel Shop POS',
+                                  sku: item.sku,
+                                  itemName: item.name,
+                                  quantity: qty,
+                                  unitPriceFcfa: item.unitPriceFcfa,
+                                  paymentMethod: 'CASH / MOMO',
+                                })
+                              }
+                              title={`Print 80mm Shop Receipt for ${item.name}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold whitespace-nowrap"
+                            >
+                              <Printer className="w-3 h-3" /> 80mm
                             </button>
                           </>
                         )}

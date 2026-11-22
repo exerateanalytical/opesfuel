@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Gauge, Plus, Wrench } from 'lucide-react';
+import { Gauge, Plus, Printer, Wrench } from 'lucide-react';
 import { PumpCalibrationItem, PumpMaintenanceItem } from '../../api/demoDataset1000';
 import { formatFcfa, formatLitres, formatShortDate } from '../../domain/formatters';
 import { Pump } from '../../domain/types';
+import { printCalibrationCertPdf } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 
 interface PumpCalibrationPanelProps {
   stationId: string;
+  stationName?: string;
   pumps: Pump[];
   canManage: boolean;
   calibrations: PumpCalibrationItem[];
@@ -17,6 +19,7 @@ interface PumpCalibrationPanelProps {
 
 export const PumpCalibrationPanel: React.FC<PumpCalibrationPanelProps> = ({
   stationId,
+  stationName = 'OpesFuel Station',
   pumps,
   canManage,
   calibrations,
@@ -109,6 +112,7 @@ export const PumpCalibrationPanel: React.FC<PumpCalibrationPanelProps> = ({
                 <th className="px-4 py-3 text-right">Meter Advance</th>
                 <th className="px-4 py-3">Returned to Tank</th>
                 <th className="px-4 py-3">Inspector</th>
+                <th className="px-4 py-3 text-right">Certificate</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -124,6 +128,15 @@ export const PumpCalibrationPanel: React.FC<PumpCalibrationPanelProps> = ({
                     {c.returnedToTank ? 'Yes (Zero Tank Loss)' : 'Sample Retained'}
                   </td>
                   <td className="px-4 py-3 text-slate-700">{c.inspectorName}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => printCalibrationCertPdf(stationName, c)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                    >
+                      <Printer className="w-3 h-3" /> Cert PDF
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

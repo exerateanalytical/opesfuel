@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, Database, FileSpreadsheet, FileText, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Database, FileSpreadsheet, FileText, Plus, Printer, Trash2 } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { DipstickReadingRecord, FuelGrade, FuelTank, PurchaseOrder, TankDeliveryRecord, UserRole } from '../../domain/types';
+import { printDeliveryGrnPdf, printPurchaseOrderPdf } from '../../utils/documentTemplates';
 import { exportInventoryExcel, exportInventoryPdf } from '../../utils/exportReports';
 import { FormModal } from '../shared/FormModal';
 import { InventoryAdvancedPanel } from './InventoryAdvancedPanel';
@@ -552,6 +553,14 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
                   </span>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="font-mono font-semibold text-slate-600">{po.status}</span>
+                    <button
+                      type="button"
+                      onClick={() => printPurchaseOrderPdf(stationId === 'ALL' ? 'OpesFuel Station' : stationId, po)}
+                      title="Print Purchase Order PDF"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                    >
+                      <Printer className="w-3 h-3" /> PO PDF
+                    </button>
                     {canDeliver && (
                       <button
                         type="button"
@@ -739,7 +748,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
                   <th className="px-4 py-3 text-right">Actual (L)</th>
                   <th className="px-4 py-3 text-right">Invoice (FCFA)</th>
                   <th className="px-4 py-3 text-right">Received</th>
-                  {canDeliver && <th className="px-4 py-3 text-right">Action</th>}
+                  <th className="px-4 py-3 text-right">GRN / Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -764,24 +773,34 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
                       <td className="px-4 py-3 text-right font-mono text-slate-500">
                         {formatShortDate(del.receivedAt)}
                       </td>
-                      {canDeliver && (
-                        <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => onDeleteDelivery(del.id)}
-                            aria-label={`Delete delivery ${del.id}`}
-                            className="p-1 text-slate-400 hover:text-red-600"
+                            onClick={() => printDeliveryGrnPdf(stationId === 'ALL' ? 'OpesFuel Station' : stationId, del)}
+                            title="Print Goods Received Note (GRN) PDF"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Printer className="w-3 h-3" /> GRN PDF
                           </button>
-                        </td>
-                      )}
+                          {canDeliver && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteDelivery(del.id)}
+                              aria-label={`Delete delivery ${del.id}`}
+                              className="p-1 text-slate-400 hover:text-red-600"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
                 {visibleDeliveries.length === 0 && (
                   <tr>
-                    <td colSpan={canDeliver ? 6 : 5} className="px-4 py-6 text-center text-slate-500">
+                    <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                       No tanker deliveries recorded for this station scope.
                     </td>
                   </tr>

@@ -6,10 +6,12 @@ import { formatFcfa, formatShortDate } from '../../domain/formatters';
 import {
   FinancialReportBundle,
   JournalEntry,
+  ShiftRecord,
   StationExpense,
   TreasuryDeposit,
   UserRole,
 } from '../../domain/types';
+import { printDailyZReportPdf } from '../../utils/documentTemplates';
 import { exportAccountingExcel, exportAccountingPdf } from '../../utils/exportReports';
 import { FormModal } from '../shared/FormModal';
 import { AccountingAdvancedPanel } from './AccountingAdvancedPanel';
@@ -20,6 +22,7 @@ interface AccountingSectionProps {
   stationId: string;
   defaultStationId: string;
   report: FinancialReportBundle;
+  shifts?: ShiftRecord[];
   journals: JournalEntry[];
   expenses: StationExpense[];
   deposits: TreasuryDeposit[];
@@ -49,6 +52,7 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
   stationId,
   defaultStationId,
   report,
+  shifts = [],
   journals,
   expenses,
   deposits,
@@ -79,6 +83,7 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
   const visibleJournals = journals.filter((j) => stationId === 'ALL' || j.stationId === stationId);
   const visibleExpenses = expenses.filter((ex) => stationId === 'ALL' || ex.stationId === stationId);
   const visibleDeposits = deposits.filter((dep) => stationId === 'ALL' || dep.stationId === stationId);
+  const visibleShifts = shifts.filter((s) => stationId === 'ALL' || s.stationId === stationId);
 
   const exportCsv = () => {
     const header = 'Account Code,Account Name,Type,Debit (FCFA),Credit (FCFA),Net Balance (FCFA)\n';
@@ -229,6 +234,20 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
             <button
               type="button"
               onClick={() =>
+                printDailyZReportPdf({
+                  stationName: stationId === 'ALL' ? 'Network Consolidated' : stationId,
+                  dateLabel: new Date().toISOString().slice(0, 10),
+                  shifts: visibleShifts,
+                  report,
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold whitespace-nowrap shrink-0"
+            >
+              <Printer className="w-3.5 h-3.5 text-amber-400" /> Daily Z-Report PDF
+            </button>
+            <button
+              type="button"
+              onClick={() =>
                 exportAccountingPdf(
                   report,
                   visibleJournals,
@@ -239,7 +258,7 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
               }
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap shrink-0"
             >
-              <FileText className="w-3.5 h-3.5" /> Export PDF
+              <FileText className="w-3.5 h-3.5" /> Statements PDF
             </button>
             <button
               type="button"
@@ -254,7 +273,7 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
               }
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold whitespace-nowrap shrink-0"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Export Excel (.xlsx)
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Excel (.xlsx)
             </button>
             <button
               type="button"
@@ -266,7 +285,7 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
             <button
               type="button"
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold whitespace-nowrap shrink-0"
             >
               <Printer className="w-3.5 h-3.5" /> Print
             </button>

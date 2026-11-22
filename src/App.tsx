@@ -684,6 +684,10 @@ export default function App() {
   }
 
   const scopedStationId = effectiveActiveStationId === 'ALL' ? defaultStationId : effectiveActiveStationId;
+  const scopedStationName =
+    store.stations.find((s) => s.id === scopedStationId)?.name ??
+    store.tenant.organizationName ??
+    'OpesFuel Station';
   const scopedPumps = store.pumps.filter((p) => effectiveActiveStationId === 'ALL' || p.stationId === effectiveActiveStationId);
   const scopedEmployees = store.employees.filter((e) => effectiveActiveStationId === 'ALL' || e.stationId === effectiveActiveStationId);
   const canManageOps = role === 'OWNER' || role === 'MANAGER' || role === 'PLATFORM_ADMIN';
@@ -811,6 +815,7 @@ export default function App() {
           calibrationSlot={
             <PumpCalibrationPanel
               stationId={scopedStationId}
+              stationName={scopedStationName}
               pumps={scopedPumps}
               canManage={canManageOps}
               calibrations={extOps.calibrations}
@@ -992,6 +997,7 @@ export default function App() {
           hrSlot={
             <HrManagementPanel
               stationId={scopedStationId}
+              stationName={scopedStationName}
               employees={scopedEmployees}
               role={role}
               contracts={extOps.hrContracts}
@@ -1049,6 +1055,7 @@ export default function App() {
           stationId={effectiveActiveStationId}
           defaultStationId={defaultStationId}
           report={report}
+          shifts={store.shifts}
           journals={store.journals}
           expenses={store.expenses}
           deposits={store.deposits}
@@ -1080,6 +1087,7 @@ export default function App() {
           vaultSlot={
             <CashVaultPanel
               stationId={scopedStationId}
+              stationName={scopedStationName}
               entries={extOps.vaultEntries}
               canRecord={role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN'}
               onRecordEntry={(entry) => {
