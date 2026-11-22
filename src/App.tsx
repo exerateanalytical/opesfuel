@@ -48,6 +48,7 @@ import { PayrollWorkflowStepperPanel } from './components/console/PayrollWorkflo
 import { PlatformAdminSection } from './components/console/PlatformAdminSection';
 import { PumpCalibrationPanel } from './components/console/PumpCalibrationPanel';
 import { SecurityAuditAndProfilePanel } from './components/console/SecurityAuditAndProfilePanel';
+import { WetStockCalibrationAndCatalogPanel } from './components/console/WetStockCalibrationAndCatalogPanel';
 import { WorkforceSection } from './components/console/WorkforceSection';
 import { MobileAppShowcase } from './components/mobile/MobileAppShowcase';
 import { PublicFooter } from './components/public/PublicFooter';
@@ -859,65 +860,76 @@ export default function App() {
       )}
 
       {consoleSection === 'inventory' && (
-        <InventorySection
-          engine={engineRef.current}
-          role={role}
-          stationId={effectiveActiveStationId}
-          defaultStationId={defaultStationId}
-          tanks={store.tanks}
-          purchaseOrders={store.purchaseOrders}
-          deliveries={store.deliveries}
-          dipsticks={store.dipsticks}
-          onRecordDipstick={(tankId, litres) =>
-            runCommand(
-              () => engineRef.current.recordDipstick(role, tankId, litres),
-              'Physical dipstick calibration recorded.'
-            )
-          }
-          onCreatePO={(input) =>
-            runCommand(
-              () => engineRef.current.createPurchaseOrder(role, input),
-              `Supplier purchase order created for ${input.orderedLitres} L.`
-            )
-          }
-          onReceiveDelivery={(input) =>
-            runCommand(
-              () => engineRef.current.receiveDelivery(role, input),
-              'Tanker delivery received and Inventory/Accounts Payable journal posted.'
-            )
-          }
-          onCreateTank={(input) =>
-            runCommand(
-              () => engineRef.current.createTank(role, input),
-              `Provisioned underground fuel tank ${input.name}.`
-            )
-          }
-          onDeleteTank={(tankId) =>
-            runCommand(
-              () => engineRef.current.deleteTank(role, tankId),
-              'Deleted underground fuel tank.'
-            )
-          }
-          onDeletePO={(poId) =>
-            runCommand(
-              () => engineRef.current.deletePurchaseOrder(role, poId),
-              'Removed supplier purchase order.'
-            )
-          }
-          onDeleteDelivery={(deliveryId) =>
-            runCommand(
-              () => engineRef.current.deleteDelivery(role, deliveryId),
-              'Deleted tanker delivery record and linked AP journal.'
-            )
-          }
-          onDeleteDipstick={(dipId) =>
-            runCommand(
-              () => engineRef.current.deleteDipstick(role, dipId),
-              'Deleted dipstick calibration reading.'
-            )
-          }
-          onNotify={notify}
-        />
+        <div className="space-y-6">
+          <InventorySection
+            engine={engineRef.current}
+            role={role}
+            stationId={effectiveActiveStationId}
+            defaultStationId={defaultStationId}
+            tanks={store.tanks}
+            purchaseOrders={store.purchaseOrders}
+            deliveries={store.deliveries}
+            dipsticks={store.dipsticks}
+            onRecordDipstick={(tankId, litres) =>
+              runCommand(
+                () => engineRef.current.recordDipstick(role, tankId, litres),
+                'Physical dipstick calibration recorded.'
+              )
+            }
+            onCreatePO={(input) =>
+              runCommand(
+                () => engineRef.current.createPurchaseOrder(role, input),
+                `Supplier purchase order created for ${input.orderedLitres} L.`
+              )
+            }
+            onReceiveDelivery={(input) =>
+              runCommand(
+                () => engineRef.current.receiveDelivery(role, input),
+                'Tanker delivery received and Inventory/Accounts Payable journal posted.'
+              )
+            }
+            onCreateTank={(input) =>
+              runCommand(
+                () => engineRef.current.createTank(role, input),
+                `Provisioned underground fuel tank ${input.name}.`
+              )
+            }
+            onDeleteTank={(tankId) =>
+              runCommand(
+                () => engineRef.current.deleteTank(role, tankId),
+                'Deleted underground fuel tank.'
+              )
+            }
+            onDeletePO={(poId) =>
+              runCommand(
+                () => engineRef.current.deletePurchaseOrder(role, poId),
+                'Removed supplier purchase order.'
+              )
+            }
+            onDeleteDelivery={(deliveryId) =>
+              runCommand(
+                () => engineRef.current.deleteDelivery(role, deliveryId),
+                'Deleted tanker delivery record and linked AP journal.'
+              )
+            }
+            onDeleteDipstick={(dipId) =>
+              runCommand(
+                () => engineRef.current.deleteDipstick(role, dipId),
+                'Deleted dipstick calibration reading.'
+              )
+            }
+            onNotify={notify}
+          />
+          <WetStockCalibrationAndCatalogPanel
+            role={role}
+            stationId={scopedStationId}
+            stationName={scopedStationName}
+            currentActorEmail={currentActorEmail}
+            tanks={store.tanks.filter((t) => effectiveActiveStationId === 'ALL' || t.stationId === effectiveActiveStationId)}
+            onPostBackend={postOptionalBackend}
+            onNotify={notify}
+          />
+        </div>
       )}
 
       {consoleSection === 'fleet' && (

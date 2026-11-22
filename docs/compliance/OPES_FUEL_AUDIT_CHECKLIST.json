@@ -1145,7 +1145,10 @@
       "status": "TESTED_PASS",
       "test_evidence": [
         "src/components/console/OverviewSection.tsx",
-        "backend/.../station/PriceHistoryController.java"
+        "backend/.../station/PriceHistoryController.java",
+        "backend/.../enterprise/Sprint4ComplianceAndControlsController.java#/global-fuel-catalog",
+        "src/components/console/WetStockCalibrationAndCatalogPanel.tsx",
+        "Sprint4ReleaseTests#T007_globalFuelCatalogStartsEmptyAndRequiresMakerCheckerApproval"
       ],
       "features": [
         {
@@ -1439,7 +1442,10 @@
       "status": "TESTED_PASS",
       "test_evidence": [
         "src/components/console/InventorySection.tsx",
-        "src/utils/documentTemplates.ts#printPurchaseOrderPdf"
+        "src/utils/documentTemplates.ts#printPurchaseOrderPdf",
+        "backend/.../enterprise/Sprint4ComplianceAndControlsController.java#/tanks/{tankId}/calibrations",
+        "src/components/console/WetStockCalibrationAndCatalogPanel.tsx",
+        "Sprint4ReleaseTests#T010_wetStockCalibrationChangePreservesHistoricalReadingsAndAppliesNewChart"
       ],
       "features": [
         {
@@ -2411,7 +2417,10 @@
       "status": "TESTED_PASS",
       "test_evidence": [
         "Sprint2GovernanceTests#M16_M17_shopFefoBarcodeCartAndStockAdjustmentStateMachine",
-        "src/components/console/ShopCartAndFefoPanel.tsx"
+        "src/components/console/ShopCartAndFefoPanel.tsx",
+        "backend/.../enterprise/Sprint4ComplianceAndControlsController.java#/shop-returns",
+        "src/components/console/WetStockCalibrationAndCatalogPanel.tsx",
+        "Sprint4ReleaseTests#T019_shopReturnBlocksOverReturnAndPostsBalancedRefundReversal"
       ],
       "features": [
         {
@@ -3664,7 +3673,9 @@
       "status": "TESTED_PASS",
       "test_evidence": [
         "src/components/console/EnterpriseOperationsSection.tsx",
-        "backend/.../enterprise/EnterpriseOpsController.java#/bulk-orders"
+        "backend/.../enterprise/EnterpriseOpsController.java#/bulk-orders",
+        "backend/.../enterprise/Sprint4ComplianceAndControlsController.java#/transfers/{transferId}/reconcile-transit",
+        "Sprint4ReleaseTests#M24_interStationTransferExceedingHalfPercentLossAutoOpensFraudCase"
       ],
       "features": [
         {
@@ -8579,7 +8590,9 @@
         "backend/.../enterprise/EnterpriseOpsController.java#/quality-samples",
         "src/utils/documentTemplates.ts#printFuelQualityCertPdf",
         "backend/.../enterprise/Sprint3HardwareAndWorkflowController.java#/quality-samples/tank-status/{tankId}",
-        "Sprint3ReleaseTests#T014_mobileOfflineQueueReplayDeduplicationAndM55QuarantineStopSaleGate"
+        "Sprint3ReleaseTests#T014_mobileOfflineQueueReplayDeduplicationAndM55QuarantineStopSaleGate",
+        "backend/.../enterprise/Sprint4ComplianceAndControlsController.java#/forecourt/pre-dispense-check",
+        "Sprint4ReleaseTests#M55_quarantinedTankBlocksPreDispenseAndCleanTankPasses"
       ],
       "features": [
         {
@@ -8885,8 +8898,10 @@
     },
     {
       "id": "T007",
-      "status": "UNVERIFIED",
-      "test_evidence": []
+      "status": "TESTED_PASS",
+      "test_evidence": [
+        "Sprint4ReleaseTests#T007_globalFuelCatalogStartsEmptyAndRequiresMakerCheckerApproval"
+      ]
     },
     {
       "id": "T008",
@@ -8904,8 +8919,10 @@
     },
     {
       "id": "T010",
-      "status": "UNVERIFIED",
-      "test_evidence": []
+      "status": "TESTED_PASS",
+      "test_evidence": [
+        "Sprint4ReleaseTests#T010_wetStockCalibrationChangePreservesHistoricalReadingsAndAppliesNewChart"
+      ]
     },
     {
       "id": "T011",
@@ -8966,8 +8983,10 @@
     },
     {
       "id": "T019",
-      "status": "UNVERIFIED",
-      "test_evidence": []
+      "status": "TESTED_PASS",
+      "test_evidence": [
+        "Sprint4ReleaseTests#T019_shopReturnBlocksOverReturnAndPostsBalancedRefundReversal"
+      ]
     },
     {
       "id": "T020",
