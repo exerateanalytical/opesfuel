@@ -37,12 +37,14 @@ import { FixedAssetsAndBudgetsPanel } from './components/console/FixedAssetsAndB
 import { FleetShopSection } from './components/console/FleetShopSection';
 import { ForecourtSection } from './components/console/ForecourtSection';
 import { GlobalSearchModal } from './components/console/GlobalSearchModal';
+import { HardwareEdgeBridgePanel } from './components/console/HardwareEdgeBridgePanel';
 import { HrManagementPanel } from './components/console/HrManagementPanel';
 import { HseFraudQcSection } from './components/console/HseFraudQcSection';
 import { IamGovernanceAndBillingProPanel } from './components/console/IamGovernanceAndBillingProPanel';
 import { InventorySection } from './components/console/InventorySection';
 import { OnboardingGuideModal } from './components/console/OnboardingGuideModal';
 import { OverviewSection } from './components/console/OverviewSection';
+import { PayrollWorkflowStepperPanel } from './components/console/PayrollWorkflowStepperPanel';
 import { PlatformAdminSection } from './components/console/PlatformAdminSection';
 import { PumpCalibrationPanel } from './components/console/PumpCalibrationPanel';
 import { SecurityAuditAndProfilePanel } from './components/console/SecurityAuditAndProfilePanel';
@@ -1012,55 +1014,66 @@ export default function App() {
           }
           onNotify={notify}
           hrSlot={
-            <HrManagementPanel
-              stationId={scopedStationId}
-              stationName={scopedStationName}
-              employees={scopedEmployees}
-              role={role}
-              contracts={extOps.hrContracts}
-              leaves={extOps.hrLeaves}
-              certs={extOps.hrCerts}
-              disciplinary={extOps.hrDisciplinary}
-              onCreateContract={(c) => {
-                const rec = { ...c, id: `hrc_${Date.now().toString(36)}`, status: 'ACTIVE' as const };
-                setExtOps((prev) => ({ ...prev, hrContracts: [rec, ...prev.hrContracts] }));
-                void postOptionalBackend('/api/v1/hr/contracts', 'POST', c as unknown as Record<string, unknown>);
-                appendAudit('HR_CONTRACT_CREATED', 'HR_CONTRACT', rec.id, `${c.contractType} contract for ${c.employeeName}`, c.stationId);
-                notify('success', `Saved ${c.contractType} contract & CNPS record for ${c.employeeName}.`);
-              }}
-              onCreateLeave={(l) => {
-                const rec = { ...l, id: `hrl_${Date.now().toString(36)}`, status: 'PENDING' as const };
-                setExtOps((prev) => ({ ...prev, hrLeaves: [rec, ...prev.hrLeaves] }));
-                void postOptionalBackend('/api/v1/hr/leaves', 'POST', l as unknown as Record<string, unknown>);
-                appendAudit('HR_LEAVE_REQUESTED', 'HR_LEAVE', rec.id, `${l.leaveType} (${l.daysCount}d) for ${l.employeeName}`, l.stationId);
-                notify('success', `Logged ${l.leaveType} leave request for ${l.employeeName}.`);
-              }}
-              onDecideLeave={(leaveId, status) => {
-                setExtOps((prev) => ({
-                  ...prev,
-                  hrLeaves: prev.hrLeaves.map((lv) =>
-                    lv.id === leaveId ? { ...lv, status, reviewedBy: currentActorEmail } : lv
-                  ),
-                }));
-                void postOptionalBackend(`/api/v1/hr/leaves/${encodeURIComponent(leaveId)}/decision`, 'PATCH', { status });
-                appendAudit('HR_LEAVE_DECIDED', 'HR_LEAVE', leaveId, `Leave ${leaveId} marked ${status}`);
-                notify('success', `Leave request ${status.toLowerCase()}.`);
-              }}
-              onCreateCert={(cert) => {
-                const rec = { ...cert, id: `cert_${Date.now().toString(36)}`, status: 'VALID' as const };
-                setExtOps((prev) => ({ ...prev, hrCerts: [rec, ...prev.hrCerts] }));
-                void postOptionalBackend('/api/v1/hr/certifications', 'POST', cert as unknown as Record<string, unknown>);
-                appendAudit('HSE_CERT_RECORDED', 'HR_CERT', rec.id, `${cert.certName} for ${cert.employeeName}`, cert.stationId);
-                notify('success', `Recorded HSE safety certification (${cert.certName}) for ${cert.employeeName}.`);
-              }}
-              onCreateDisciplinary={(recInput) => {
-                const rec = { ...recInput, id: `disc_${Date.now().toString(36)}`, recordedAt: new Date().toISOString() };
-                setExtOps((prev) => ({ ...prev, hrDisciplinary: [rec, ...prev.hrDisciplinary] }));
-                void postOptionalBackend('/api/v1/hr/disciplinary', 'POST', recInput as unknown as Record<string, unknown>);
-                appendAudit('HR_DISCIPLINARY_LOGGED', 'HR_DISCIPLINARY', rec.id, `${recInput.category} (${recInput.severity}) for ${recInput.employeeName}`, recInput.stationId);
-                notify('success', `Logged HR ${recInput.category} record for ${recInput.employeeName}.`);
-              }}
-            />
+            <div className="space-y-6">
+              <PayrollWorkflowStepperPanel
+                role={role}
+                stationId={scopedStationId}
+                stationName={scopedStationName}
+                currentActorEmail={currentActorEmail}
+                defaultHeadcount={scopedEmployees.length}
+                onPostBackend={postOptionalBackend}
+                onNotify={notify}
+              />
+              <HrManagementPanel
+                stationId={scopedStationId}
+                stationName={scopedStationName}
+                employees={scopedEmployees}
+                role={role}
+                contracts={extOps.hrContracts}
+                leaves={extOps.hrLeaves}
+                certs={extOps.hrCerts}
+                disciplinary={extOps.hrDisciplinary}
+                onCreateContract={(c) => {
+                  const rec = { ...c, id: `hrc_${Date.now().toString(36)}`, status: 'ACTIVE' as const };
+                  setExtOps((prev) => ({ ...prev, hrContracts: [rec, ...prev.hrContracts] }));
+                  void postOptionalBackend('/api/v1/hr/contracts', 'POST', c as unknown as Record<string, unknown>);
+                  appendAudit('HR_CONTRACT_CREATED', 'HR_CONTRACT', rec.id, `${c.contractType} contract for ${c.employeeName}`, c.stationId);
+                  notify('success', `Saved ${c.contractType} contract & CNPS record for ${c.employeeName}.`);
+                }}
+                onCreateLeave={(l) => {
+                  const rec = { ...l, id: `hrl_${Date.now().toString(36)}`, status: 'PENDING' as const };
+                  setExtOps((prev) => ({ ...prev, hrLeaves: [rec, ...prev.hrLeaves] }));
+                  void postOptionalBackend('/api/v1/hr/leaves', 'POST', l as unknown as Record<string, unknown>);
+                  appendAudit('HR_LEAVE_REQUESTED', 'HR_LEAVE', rec.id, `${l.leaveType} (${l.daysCount}d) for ${l.employeeName}`, l.stationId);
+                  notify('success', `Logged ${l.leaveType} leave request for ${l.employeeName}.`);
+                }}
+                onDecideLeave={(leaveId, status) => {
+                  setExtOps((prev) => ({
+                    ...prev,
+                    hrLeaves: prev.hrLeaves.map((lv) =>
+                      lv.id === leaveId ? { ...lv, status, reviewedBy: currentActorEmail } : lv
+                    ),
+                  }));
+                  void postOptionalBackend(`/api/v1/hr/leaves/${encodeURIComponent(leaveId)}/decision`, 'PATCH', { status });
+                  appendAudit('HR_LEAVE_DECIDED', 'HR_LEAVE', leaveId, `Leave ${leaveId} marked ${status}`);
+                  notify('success', `Leave request ${status.toLowerCase()}.`);
+                }}
+                onCreateCert={(cert) => {
+                  const rec = { ...cert, id: `cert_${Date.now().toString(36)}`, status: 'VALID' as const };
+                  setExtOps((prev) => ({ ...prev, hrCerts: [rec, ...prev.hrCerts] }));
+                  void postOptionalBackend('/api/v1/hr/certifications', 'POST', cert as unknown as Record<string, unknown>);
+                  appendAudit('HSE_CERT_RECORDED', 'HR_CERT', rec.id, `${cert.certName} for ${cert.employeeName}`, cert.stationId);
+                  notify('success', `Recorded HSE safety certification (${cert.certName}) for ${cert.employeeName}.`);
+                }}
+                onCreateDisciplinary={(recInput) => {
+                  const rec = { ...recInput, id: `disc_${Date.now().toString(36)}`, recordedAt: new Date().toISOString() };
+                  setExtOps((prev) => ({ ...prev, hrDisciplinary: [rec, ...prev.hrDisciplinary] }));
+                  void postOptionalBackend('/api/v1/hr/disciplinary', 'POST', recInput as unknown as Record<string, unknown>);
+                  appendAudit('HR_DISCIPLINARY_LOGGED', 'HR_DISCIPLINARY', rec.id, `${recInput.category} (${recInput.severity}) for ${recInput.employeeName}`, recInput.stationId);
+                  notify('success', `Logged HR ${recInput.category} record for ${recInput.employeeName}.`);
+                }}
+              />
+            </div>
           }
         />
       )}
@@ -1429,44 +1442,53 @@ export default function App() {
       )}
 
       {consoleSection === 'api-platform' && (
-        <ApiPlatformSection
-          engine={engineRef.current}
-          events={store.events}
-          apiKeys={store.apiKeys}
-          webhooks={store.webhooks}
-          onCreateApiKey={(label, scopes) =>
-            runCommand(
-              () => engineRef.current.createApiKey(role, label, scopes),
-              `Provisioned scoped API key "${label}".`
-            )
-          }
-          onRevokeApiKey={(keyId) =>
-            runCommand(
-              () => engineRef.current.revokeApiKey(role, keyId),
-              'Revoked tenant API key.'
-            )
-          }
-          onCreateWebhook={(url, evts) =>
-            runCommand(
-              () => engineRef.current.createWebhook(role, url, evts),
-              `Registered HMAC webhook endpoint ${url}.`
-            )
-          }
-          onToggleWebhook={(webhookId) =>
-            runCommand(
-              () => engineRef.current.toggleWebhook(role, webhookId),
-              'Toggled webhook subscription delivery state.'
-            )
-          }
-          onDeleteWebhook={(webhookId) =>
-            runCommand(
-              () => engineRef.current.deleteWebhook(role, webhookId),
-              'Deleted webhook subscription.'
-            )
-          }
-          onExecuteApiQuery={executeApiQuery}
-          onNotify={notify}
-        />
+        <div className="space-y-6">
+          <ApiPlatformSection
+            engine={engineRef.current}
+            events={store.events}
+            apiKeys={store.apiKeys}
+            webhooks={store.webhooks}
+            onCreateApiKey={(label, scopes) =>
+              runCommand(
+                () => engineRef.current.createApiKey(role, label, scopes),
+                `Provisioned scoped API key "${label}".`
+              )
+            }
+            onRevokeApiKey={(keyId) =>
+              runCommand(
+                () => engineRef.current.revokeApiKey(role, keyId),
+                'Revoked tenant API key.'
+              )
+            }
+            onCreateWebhook={(url, evts) =>
+              runCommand(
+                () => engineRef.current.createWebhook(role, url, evts),
+                `Registered HMAC webhook endpoint ${url}.`
+              )
+            }
+            onToggleWebhook={(webhookId) =>
+              runCommand(
+                () => engineRef.current.toggleWebhook(role, webhookId),
+                'Toggled webhook subscription delivery state.'
+              )
+            }
+            onDeleteWebhook={(webhookId) =>
+              runCommand(
+                () => engineRef.current.deleteWebhook(role, webhookId),
+                'Deleted webhook subscription.'
+              )
+            }
+            onExecuteApiQuery={executeApiQuery}
+            onNotify={notify}
+          />
+          <HardwareEdgeBridgePanel
+            role={role}
+            stationId={scopedStationId}
+            stationName={scopedStationName}
+            onPostBackend={postOptionalBackend}
+            onNotify={notify}
+          />
+        </div>
       )}
 
       {consoleSection === 'admin' && (
