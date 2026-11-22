@@ -59,6 +59,11 @@ record FleetPortalPayBalanceCommand(
     @Min(100) long amountFcfa
 ) {}
 
+record FleetPortalChangePasswordCommand(
+    @NotBlank String currentPassword,
+    @NotBlank String newPassword
+) {}
+
 @RestController
 public class FleetPortalController {
 
@@ -216,6 +221,63 @@ public class FleetPortalController {
 
     // --- SELF-SERVICE FLEET CLIENT PORTAL (STRICTLY SCOPED TO OWN ACCOUNT) ---
 
+    @PostMapping("/api/v1/fleet-portal/logout")
+    @Transactional
+    @PreAuthorize("hasRole('FLEET_CLIENT')")
+    public Map<String, Object> logout(HttpServletRequest req) {
+        Scope scope = resolveScope(req);
+        String rawToken = extractFleetToken(req);
+        if (rawToken != null) {
+            jdbcTemplate.update(
+                "DELETE FROM fleet_portal_sessions WHERE token_hash = ?",
+                FleetPortalAuthFilter.sha256(rawToken)
+            );
+        }
+        auditRecorder.record(
+            scope.tenantId(), null, scope.email(), "FLEET_CLIENT",
+            "FLEET_PORTAL_LOGOUT", "FLEET_ACCOUNT", scope.accountId(),
+            "Revoked corporate fleet portal session for " + scope.email()
+        );
+        return Map.of("signedOut", true);
+    }
+
+    @PostMapping("/api/v1/fleet-portal/change-password")
+    @Transactional
+    @PreAuthorize("hasRole('FLEET_CLIENT')")
+    public Map<String, Object> changePassword(
+        HttpServletRequest req,
+        @Valid @RequestBody FleetPortalChangePasswordCommand cmd
+    ) {
+        Scope scope = resolveScope(req);
+        if (cmd.newPassword().trim().length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New password must be at least 8 characters.");
+        }
+        List<Map<String, Object>> users = jdbcTemplate.queryForList(
+            "SELECT id, password_hash FROM fleet_portal_users WHERE email = ? AND fleet_account_id = ? AND active = TRUE",
+            scope.email(), scope.accountId()
+        );
+        if (users.isEmpty() || !passwordEncoder.matches(cmd.currentPassword(), String.valueOf(users.get(0).get("password_hash")))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect.");
+        }
+        String userId = String.valueOf(users.get(0).get("id"));
+        String nextHash = passwordEncoder.encode(cmd.newPassword());
+        jdbcTemplate.update("UPDATE fleet_portal_users SET password_hash = ? WHERE id = ?", nextHash, userId);
+
+        String rawToken = extractFleetToken(req);
+        if (rawToken != null) {
+            jdbcTemplate.update(
+                "DELETE FROM fleet_portal_sessions WHERE user_id = ? AND token_hash <> ?",
+                userId, FleetPortalAuthFilter.sha256(rawToken)
+            );
+        }
+        auditRecorder.record(
+            scope.tenantId(), null, scope.email(), "FLEET_CLIENT",
+            "FLEET_PORTAL_PASSWORD_CHANGED", "FLEET_ACCOUNT", scope.accountId(),
+            "Updated corporate fleet portal password and revoked other sessions"
+        );
+        return Map.of("updated", true);
+    }
+
     @GetMapping("/api/v1/fleet-portal/dashboard")
     @PreAuthorize("hasRole('FLEET_CLIENT')")
     public Map<String, Object> dashboard(HttpServletRequest req) {
@@ -235,6 +297,12 @@ public class FleetPortalController {
         Integer vehCount = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM fleet_vehicles WHERE account_id = ?", Integer.class, scope.accountId()
         );
+        Integer activeVehCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fleet_vehicles WHERE account_id = ? AND active = TRUE", Integer.class, scope.accountId()
+        );
+        int totalVeh = vehCount != null ? vehCount : 0;
+        int activeVeh = activeVehCount != null ? activeVehCount : 0;
+        double utilizationPct = creditLimit > 0 ? Math.min(100.0, Math.round((balanceOwed * 1000.0) / creditLimit) / 10.0) : 0.0;
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("fleetAccountId", acc.get("id"));
@@ -244,10 +312,13 @@ public class FleetPortalController {
         res.put("creditLimitFcfa", creditLimit);
         res.put("balanceOwedFcfa", balanceOwed);
         res.put("availableCreditFcfa", Math.max(0L, creditLimit - balanceOwed));
+        res.put("utilizationPercent", utilizationPct);
         res.put("monthSpendFcfa", ((Number) mtd.get("spend")).longValue());
         res.put("monthLitres", ((Number) mtd.get("litres")).doubleValue());
         res.put("monthTransactions", ((Number) mtd.get("tx_count")).intValue());
-        res.put("vehicleCount", vehCount != null ? vehCount : 0);
+        res.put("vehicleCount", totalVeh);
+        res.put("activeVehicleCount", activeVeh);
+        res.put("frozenVehicleCount", Math.max(0, totalVeh - activeVeh));
         return res;
     }
 
@@ -257,6 +328,7 @@ public class FleetPortalController {
         HttpServletRequest req,
         @RequestParam(required = false) String vehiclePlate,
         @RequestParam(required = false) String driverName,
+        @RequestParam(required = false) String grade,
         @RequestParam(required = false) String from,
         @RequestParam(required = false) String to
     ) {
@@ -273,6 +345,10 @@ public class FleetPortalController {
         if (driverName != null && !driverName.isBlank()) {
             sql.append(" AND UPPER(driver_name) LIKE ?");
             params.add("%" + driverName.trim().toUpperCase() + "%");
+        }
+        if (grade != null && !grade.isBlank() && !"ALL".equalsIgnoreCase(grade.trim())) {
+            sql.append(" AND UPPER(grade) = ?");
+            params.add(grade.trim().toUpperCase());
         }
         if (from != null && !from.isBlank()) {
             sql.append(" AND created_at >= ?");
@@ -291,9 +367,10 @@ public class FleetPortalController {
     public ResponseEntity<String> exportFuelingsCsv(
         HttpServletRequest req,
         @RequestParam(required = false) String vehiclePlate,
-        @RequestParam(required = false) String driverName
+        @RequestParam(required = false) String driverName,
+        @RequestParam(required = false) String grade
     ) {
-        List<Map<String, Object>> rows = fuelings(req, vehiclePlate, driverName, null, null);
+        List<Map<String, Object>> rows = fuelings(req, vehiclePlate, driverName, grade, null, null);
         StringBuilder sb = new StringBuilder("TransactionId,StationId,VehiclePlate,DriverName,FuelGrade,Litres,AmountFCFA,Timestamp\n");
         for (Map<String, Object> r : rows) {
             sb.append(csv(r.get("id"))).append(',')
@@ -323,14 +400,29 @@ public class FleetPortalController {
             "SELECT * FROM fleet_vehicle_limits WHERE fleet_account_id = ? AND tenant_id = ?",
             scope.accountId(), scope.tenantId()
         );
+        Instant monthStart = YearMonth.now(ZoneOffset.UTC).atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+        List<Map<String, Object>> mtdByPlateRows = jdbcTemplate.queryForList(
+            """
+            SELECT UPPER(vehicle_plate) AS plate_key, COALESCE(SUM(litres), 0) AS mtd_litres, COALESCE(SUM(amount_fcfa), 0) AS mtd_spend
+            FROM fleet_transactions
+            WHERE account_id = ? AND created_at >= ?
+            GROUP BY UPPER(vehicle_plate)
+            """,
+            scope.accountId(), Timestamp.from(monthStart)
+        );
         Map<String, Map<String, Object>> byPlate = new HashMap<>();
         for (Map<String, Object> l : limits) {
             byPlate.put(String.valueOf(l.get("vehicle_plate")).toUpperCase(), l);
         }
+        Map<String, Map<String, Object>> mtdByPlate = new HashMap<>();
+        for (Map<String, Object> m : mtdByPlateRows) {
+            mtdByPlate.put(String.valueOf(m.get("plate_key")).toUpperCase(), m);
+        }
         List<Map<String, Object>> result = new ArrayList<>();
         for (Map<String, Object> v : vehicles) {
             Map<String, Object> row = new LinkedHashMap<>(v);
-            Map<String, Object> lim = byPlate.get(String.valueOf(v.get("plate_number")).toUpperCase());
+            String plateKey = String.valueOf(v.get("plate_number")).toUpperCase();
+            Map<String, Object> lim = byPlate.get(plateKey);
             if (lim != null) {
                 row.put("cardNumber", lim.get("card_number"));
                 row.put("dailyLitreCap", lim.get("daily_litre_cap"));
@@ -340,6 +432,9 @@ public class FleetPortalController {
                 row.put("allowedGradesCsv", lim.get("allowed_grades_csv"));
                 row.put("limitActive", lim.get("active"));
             }
+            Map<String, Object> mtd = mtdByPlate.get(plateKey);
+            row.put("mtdLitres", mtd != null ? ((Number) mtd.get("mtd_litres")).doubleValue() : 0.0);
+            row.put("mtdSpendFcfa", mtd != null ? ((Number) mtd.get("mtd_spend")).longValue() : 0L);
             result.add(row);
         }
         return result;
@@ -355,6 +450,20 @@ public class FleetPortalController {
     ) {
         Scope scope = resolveScope(req);
         String normalizedPlate = plate.trim().toUpperCase();
+        List<Map<String, Object>> ownedVehicle = jdbcTemplate.queryForList(
+            "SELECT id, active FROM fleet_vehicles WHERE account_id = ? AND UPPER(plate_number) = ?",
+            scope.accountId(), normalizedPlate
+        );
+        if (ownedVehicle.isEmpty()) {
+            throw new AccessDeniedException("Vehicle " + normalizedPlate + " is not registered on your corporate fleet account.");
+        }
+
+        boolean nextActive = cmd.active() != null ? cmd.active() : Boolean.TRUE.equals(ownedVehicle.get(0).get("active"));
+        jdbcTemplate.update(
+            "UPDATE fleet_vehicles SET active = ? WHERE id = ?",
+            nextActive, ownedVehicle.get(0).get("id")
+        );
+
         String id = "fvl_" + UUID.randomUUID().toString().substring(0, 10);
         Timestamp now = Timestamp.from(Instant.now());
 
@@ -373,7 +482,7 @@ public class FleetPortalController {
                 """,
                 id, scope.tenantId(), scope.accountId(), normalizedPlate, cmd.cardNumber(),
                 cmd.dailyLitreCap(), cmd.monthlyLitreCap(), cmd.dailyXafCap(), cmd.monthlyXafCap(),
-                cmd.allowedGradesCsv(), cmd.active() != null ? cmd.active() : true, now
+                cmd.allowedGradesCsv(), nextActive, now
             );
         } else {
             id = String.valueOf(existing.get(0).get("id"));
@@ -385,9 +494,15 @@ public class FleetPortalController {
                 WHERE id = ?
                 """,
                 cmd.cardNumber(), cmd.dailyLitreCap(), cmd.monthlyLitreCap(), cmd.dailyXafCap(),
-                cmd.monthlyXafCap(), cmd.allowedGradesCsv(), cmd.active() != null ? cmd.active() : true, now, id
+                cmd.monthlyXafCap(), cmd.allowedGradesCsv(), nextActive, now, id
             );
         }
+        auditRecorder.record(
+            scope.tenantId(), null, scope.email(), "FLEET_CLIENT",
+            nextActive ? "FLEET_VEHICLE_LIMITS_UPDATED" : "FLEET_CARD_FROZEN",
+            "FLEET_VEHICLE", normalizedPlate,
+            "Updated limits for " + normalizedPlate + " (active=" + nextActive + ", monthlyCapL=" + cmd.monthlyLitreCap() + ")"
+        );
         return jdbcTemplate.queryForMap("SELECT * FROM fleet_vehicle_limits WHERE id = ?", id);
     }
 
@@ -412,19 +527,57 @@ public class FleetPortalController {
         long netHtFcfa = Math.round(grossFcfa / (1.0 + vatRate));
         long vatFcfa = grossFcfa - netHtFcfa;
 
+        Map<String, Map<String, Object>> byGrade = new LinkedHashMap<>();
+        for (Map<String, Object> tx : txs) {
+            String g = String.valueOf(tx.get("grade"));
+            Map<String, Object> agg = byGrade.computeIfAbsent(g, k -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("grade", k);
+                m.put("transactions", 0);
+                m.put("litres", 0.0);
+                m.put("amountFcfa", 0L);
+                return m;
+            });
+            agg.put("transactions", ((Number) agg.get("transactions")).intValue() + 1);
+            agg.put("litres", ((Number) agg.get("litres")).doubleValue() + ((Number) tx.get("litres")).doubleValue());
+            agg.put("amountFcfa", ((Number) agg.get("amountFcfa")).longValue() + ((Number) tx.get("amount_fcfa")).longValue());
+        }
+
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("period", period);
         res.put("companyName", acc.get("company_name"));
         res.put("taxId", acc.get("tax_id"));
+        res.put("creditLimitFcfa", ((Number) acc.get("credit_limit_fcfa")).longValue());
         res.put("vatRate", vatRate);
         res.put("netHtFcfa", netHtFcfa);
         res.put("vatFcfa", vatFcfa);
         res.put("totalTtcFcfa", grossFcfa);
         res.put("totalLitres", totalLitres);
         res.put("balanceOwedFcfa", ((Number) acc.get("balance_owed_fcfa")).longValue());
+        res.put("gradeBreakdown", new ArrayList<>(byGrade.values()));
         res.put("transactions", txs);
         res.put("generatedAt", Instant.now().toString());
         return res;
+    }
+
+    @GetMapping("/api/v1/fleet-portal/payments")
+    @PreAuthorize("hasRole('FLEET_CLIENT')")
+    public List<Map<String, Object>> payments(HttpServletRequest req) {
+        Scope scope = resolveScope(req);
+        try {
+            return jdbcTemplate.queryForList(
+                """
+                SELECT id, provider, msisdn, amount_fcfa, status, reference_id, provider_tx_id, failure_reason, created_at, updated_at
+                FROM momo_transactions
+                WHERE tenant_id = ? AND target_type = 'FLEET_BALANCE' AND target_id = ?
+                ORDER BY created_at DESC
+                LIMIT 100
+                """,
+                scope.tenantId(), scope.accountId()
+            );
+        } catch (Exception ex) {
+            return List.of();
+        }
     }
 
     @PostMapping("/api/v1/fleet-portal/pay-balance")
@@ -446,6 +599,18 @@ public class FleetPortalController {
             "Fleet balance settlement " + scope.accountId(),
             idemKey
         );
+    }
+
+    private static String extractFleetToken(HttpServletRequest req) {
+        String raw = req.getHeader("X-Fleet-Token");
+        if (raw != null && !raw.isBlank()) {
+            return raw.trim();
+        }
+        String auth = req.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer " + FleetPortalAuthFilter.FLEET_TOKEN_PREFIX)) {
+            return auth.substring("Bearer ".length()).trim();
+        }
+        return null;
     }
 
     private Scope resolveScope(HttpServletRequest req) {

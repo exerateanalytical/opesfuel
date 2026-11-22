@@ -196,6 +196,16 @@ public class MomoGatewayService implements MomoPaymentApi, MomoRuntimeConfigApi 
 
     @Transactional
     public Map<String, Object> pollAndRefreshStatus(String txId, String tenantId, boolean isPlatformAdmin) {
+        return pollAndRefreshStatus(txId, tenantId, isPlatformAdmin, null);
+    }
+
+    @Transactional
+    public Map<String, Object> pollAndRefreshStatus(
+        String txId,
+        String tenantId,
+        boolean isPlatformAdmin,
+        String restrictedFleetAccountId
+    ) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM momo_transactions WHERE id = ?", txId);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("Mobile Money transaction not found: " + txId);
@@ -203,6 +213,13 @@ public class MomoGatewayService implements MomoPaymentApi, MomoRuntimeConfigApi 
         Map<String, Object> row = rows.get(0);
         if (!isPlatformAdmin && !tenantId.equals(String.valueOf(row.get("tenant_id")))) {
             throw new org.springframework.security.access.AccessDeniedException("Transaction belongs to another tenant.");
+        }
+        if (restrictedFleetAccountId != null) {
+            String targetType = String.valueOf(row.get("target_type"));
+            String targetId = String.valueOf(row.get("target_id"));
+            if (!"FLEET_BALANCE".equals(targetType) || !restrictedFleetAccountId.equals(targetId)) {
+                throw new org.springframework.security.access.AccessDeniedException("Fleet client can only inspect its own balance settlement transactions.");
+            }
         }
         String status = String.valueOf(row.get("status"));
         if (!"PENDING".equals(status)) {

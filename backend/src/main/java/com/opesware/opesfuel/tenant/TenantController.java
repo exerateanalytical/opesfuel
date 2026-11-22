@@ -270,7 +270,7 @@ public class TenantController {
 
     @PostMapping("/onboard")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated() and !hasRole('FLEET_CLIENT')")
     public OnboardTenantResponse onboardTenant(@Valid @RequestBody OnboardTenantCommand cmd) {
         return service.onboardTenantWorkspace(cmd);
     }

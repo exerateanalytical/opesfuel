@@ -277,7 +277,7 @@ public class PlatformAdminGovernanceController {
     }
 
     @PostMapping("/directory/resolve")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated() and !hasRole('FLEET_CLIENT')")
     public Map<String, Object> resolveOperatorIdentifier(@Valid @RequestBody ResolveOperatorIdentifierCmd cmd) {
         String raw = cmd.identifier().trim();
         String normLower = raw.toLowerCase();

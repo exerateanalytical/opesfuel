@@ -1775,3 +1775,236 @@ export function exportAccountantAuditWorkbookExcel(params: {
   XLSX.writeFile(wb, `opesfuel-syscohada-audit-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
+// ============================================================================
+// 19. CORPORATE FLEET CLIENT PORTAL — OHADA VAT STATEMENT PDF & 4-SHEET EXCEL
+// ============================================================================
+export interface FleetPortalFuelingRow {
+  id: string;
+  stationId: string;
+  vehiclePlate: string;
+  driverName: string;
+  grade: string;
+  litres: number;
+  amountFcfa: number;
+  createdAt: string;
+}
+
+export interface FleetPortalVehicleRow {
+  plateNumber: string;
+  driverName: string;
+  cardNumber?: string;
+  allowedGrades: string;
+  dailyLitreCap?: number | null;
+  monthlyLitreCap?: number | null;
+  dailyXafCap?: number | null;
+  monthlyXafCap?: number | null;
+  mtdLitres: number;
+  mtdSpendFcfa: number;
+  active: boolean;
+}
+
+export interface FleetPortalPaymentRow {
+  id: string;
+  provider: string;
+  msisdn: string;
+  amountFcfa: number;
+  status: string;
+  referenceId: string;
+  providerTxId?: string;
+  createdAt: string;
+}
+
+export function printFleetPortalVatStatementPdf(params: {
+  companyName: string;
+  taxId: string;
+  period: string;
+  vatRate?: number;
+  creditLimitFcfa: number;
+  balanceOwedFcfa: number;
+  transactions: FleetPortalFuelingRow[];
+}): void {
+  const vatRate = params.vatRate ?? 0.1925;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const y0 = drawDocumentHeader(
+    doc,
+    'CORPORATE FLEET VAT STATEMENT (TVA 19.25%)',
+    `${params.companyName} · NIU ${params.taxId}`,
+    `Period: ${params.period} · Issued: ${new Date().toISOString().slice(0, 10)}`
+  );
+
+  const totalTtc = params.transactions.reduce((sum, tx) => sum + tx.amountFcfa, 0);
+  const totalLitres = params.transactions.reduce((sum, tx) => sum + tx.litres, 0);
+  const netHt = Math.round(totalTtc / (1 + vatRate));
+  const vatFcfa = totalTtc - netHt;
+
+  // Executive Tax Summary Strip
+  const boxes = [
+    { label: 'NET HT (EXCL. VAT)', value: pdfMoney(netHt) },
+    { label: `RECOVERABLE TVA (${(vatRate * 100).toFixed(2)}%)`, value: pdfMoney(vatFcfa) },
+    { label: 'TOTAL TTC BILLED', value: pdfMoney(totalTtc) },
+    { label: 'CURRENT BALANCE OWED', value: pdfMoney(params.balanceOwedFcfa) },
+  ];
+  const boxW = 43.5;
+  boxes.forEach((box, idx) => {
+    const bx = 14 + idx * (boxW + 2.5);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(bx, y0, boxW, 18, 2, 2, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(box.label, bx + 2.5, y0 + 5.5);
+    doc.setFontSize(9.2);
+    doc.setTextColor(15, 23, 42);
+    doc.text(box.value, bx + 2.5, y0 + 13);
+  });
+
+  // Grade Breakdown Table
+  const byGrade = new Map<string, { count: number; litres: number; ttc: number }>();
+  for (const tx of params.transactions) {
+    const entry = byGrade.get(tx.grade) ?? { count: 0, litres: 0, ttc: 0 };
+    entry.count += 1;
+    entry.litres += tx.litres;
+    entry.ttc += tx.amountFcfa;
+    byGrade.set(tx.grade, entry);
+  }
+
+  autoTable(doc, {
+    startY: y0 + 23,
+    head: [['Fuel Grade', 'Fills', 'Volume (L)', 'Net HT (FCFA)', 'TVA 19.25%', 'Total TTC (FCFA)']],
+    body:
+      byGrade.size > 0
+        ? Array.from(byGrade.entries()).map(([grade, g]) => {
+            const gHt = Math.round(g.ttc / (1 + vatRate));
+            const gVat = g.ttc - gHt;
+            return [grade, String(g.count), pdfLitres(g.litres), pdfMoney(gHt), pdfMoney(gVat), pdfMoney(g.ttc)];
+          })
+        : [['No fuelings in selected period', '0', '0.0 L', '0 FCFA', '0 FCFA', '0 FCFA']],
+    foot: [['PERIOD TOTAL', String(params.transactions.length), pdfLitres(totalLitres), pdfMoney(netHt), pdfMoney(vatFcfa), pdfMoney(totalTtc)]],
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+    footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 2.2 },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
+  });
+
+  // Itemized Transactions Ledger
+  const ledgerStartY = (doc.lastAutoTable?.finalY ?? y0 + 55) + 8;
+  autoTable(doc, {
+    startY: ledgerStartY,
+    head: [['Date & Time', 'Station', 'Plate', 'Driver', 'Grade', 'Litres', 'Net HT', 'TVA', 'Total TTC']],
+    body:
+      params.transactions.length > 0
+        ? params.transactions.map((tx) => {
+            const ht = Math.round(tx.amountFcfa / (1 + vatRate));
+            const tv = tx.amountFcfa - ht;
+            return [
+              tx.createdAt.slice(0, 16).replace('T', ' '),
+              tx.stationId,
+              tx.vehiclePlate,
+              tx.driverName,
+              tx.grade,
+              tx.litres.toFixed(1),
+              pdfMoney(ht, ''),
+              pdfMoney(tv, ''),
+              pdfMoney(tx.amountFcfa, ''),
+            ];
+          })
+        : [['-', '-', 'No fuelings recorded in period', '-', '-', '0.0', '0', '0', '0']],
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7.4 },
+    styles: { fontSize: 7.3, cellPadding: 1.8 },
+    columnStyles: { 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' } },
+  });
+
+  drawSignatureFooter(doc, 'Corporate Fleet Manager / Client', 'Station Network Finance & Tax Control');
+  const slug = params.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  doc.save(`opesfuel-fleet-vat-statement-${slug}-${params.period}.pdf`);
+}
+
+export function exportFleetPortalAuditWorkbookExcel(params: {
+  companyName: string;
+  taxId: string;
+  status: string;
+  period: string;
+  creditLimitFcfa: number;
+  balanceOwedFcfa: number;
+  availableCreditFcfa: number;
+  vatRate?: number;
+  fuelings: FleetPortalFuelingRow[];
+  vehicles: FleetPortalVehicleRow[];
+  payments: FleetPortalPaymentRow[];
+}): void {
+  const vatRate = params.vatRate ?? 0.1925;
+  const wb = XLSX.utils.book_new();
+  const totalTtc = params.fuelings.reduce((s, f) => s + f.amountFcfa, 0);
+  const totalLitres = params.fuelings.reduce((s, f) => s + f.litres, 0);
+  const netHt = Math.round(totalTtc / (1 + vatRate));
+  const vatFcfa = totalTtc - netHt;
+  const utilPct = params.creditLimitFcfa > 0 ? Number(((params.balanceOwedFcfa / params.creditLimitFcfa) * 100).toFixed(1)) : 0;
+
+  const summaryRows = [
+    { Metric: 'Corporate Client', Value: params.companyName },
+    { Metric: 'Tax ID (NIU)', Value: params.taxId },
+    { Metric: 'Account Status', Value: params.status },
+    { Metric: 'Statement Period', Value: params.period },
+    { Metric: 'Approved Credit Limit (FCFA)', Value: params.creditLimitFcfa },
+    { Metric: 'Current Balance Owed (FCFA)', Value: params.balanceOwedFcfa },
+    { Metric: 'Available Credit Headroom (FCFA)', Value: params.availableCreditFcfa },
+    { Metric: 'Credit Utilization (%)', Value: utilPct },
+    { Metric: 'Filtered Fuelings Count', Value: params.fuelings.length },
+    { Metric: 'Total Volume (Litres)', Value: Number(totalLitres.toFixed(2)) },
+    { Metric: 'Net HT (FCFA)', Value: netHt },
+    { Metric: 'Recoverable TVA 19.25% (FCFA)', Value: vatFcfa },
+    { Metric: 'Total TTC (FCFA)', Value: totalTtc },
+  ];
+
+  const fuelingRows = params.fuelings.map((f) => {
+    const ht = Math.round(f.amountFcfa / (1 + vatRate));
+    return {
+      Date: f.createdAt,
+      TransactionId: f.id,
+      StationId: f.stationId,
+      VehiclePlate: f.vehiclePlate,
+      DriverName: f.driverName,
+      FuelGrade: f.grade,
+      Litres: Number(f.litres.toFixed(2)),
+      NetHtFcfa: ht,
+      Vat1925Fcfa: f.amountFcfa - ht,
+      TotalTtcFcfa: f.amountFcfa,
+    };
+  });
+
+  const vehicleRows = params.vehicles.map((v) => ({
+    VehiclePlate: v.plateNumber,
+    DriverName: v.driverName,
+    CardNumber: v.cardNumber || '',
+    Status: v.active ? 'ACTIVE' : 'FROZEN',
+    AllowedGrades: v.allowedGrades,
+    DailyLitreCap: v.dailyLitreCap ?? '',
+    MonthlyLitreCap: v.monthlyLitreCap ?? '',
+    DailyXafCap: v.dailyXafCap ?? '',
+    MonthlyXafCap: v.monthlyXafCap ?? '',
+    MtdLitres: Number(v.mtdLitres.toFixed(2)),
+    MtdSpendFcfa: v.mtdSpendFcfa,
+  }));
+
+  const paymentRows = params.payments.map((p) => ({
+    Date: p.createdAt,
+    PaymentId: p.id,
+    Provider: p.provider,
+    Phone: p.msisdn,
+    AmountFcfa: p.amountFcfa,
+    Status: p.status,
+    ReferenceId: p.referenceId,
+    ProviderTxId: p.providerTxId || '',
+  }));
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'Account Summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fuelingRows.length ? fuelingRows : [{ Info: 'No fuelings' }]), 'Fuelings Ledger');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(vehicleRows.length ? vehicleRows : [{ Info: 'No vehicles' }]), 'Vehicles & Spend Caps');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(paymentRows.length ? paymentRows : [{ Info: 'No settlements yet' }]), 'MoMo Settlements');
+
+  const slug = params.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  XLSX.writeFile(wb, `opesfuel-fleet-portal-${slug}-${params.period}.xlsx`);
+}
+
+

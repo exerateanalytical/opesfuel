@@ -51,7 +51,7 @@ public class MomoPaymentController {
     }
 
     @PostMapping("/api/v1/payments/momo/initiate")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER','ACCOUNTANT','ATTENDANT','FLEET_CLIENT')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER','ACCOUNTANT','ATTENDANT')")
     public Map<String, Object> initiate(
         @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
         @Valid @RequestBody InitiateMomoPaymentCommand cmd
@@ -74,7 +74,10 @@ public class MomoPaymentController {
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER','ACCOUNTANT','ATTENDANT','FLEET_CLIENT')")
     public Map<String, Object> status(@PathVariable String txId) {
         OpesFuelPrincipal principal = accessGuard.currentPrincipal();
-        return momoService.pollAndRefreshStatus(txId, principal.tenantId(), principal.hasRole("PLATFORM_ADMIN"));
+        String fleetAccountId = principal.hasRole("FLEET_CLIENT")
+            ? principal.allowedStationIds().stream().findFirst().orElse("__UNBOUND__")
+            : null;
+        return momoService.pollAndRefreshStatus(txId, principal.tenantId(), principal.hasRole("PLATFORM_ADMIN"), fleetAccountId);
     }
 
     @GetMapping("/api/v1/payments/momo")

@@ -81,7 +81,7 @@ public class AuditController {
     }
 
     @PostMapping("/logs")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated() and !hasRole('FLEET_CLIENT')")
     public Map<String, Object> recordLog(@Valid @RequestBody RecordAuditCommand cmd) {
         OpesFuelPrincipal principal = accessGuard.currentPrincipal();
         String role = principal.roles().stream().findFirst().orElse("USER");

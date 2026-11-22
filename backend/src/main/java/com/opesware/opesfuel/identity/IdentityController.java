@@ -242,7 +242,7 @@ public class IdentityController {
     }
 
     @PostMapping("/invites/{token}/accept")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated() and !hasRole('FLEET_CLIENT')")
     public UserInviteEntity acceptInvite(@PathVariable String token) {
         return service.acceptInvite(token);
     }
