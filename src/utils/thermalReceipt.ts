@@ -1,5 +1,46 @@
 import { formatFcfa, formatLitres, gradeLabel } from '../domain/formatters';
 import { FuelGrade } from '../domain/types';
+import { getCompanyBranding } from './companyBranding';
+
+function escapeHtml(text: string): string {
+  return (text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildBrandedThermalHeader(stationName: string, receiptType: string): string {
+  const b = getCompanyBranding();
+  const logoHtml = b.logoDataUrl
+    ? `<div class="center" style="margin-bottom:6px;"><img src="${b.logoDataUrl}" alt="Logo" style="max-height:44px;max-width:160px;object-fit:contain;filter:grayscale(100%) contrast(130%);" /></div>`
+    : '';
+  const legalMeta = [
+    b.taxIdNiu ? `NIU: ${escapeHtml(b.taxIdNiu)}` : '',
+    b.rccmNumber ? `RCCM: ${escapeHtml(b.rccmNumber)}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  return `
+    ${logoHtml}
+    <div class="center bold" style="font-size:13px;">${escapeHtml(b.legalName || 'OpesFuel Station')}</div>
+    <div class="center" style="font-size:10px;">${escapeHtml(stationName)}</div>
+    ${b.address || b.city ? `<div class="center" style="font-size:9px;">${escapeHtml([b.address, b.city].filter(Boolean).join(', '))}</div>` : ''}
+    ${b.phone ? `<div class="center" style="font-size:9px;">Tel: ${escapeHtml(b.phone)}</div>` : ''}
+    ${legalMeta ? `<div class="center" style="font-size:9px;">${legalMeta}</div>` : ''}
+    ${b.receiptHeaderNote ? `<div class="center" style="font-size:9px;margin-top:2px;">${escapeHtml(b.receiptHeaderNote)}</div>` : ''}
+    <div class="center bold" style="font-size:10px;margin-top:4px;">${escapeHtml(receiptType)}</div>
+  `;
+}
+
+function buildBrandedThermalFooter(): string {
+  const b = getCompanyBranding();
+  return `
+    <div class="center" style="margin-top:10px;font-size:9px;">${escapeHtml(b.receiptFooterNote || 'Thank you for fueling with us!')}</div>
+    ${b.website ? `<div class="center" style="font-size:9px;">${escapeHtml(b.website)}</div>` : ''}
+  `;
+}
 
 function openThermalPrintWindow(title: string, htmlBody: string): void {
   const win = window.open('', '_blank', 'width=360,height=640');
@@ -11,7 +52,7 @@ function openThermalPrintWindow(title: string, htmlBody: string): void {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
   <style>
     @page { size: 80mm auto; margin: 4mm; }
     body {
@@ -50,6 +91,25 @@ function openThermalPrintWindow(title: string, htmlBody: string): void {
   }, 250);
 }
 
+export function printBrandedSampleThermalReceipt(stationName: string): void {
+  const b = getCompanyBranding();
+  const body = `
+    ${buildBrandedThermalHeader(stationName, `${b.receiptPrefix || 'RCP-'}SAMPLE TEST RECEIPT (80mm)`)}
+    <div class="hr"></div>
+    <div class="row"><span>Receipt #:</span><span class="bold">${escapeHtml(b.receiptPrefix || 'RCP-')}2026-0001</span></div>
+    <div class="row"><span>Date:</span><span>${new Date().toLocaleString()}</span></div>
+    <div class="row"><span>Pump:</span><span>P01 — Super Unleaded</span></div>
+    <div class="row"><span>Volume:</span><span class="bold">35.0 L x 840</span></div>
+    <div class="hr"></div>
+    <div class="row bold" style="font-size:13px;"><span>TOTAL (${escapeHtml(b.defaultCurrency)}):</span><span>29 400 ${escapeHtml(b.defaultCurrency)}</span></div>
+    <div class="row"><span>VAT (${b.vatRatePct}%):</span><span>Included</span></div>
+    <div class="row"><span>Payment:</span><span>CASH</span></div>
+    <div class="hr"></div>
+    ${buildBrandedThermalFooter()}
+  `;
+  openThermalPrintWindow(`Sample Branded 80mm Receipt`, body);
+}
+
 export function printShiftThermalSlip(params: {
   stationName: string;
   shiftId: string;
@@ -69,13 +129,11 @@ export function printShiftThermalSlip(params: {
   closedAt: string;
 }): void {
   const body = `
-    <div class="center bold" style="font-size:13px;">OPESFUEL STATION OS</div>
-    <div class="center">${params.stationName}</div>
-    <div class="center" style="font-size:10px;">SHIFT HANDOVER RECEIPT (80mm)</div>
+    ${buildBrandedThermalHeader(params.stationName, 'SHIFT HANDOVER RECEIPT (80mm)')}
     <div class="hr"></div>
-    <div class="row"><span>Shift ID:</span><span class="bold">${params.shiftId}</span></div>
-    <div class="row"><span>Pump:</span><span class="bold">${params.pumpCode} (${gradeLabel(params.grade)})</span></div>
-    <div class="row"><span>Attendant:</span><span>${params.attendantName}</span></div>
+    <div class="row"><span>Shift ID:</span><span class="bold">${escapeHtml(params.shiftId)}</span></div>
+    <div class="row"><span>Pump:</span><span class="bold">${escapeHtml(params.pumpCode)} (${escapeHtml(gradeLabel(params.grade))})</span></div>
+    <div class="row"><span>Attendant:</span><span>${escapeHtml(params.attendantName)}</span></div>
     <div class="row"><span>Closed:</span><span>${new Date(params.closedAt).toLocaleString()}</span></div>
     <div class="hr"></div>
     <div class="row"><span>Opening Meter:</span><span>${formatLitres(params.openingMeter)}</span></div>
@@ -92,7 +150,7 @@ export function printShiftThermalSlip(params: {
     <div class="row bold"><span>Shift Variance:</span><span>${formatFcfa(params.varianceFcfa)}</span></div>
     <div class="sig">Attendant Signature: _______________________</div>
     <div class="sig">Manager Verification: ______________________</div>
-    <div class="center" style="margin-top:10px;font-size:9px;">Audit-Verified by OpesFuel · SYSCOHADA Ready</div>
+    ${buildBrandedThermalFooter()}
   `;
   openThermalPrintWindow(`Shift Slip ${params.shiftId}`, body);
 }
@@ -109,23 +167,21 @@ export function printFleetVoucherSlip(params: {
   createdAt: string;
 }): void {
   const body = `
-    <div class="center bold" style="font-size:13px;">OPESFUEL FLEET VOUCHER</div>
-    <div class="center">${params.stationName}</div>
-    <div class="center" style="font-size:10px;">CORPORATE CREDIT RECEIPT (80mm)</div>
+    ${buildBrandedThermalHeader(params.stationName, 'CORPORATE FLEET VOUCHER (80mm)')}
     <div class="hr"></div>
-    <div class="row"><span>Voucher #:</span><span class="bold">${params.voucherId}</span></div>
+    <div class="row"><span>Voucher #:</span><span class="bold">${escapeHtml(params.voucherId)}</span></div>
     <div class="row"><span>Date:</span><span>${new Date(params.createdAt).toLocaleString()}</span></div>
-    <div class="row"><span>Company:</span><span class="bold">${params.companyName}</span></div>
-    <div class="row"><span>Vehicle Plate:</span><span class="bold">${params.vehiclePlate}</span></div>
-    <div class="row"><span>Driver:</span><span>${params.driverName}</span></div>
+    <div class="row"><span>Company:</span><span class="bold">${escapeHtml(params.companyName)}</span></div>
+    <div class="row"><span>Vehicle Plate:</span><span class="bold">${escapeHtml(params.vehiclePlate)}</span></div>
+    <div class="row"><span>Driver:</span><span>${escapeHtml(params.driverName)}</span></div>
     <div class="hr"></div>
-    <div class="row"><span>Fuel Grade:</span><span>${gradeLabel(params.grade)}</span></div>
+    <div class="row"><span>Fuel Grade:</span><span>${escapeHtml(gradeLabel(params.grade))}</span></div>
     <div class="row bold"><span>Volume:</span><span>${formatLitres(params.litres)}</span></div>
     <div class="row bold" style="font-size:13px;"><span>Total Billed:</span><span>${formatFcfa(params.amountFcfa)}</span></div>
     <div class="hr"></div>
     <div class="sig">Driver Signature: __________________________</div>
     <div class="sig">Attendant Initials: ________________________</div>
-    <div class="center" style="margin-top:10px;font-size:9px;">Posted to Corporate Statement · OpesFuel</div>
+    ${buildBrandedThermalFooter()}
   `;
   openThermalPrintWindow(`Fleet Voucher ${params.voucherId}`, body);
 }
@@ -140,19 +196,17 @@ export function printShopPosThermalSlip(params: {
 }): void {
   const total = params.quantity * params.unitPriceFcfa;
   const body = `
-    <div class="center bold" style="font-size:13px;">OPESFUEL SHOP POS</div>
-    <div class="center">${params.stationName}</div>
-    <div class="center" style="font-size:10px;">LUBRICANT &amp; SHOP RECEIPT (80mm)</div>
+    ${buildBrandedThermalHeader(params.stationName, 'LUBRICANT & SHOP RECEIPT (80mm)')}
     <div class="hr"></div>
     <div class="row"><span>Date:</span><span>${new Date().toLocaleString()}</span></div>
-    <div class="row"><span>SKU:</span><span class="bold">${params.sku}</span></div>
-    <div class="row"><span>Item:</span><span>${params.itemName}</span></div>
+    <div class="row"><span>SKU:</span><span class="bold">${escapeHtml(params.sku)}</span></div>
+    <div class="row"><span>Item:</span><span>${escapeHtml(params.itemName)}</span></div>
     <div class="row"><span>Qty x Price:</span><span>${params.quantity} x ${formatFcfa(params.unitPriceFcfa)}</span></div>
     <div class="hr"></div>
     <div class="row bold" style="font-size:13px;"><span>TOTAL PAID:</span><span>${formatFcfa(total)}</span></div>
-    <div class="row"><span>Tender:</span><span>${params.paymentMethod}</span></div>
+    <div class="row"><span>Tender:</span><span>${escapeHtml(params.paymentMethod)}</span></div>
     <div class="hr"></div>
-    <div class="center" style="margin-top:10px;font-size:9px;">Thank you for fueling with us · OpesFuel</div>
+    ${buildBrandedThermalFooter()}
   `;
   openThermalPrintWindow(`Shop Receipt ${params.sku}`, body);
 }
@@ -168,21 +222,19 @@ export function printServiceBayThermalSlip(params: {
   paymentMethod: string;
 }): void {
   const body = `
-    <div class="center bold" style="font-size:13px;">OPESFUEL SERVICE BAY</div>
-    <div class="center">${params.stationName}</div>
-    <div class="center" style="font-size:10px;">CAR WASH &amp; LUBE PIT RECEIPT (80mm)</div>
+    ${buildBrandedThermalHeader(params.stationName, 'CAR WASH & LUBE PIT RECEIPT (80mm)')}
     <div class="hr"></div>
-    <div class="row"><span>Ticket #:</span><span class="bold">${params.ticketId}</span></div>
+    <div class="row"><span>Ticket #:</span><span class="bold">${escapeHtml(params.ticketId)}</span></div>
     <div class="row"><span>Date:</span><span>${new Date().toLocaleString()}</span></div>
-    <div class="row"><span>Service:</span><span class="bold">${params.serviceCategory.replace(/_/g, ' ')}</span></div>
-    <div class="row"><span>Vehicle:</span><span class="bold">${params.vehiclePlate}</span></div>
-    <div class="row"><span>Customer:</span><span>${params.customerName}</span></div>
-    <div class="row"><span>Technician:</span><span>${params.technicianName}</span></div>
+    <div class="row"><span>Service:</span><span class="bold">${escapeHtml(params.serviceCategory.replace(/_/g, ' '))}</span></div>
+    <div class="row"><span>Vehicle:</span><span class="bold">${escapeHtml(params.vehiclePlate)}</span></div>
+    <div class="row"><span>Customer:</span><span>${escapeHtml(params.customerName)}</span></div>
+    <div class="row"><span>Technician:</span><span>${escapeHtml(params.technicianName)}</span></div>
     <div class="hr"></div>
     <div class="row bold" style="font-size:13px;"><span>TOTAL PAID:</span><span>${formatFcfa(params.amountFcfa)}</span></div>
-    <div class="row"><span>Tender:</span><span>${params.paymentMethod}</span></div>
+    <div class="row"><span>Tender:</span><span>${escapeHtml(params.paymentMethod)}</span></div>
     <div class="hr"></div>
-    <div class="center" style="margin-top:10px;font-size:9px;">Posted to Ancillary Revenue · OpesFuel</div>
+    ${buildBrandedThermalFooter()}
   `;
   openThermalPrintWindow(`Service Bay ${params.ticketId}`, body);
 }
@@ -196,19 +248,16 @@ export function printPrepaidVoucherThermalSlip(params: {
   loyaltyPoints: number;
 }): void {
   const body = `
-    <div class="center bold" style="font-size:13px;">OPESFUEL PREPAID VOUCHER</div>
-    <div class="center">${params.stationName}</div>
-    <div class="center" style="font-size:10px;">LOYALTY &amp; FUEL CREDIT SLIP (80mm)</div>
+    ${buildBrandedThermalHeader(params.stationName, 'LOYALTY & PREPAID FUEL SLIP (80mm)')}
     <div class="hr"></div>
-    <div class="center bold" style="font-size:16px;letter-spacing:2px;margin:6px 0;">${params.voucherCode}</div>
+    <div class="center bold" style="font-size:16px;letter-spacing:2px;margin:6px 0;">${escapeHtml(params.voucherCode)}</div>
     <div class="hr"></div>
-    <div class="row"><span>Holder:</span><span class="bold">${params.customerName}</span></div>
+    <div class="row"><span>Holder:</span><span class="bold">${escapeHtml(params.customerName)}</span></div>
     <div class="row"><span>Original Value:</span><span>${formatFcfa(params.issuedFcfa)}</span></div>
     <div class="row bold" style="font-size:13px;"><span>Remaining Bal:</span><span>${formatFcfa(params.balanceFcfa)}</span></div>
     <div class="row"><span>Loyalty Points:</span><span class="bold">${params.loyaltyPoints} pts</span></div>
     <div class="hr"></div>
-    <div class="center" style="margin-top:10px;font-size:9px;">Present code at any OpesFuel pump island</div>
+    ${buildBrandedThermalFooter()}
   `;
   openThermalPrintWindow(`Fuel Voucher ${params.voucherCode}`, body);
 }
-

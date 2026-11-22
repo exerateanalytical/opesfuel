@@ -34,6 +34,7 @@ import {
   ROLE_PROFILES,
   startAuth0Login,
 } from '../../auth/auth0';
+import { useCompanyBranding } from '../../utils/companyBranding';
 import { formatShortDate } from '../../domain/formatters';
 import { ConsoleSection, Station, TenantWorkspace, UserRole } from '../../domain/types';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -158,12 +159,38 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
     .map((id) => NAV_ITEMS.find((i) => i.id === id))
     .filter((item): item is (typeof NAV_ITEMS)[number] => Boolean(item && canAccessSection(role, item.id)));
 
+  const branding = useCompanyBranding(tenant.organizationName);
+
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-900 text-slate-200">
       <div className="px-5 py-4 flex items-center justify-between border-b border-slate-800">
         <div className="min-w-0 space-y-1">
-          <OpesFuelLogo variant="light" size="md" />
-          <div className="text-[11px] text-slate-400 truncate pl-0.5">{tenant.organizationName}</div>
+          {branding.logoDataUrl ? (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded bg-white p-1 flex items-center justify-center shrink-0">
+                <img
+                  src={branding.logoDataUrl}
+                  alt={branding.tradingName}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="font-display text-sm font-bold text-white truncate">
+                  {branding.tradingName || tenant.organizationName}
+                </div>
+                <div className="text-[10px] text-slate-400 truncate">
+                  {branding.legalName}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <OpesFuelLogo variant="light" size="md" />
+              <div className="text-[11px] text-slate-400 truncate pl-0.5">
+                {branding.tradingName || tenant.organizationName}
+              </div>
+            </>
+          )}
         </div>
         <button
           type="button"

@@ -38,6 +38,7 @@ const AdminBillingSection = lazy(() => import('./components/console/AdminBilling
 const AiAssistantSection = lazy(() => import('./components/console/AiAssistantSection').then((m) => ({ default: m.AiAssistantSection })));
 const ApiPlatformSection = lazy(() => import('./components/console/ApiPlatformSection').then((m) => ({ default: m.ApiPlatformSection })));
 const CashVaultPanel = lazy(() => import('./components/console/CashVaultPanel').then((m) => ({ default: m.CashVaultPanel })));
+const CompanyBrandingAndLetterheadPanel = lazy(() => import('./components/console/CompanyBrandingAndLetterheadPanel').then((m) => ({ default: m.CompanyBrandingAndLetterheadPanel })));
 const DataImportWizardPanel = lazy(() => import('./components/console/DataImportWizardPanel').then((m) => ({ default: m.DataImportWizardPanel })));
 const EnterpriseOperationsSection = lazy(() => import('./components/console/EnterpriseOperationsSection').then((m) => ({ default: m.EnterpriseOperationsSection })));
 const FixedAssetsAndBudgetsPanel = lazy(() => import('./components/console/FixedAssetsAndBudgetsPanel').then((m) => ({ default: m.FixedAssetsAndBudgetsPanel })));
@@ -522,7 +523,7 @@ export default function App() {
   const currentActorEmail = authSession?.email ?? `${role.toLowerCase()}@opesfuel.cm`;
 
   const postOptionalBackend = useCallback(
-    async (path: string, method: 'POST' | 'PATCH', body?: Record<string, unknown>) => {
+    async (path: string, method: 'POST' | 'PATCH' | 'PUT', body?: Record<string, unknown>) => {
       const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
       if (!apiBase) return null;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -1567,6 +1568,27 @@ export default function App() {
             )
           }
           onNotify={notify}
+          brandingSlot={
+            <CompanyBrandingAndLetterheadPanel
+              role={role}
+              organizationName={store.tenant.organizationName}
+              stationName={scopedStationName}
+              onSyncBackend={async (profile) => {
+                await postOptionalBackend(
+                  '/api/v1/tenants/current/branding',
+                  'PUT',
+                  profile as unknown as Record<string, unknown>
+                );
+                appendAudit(
+                  'COMPANY_BRANDING_UPDATED',
+                  'TENANT_BRANDING',
+                  store.tenant.tenantId,
+                  `Updated logo & official letterhead for ${profile.legalName} (NIU: ${profile.taxIdNiu || 'N/A'})`
+                );
+              }}
+              onNotify={notify}
+            />
+          }
           auditAndProfileSlot={
             <div className="space-y-6">
               <DataImportWizardPanel

@@ -35,7 +35,8 @@ class Sprint5EnterpriseRegressionTests {
         for (String mig : new String[]{
             "db/migration/V7__prelaunch_modules_hr_audit_safe_calibration.sql",
             "db/migration/V8__enterprise_modules_schema.sql",
-            "db/migration/V11__sprint4_calibration_catalog_returns.sql"
+            "db/migration/V11__sprint4_calibration_catalog_returns.sql",
+            "db/migration/V12__company_branding_and_letterhead.sql"
         }) {
             var stream = getClass().getClassLoader().getResourceAsStream(mig);
             if (stream != null) {
@@ -159,5 +160,69 @@ class Sprint5EnterpriseRegressionTests {
         mockMvc.perform(get("/api/v1/audit/logs")
                 .with(user("att_01").roles("ATTENDANT")))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void companyBrandingLogoAndLetterheadPersistenceAndRbac() throws Exception {
+        String payload = """
+            {
+              "legalName": "SOCOMAR PETROLEUM SA",
+              "tradingName": "Socomar Stations",
+              "tagline": "Energy Across Central Africa",
+              "taxIdNiu": "M081900112233K",
+              "rccmNumber": "RC/DLA/2023/B/4412",
+              "cnpsEmployerId": "341-0881200-000-B",
+              "countryCode": "CM",
+              "defaultCurrency": "FCFA",
+              "vatRatePct": 19.25,
+              "address": "Avenue Charles de Gaulle, Bonapriso",
+              "city": "Douala, Cameroon",
+              "phone": "+237 233 41 00 00",
+              "email": "finance@socomar.cm",
+              "website": "https://socomar.cm",
+              "bankName": "Societe Generale Cameroun",
+              "bankAccountIban": "CM21 10003 00100 02348192011 55",
+              "mobileMoneyMerchant": "MTN MoMo #448912",
+              "primaryColorHex": "#1E3A5F",
+              "accentColorHex": "#CA8A04",
+              "invoicePrefix": "SOC-INV-",
+              "poPrefix": "SOC-PO-",
+              "receiptPrefix": "SOC-RCP-",
+              "paymentTerms": "Net 30 Days",
+              "letterheadFooter": "SOCOMAR PETROLEUM SA - Licensed Distributor",
+              "receiptHeaderNote": "Certified Quality Fuel 24/7",
+              "receiptFooterNote": "Merci pour votre fidelite",
+              "signatoryName": "Jean-Claude Biya",
+              "signatoryTitle": "Managing Director",
+              "logoDataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+              "stampDataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+            }
+            """;
+
+        // Attendant MUST NOT be allowed to overwrite company logo/letterhead (403 Forbidden)
+        mockMvc.perform(put("/api/v1/tenants/current/branding")
+                .with(user("att_01").roles("ATTENDANT"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+            .andExpect(status().isForbidden());
+
+        // Owner saves company logo, letterhead, NIU, RCCM, IBAN, stamp & receipt settings
+        mockMvc.perform(put("/api/v1/tenants/current/branding")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.configured").value(true))
+            .andExpect(jsonPath("$.legalName").value("SOCOMAR PETROLEUM SA"))
+            .andExpect(jsonPath("$.taxIdNiu").value("M081900112233K"))
+            .andExpect(jsonPath("$.invoicePrefix").value("SOC-INV-"))
+            .andExpect(jsonPath("$.logoDataUrl").isNotEmpty());
+
+        // Attendant CAN read branding profile to print 80mm branded thermal receipts (200 OK)
+        mockMvc.perform(get("/api/v1/tenants/current/branding")
+                .with(user("att_01").roles("ATTENDANT")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.tradingName").value("Socomar Stations"))
+            .andExpect(jsonPath("$.rccmNumber").value("RC/DLA/2023/B/4412"));
     }
 }

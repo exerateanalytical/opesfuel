@@ -13,6 +13,8 @@ import {
   TreasuryDeposit,
 } from '../domain/types';
 
+import { getCompanyBranding, hexToRgb } from './companyBranding';
+
 type JsPdfWithAutoTable = jsPDF & {
   lastAutoTable?: { finalY: number };
 };
@@ -45,34 +47,54 @@ function formatDateIsoShort(iso: string): string {
 }
 
 function addPdfHeader(doc: jsPDF, title: string, subtitle: string, stationLabel: string): number {
+  const b = getCompanyBranding();
+  const [pr, pg, pb] = hexToRgb(b.primaryColorHex, [15, 23, 42]);
+  const [ar, ag, ab] = hexToRgb(b.accentColorHex, [217, 119, 6]);
   const pageWidth = doc.internal.pageSize.getWidth();
-  doc.setFillColor(15, 23, 42); // #0F172A Deep Slate
-  doc.rect(0, 0, pageWidth, 30, 'F');
+  doc.setFillColor(pr, pg, pb);
+  doc.rect(0, 0, pageWidth, 35, 'F');
 
-  doc.setFillColor(217, 119, 6); // #D97706 Amber accent bar
-  doc.rect(0, 30, pageWidth, 1.8, 'F');
+  doc.setFillColor(ar, ag, ab);
+  doc.rect(0, 35, pageWidth, 1.8, 'F');
+
+  let leftX = 14;
+  if (b.logoDataUrl) {
+    try {
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(12, 5, 24, 24, 2, 2, 'F');
+      doc.addImage(b.logoDataUrl, 'PNG', 13.5, 6.5, 21, 21);
+      leftX = 41;
+    } catch {
+      leftX = 14;
+    }
+  }
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
+  doc.setFontSize(13.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('OpesFuel', 14, 12);
+  doc.text(b.legalName || 'OpesFuel', leftX, 12);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(253, 186, 116);
+  doc.text(title, pageWidth - 14, 12, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(245, 158, 11);
-  doc.text(title, 44, 12);
-
-  doc.setFontSize(8.5);
-  doc.setTextColor(203, 213, 225);
-  doc.text(subtitle, 14, 19);
+  doc.setFontSize(8);
+  doc.setTextColor(226, 232, 240);
+  const legal = [b.taxIdNiu ? `NIU: ${b.taxIdNiu}` : '', b.rccmNumber ? `RCCM: ${b.rccmNumber}` : '', b.city || '']
+    .filter(Boolean)
+    .join('  |  ');
+  doc.text(legal || subtitle, leftX, 18.5);
+  doc.text(subtitle, leftX, 24);
   doc.text(
-    `Scope: ${stationLabel} | Currency: FCFA | Generated: ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`,
-    14,
-    25
+    `Scope: ${stationLabel} | Currency: ${b.defaultCurrency || 'FCFA'} | Generated: ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`,
+    leftX,
+    29.5
   );
 
   doc.setTextColor(15, 23, 42);
-  return 40;
+  return 44;
 }
 
 function nextSectionY(doc: JsPdfWithAutoTable, fallbackY: number): number {

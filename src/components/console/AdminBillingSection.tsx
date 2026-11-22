@@ -29,6 +29,7 @@ interface AdminBillingSectionProps {
   onClearDemoData: () => void;
   onRestoreDemoData: () => void;
   onNotify: (type: 'success' | 'error', message: string) => void;
+  brandingSlot?: React.ReactNode;
   auditAndProfileSlot?: React.ReactNode;
 }
 
@@ -48,6 +49,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   onClearDemoData,
   onRestoreDemoData,
   onNotify,
+  brandingSlot,
   auditAndProfileSlot,
 }) => {
   const [selectedStationId, setSelectedStationId] = useState(stations[0]?.id ?? '');
@@ -289,6 +291,8 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
           </div>
         </div>
       </div>
+
+      {brandingSlot}
 
       {/* Multi-Station Admin Directory & Billing Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
