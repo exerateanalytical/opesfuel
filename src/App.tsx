@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildExtendedOperationsDataset,
   ExtendedOperationsBundle,
@@ -25,37 +25,38 @@ import {
   refreshAuth0SessionIfNeeded,
 } from './auth/auth0';
 import { ClassicLoginPage } from './components/auth/ClassicLoginPage';
-import { AccountingSection } from './components/console/AccountingSection';
-import { AdminBillingSection } from './components/console/AdminBillingSection';
-import { AiAssistantSection } from './components/console/AiAssistantSection';
-import { ApiPlatformSection } from './components/console/ApiPlatformSection';
-import { CashVaultPanel } from './components/console/CashVaultPanel';
 import { ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
-import { DataImportWizardPanel } from './components/console/DataImportWizardPanel';
-import { EnterpriseOperationsSection } from './components/console/EnterpriseOperationsSection';
-import { FixedAssetsAndBudgetsPanel } from './components/console/FixedAssetsAndBudgetsPanel';
-import { FleetShopSection } from './components/console/FleetShopSection';
-import { ForecourtSection } from './components/console/ForecourtSection';
-import { GlobalSearchModal } from './components/console/GlobalSearchModal';
-import { HardwareEdgeBridgePanel } from './components/console/HardwareEdgeBridgePanel';
-import { HrManagementPanel } from './components/console/HrManagementPanel';
-import { HseFraudQcSection } from './components/console/HseFraudQcSection';
-import { IamGovernanceAndBillingProPanel } from './components/console/IamGovernanceAndBillingProPanel';
-import { InventorySection } from './components/console/InventorySection';
-import { OnboardingGuideModal } from './components/console/OnboardingGuideModal';
-import { OverviewSection } from './components/console/OverviewSection';
-import { PayrollWorkflowStepperPanel } from './components/console/PayrollWorkflowStepperPanel';
-import { PlatformAdminSection } from './components/console/PlatformAdminSection';
-import { PumpCalibrationPanel } from './components/console/PumpCalibrationPanel';
-import { SecurityAuditAndProfilePanel } from './components/console/SecurityAuditAndProfilePanel';
-import { WetStockCalibrationAndCatalogPanel } from './components/console/WetStockCalibrationAndCatalogPanel';
-import { WorkforceSection } from './components/console/WorkforceSection';
 import { MobileAppShowcase } from './components/mobile/MobileAppShowcase';
 import { PublicFooter } from './components/public/PublicFooter';
 import { PublicHeader } from './components/public/PublicHeader';
 import { PublicSite } from './components/public/PublicSite';
 import { CookiePrivacyNotice } from './components/shared/CookiePrivacyNotice';
 import { ConsoleSection, PublicPage, UserRole } from './domain/types';
+
+const AccountingSection = lazy(() => import('./components/console/AccountingSection').then((m) => ({ default: m.AccountingSection })));
+const AdminBillingSection = lazy(() => import('./components/console/AdminBillingSection').then((m) => ({ default: m.AdminBillingSection })));
+const AiAssistantSection = lazy(() => import('./components/console/AiAssistantSection').then((m) => ({ default: m.AiAssistantSection })));
+const ApiPlatformSection = lazy(() => import('./components/console/ApiPlatformSection').then((m) => ({ default: m.ApiPlatformSection })));
+const CashVaultPanel = lazy(() => import('./components/console/CashVaultPanel').then((m) => ({ default: m.CashVaultPanel })));
+const DataImportWizardPanel = lazy(() => import('./components/console/DataImportWizardPanel').then((m) => ({ default: m.DataImportWizardPanel })));
+const EnterpriseOperationsSection = lazy(() => import('./components/console/EnterpriseOperationsSection').then((m) => ({ default: m.EnterpriseOperationsSection })));
+const FixedAssetsAndBudgetsPanel = lazy(() => import('./components/console/FixedAssetsAndBudgetsPanel').then((m) => ({ default: m.FixedAssetsAndBudgetsPanel })));
+const FleetShopSection = lazy(() => import('./components/console/FleetShopSection').then((m) => ({ default: m.FleetShopSection })));
+const ForecourtSection = lazy(() => import('./components/console/ForecourtSection').then((m) => ({ default: m.ForecourtSection })));
+const GlobalSearchModal = lazy(() => import('./components/console/GlobalSearchModal').then((m) => ({ default: m.GlobalSearchModal })));
+const HardwareEdgeBridgePanel = lazy(() => import('./components/console/HardwareEdgeBridgePanel').then((m) => ({ default: m.HardwareEdgeBridgePanel })));
+const HrManagementPanel = lazy(() => import('./components/console/HrManagementPanel').then((m) => ({ default: m.HrManagementPanel })));
+const HseFraudQcSection = lazy(() => import('./components/console/HseFraudQcSection').then((m) => ({ default: m.HseFraudQcSection })));
+const IamGovernanceAndBillingProPanel = lazy(() => import('./components/console/IamGovernanceAndBillingProPanel').then((m) => ({ default: m.IamGovernanceAndBillingProPanel })));
+const InventorySection = lazy(() => import('./components/console/InventorySection').then((m) => ({ default: m.InventorySection })));
+const OnboardingGuideModal = lazy(() => import('./components/console/OnboardingGuideModal').then((m) => ({ default: m.OnboardingGuideModal })));
+const OverviewSection = lazy(() => import('./components/console/OverviewSection').then((m) => ({ default: m.OverviewSection })));
+const PayrollWorkflowStepperPanel = lazy(() => import('./components/console/PayrollWorkflowStepperPanel').then((m) => ({ default: m.PayrollWorkflowStepperPanel })));
+const PlatformAdminSection = lazy(() => import('./components/console/PlatformAdminSection').then((m) => ({ default: m.PlatformAdminSection })));
+const PumpCalibrationPanel = lazy(() => import('./components/console/PumpCalibrationPanel').then((m) => ({ default: m.PumpCalibrationPanel })));
+const SecurityAuditAndProfilePanel = lazy(() => import('./components/console/SecurityAuditAndProfilePanel').then((m) => ({ default: m.SecurityAuditAndProfilePanel })));
+const WetStockCalibrationAndCatalogPanel = lazy(() => import('./components/console/WetStockCalibrationAndCatalogPanel').then((m) => ({ default: m.WetStockCalibrationAndCatalogPanel })));
+const WorkforceSection = lazy(() => import('./components/console/WorkforceSection').then((m) => ({ default: m.WorkforceSection })));
 
 const PUBLIC_PAGES: PublicPage[] = [
   'home',
@@ -735,6 +736,13 @@ export default function App() {
       toast={toast}
       onDismissToast={() => setToast(null)}
     >
+      <Suspense
+        fallback={
+          <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-xs text-slate-500 font-mono">
+            Loading OpesFuel operational module...
+          </div>
+        }
+      >
       {consoleSection === 'platform-admin' && role === 'PLATFORM_ADMIN' && (
         <PlatformAdminSection engine={engineRef.current} onNotify={notify} />
       )}
@@ -1680,6 +1688,7 @@ export default function App() {
           )
         }
       />
+      </Suspense>
     </ConsoleLayout>
   );
 }
