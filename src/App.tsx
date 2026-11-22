@@ -745,7 +745,12 @@ export default function App() {
         }
       >
       {consoleSection === 'platform-admin' && role === 'PLATFORM_ADMIN' && (
-        <PlatformAdminSection engine={engineRef.current} onNotify={notify} />
+        <PlatformAdminSection
+          engine={engineRef.current}
+          onPostBackend={postOptionalBackend}
+          onEnterSupportView={() => setConsoleSection('overview')}
+          onNotify={notify}
+        />
       )}
       {consoleSection === 'overview' && (
         <OverviewSection

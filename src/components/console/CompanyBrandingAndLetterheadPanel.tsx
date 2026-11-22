@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  Award,
   Building2,
   CheckCircle2,
   Eye,
@@ -10,6 +11,7 @@ import {
   Printer,
   RotateCcw,
   Save,
+  ShieldCheck,
   Stamp,
   Trash2,
   Upload,
@@ -23,6 +25,14 @@ import {
   saveCompanyBranding,
 } from '../../utils/companyBranding';
 import { printBrandedLetterheadSamplePdf } from '../../utils/documentTemplates';
+import {
+  computeSecurityFingerprint,
+  LetterheadTemplateStyle,
+  printDealerAuthorizationCertificatePdf,
+  printExecutiveSecurityLetterheadPdf,
+  printSecurityLicenseCertificatePdf,
+  printStationComplianceCertificatePdf,
+} from '../../utils/securityGuilloche';
 import { printBrandedSampleThermalReceipt } from '../../utils/thermalReceipt';
 
 interface CompanyBrandingAndLetterheadPanelProps {
@@ -60,9 +70,11 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
   onNotify,
 }) => {
   const canEdit = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
-  const [tab, setTab] = useState<'identity' | 'documents' | 'preview'>('identity');
+  const [tab, setTab] = useState<'identity' | 'documents' | 'preview' | 'security'>('identity');
   const [draft, setDraft] = useState<CompanyBrandingProfile>(() => getCompanyBranding(organizationName));
   const [saving, setSaving] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState<LetterheadTemplateStyle>('SOVEREIGN_GUILLOCHE');
+  const [customWatermark, setCustomWatermark] = useState('ORIGINAL CERTIFIED COPY');
 
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const stampInputRef = useRef<HTMLInputElement | null>(null);
@@ -194,7 +206,16 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
             tab === 'preview' ? 'bg-[#0F172A] text-white border-[#0F172A]' : 'bg-white text-slate-700 border-slate-200'
           }`}
         >
-          <Eye className="w-3.5 h-3.5" /> 3. Live A4 Letterhead &amp; 80mm Preview
+          <Eye className="w-3.5 h-3.5" /> 3. Live A4 &amp; 80mm Preview
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('security')}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border ${
+            tab === 'security' ? 'bg-[#0F172A] text-white border-[#0F172A]' : 'bg-white text-slate-700 border-slate-200'
+          }`}
+        >
+          <Award className="w-3.5 h-3.5" /> 4. Guilloché Letterheads &amp; Licenses
         </button>
       </div>
 
@@ -788,6 +809,270 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
             <div className="border-t border-dashed border-slate-400 my-2" />
             <div className="text-center text-[10px] text-slate-600">{draft.receiptFooterNote}</div>
             {draft.website && <div className="text-center text-[10px] text-slate-500">{draft.website}</div>}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: BANKNOTE-GRADE GUILLOCHE LETTERHEADS, LICENSES & WATERMARK STUDIO */}
+      {tab === 'security' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Style & Watermark Configurator */}
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-950">
+                  <ShieldCheck className="w-4 h-4 text-amber-600" /> Security Letterhead Design Style
+                </div>
+                <div className="space-y-2">
+                  {(
+                    [
+                      {
+                        id: 'SOVEREIGN_GUILLOCHE',
+                        title: 'Sovereign Guilloché Security Frame',
+                        desc: '4-edge parametric banknote waves, 4 corner rosettes, continuous microtext strip, watermark & QR seal.',
+                      },
+                      {
+                        id: 'EXECUTIVE_GOLD',
+                        title: 'Executive Gold Double-Border',
+                        desc: 'Double-ruled sovereign border with accent guilloché header wave, watermark & verification fingerprint.',
+                      },
+                      {
+                        id: 'CLASSIC_INSTITUTIONAL',
+                        title: 'Classic Institutional Navy Header',
+                        desc: 'Full-bleed Obsidian/Primary brand header with logo crest, diagonal watermark & QR matrix.',
+                      },
+                      {
+                        id: 'MINIMAL_SWISS',
+                        title: 'Minimal Swiss Boardroom Stationery',
+                        desc: 'Clean vertical accent bar, ultra-crisp Swiss typography, subtle rosette watermark & tamper hash.',
+                      },
+                    ] as const
+                  ).map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setSelectedStyle(st.id)}
+                      className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                        selectedStyle === st.id
+                          ? 'border-[#0F172A] bg-slate-50'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-slate-950">{st.title}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">{st.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                <label className="opes-label">Anti-Counterfeit Diagonal Watermark Text</label>
+                <input
+                  value={customWatermark}
+                  onChange={(e) => setCustomWatermark(e.target.value)}
+                  placeholder="ORIGINAL CERTIFIED COPY"
+                  className="opes-input font-mono text-xs"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Embedded as a subtle translucent vector watermark plus a deterministic verification hash ({computeSecurityFingerprint(`${draft.legalName}|${draft.taxIdNiu}`)}).
+                </p>
+              </div>
+            </div>
+
+            {/* Live Vector Guilloche Preview + 1-Click Certificate Downloads */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* Interactive SVG Guilloche Security Preview Card */}
+              <div className="relative rounded-xl border-2 p-6 bg-white overflow-hidden" style={{ borderColor: draft.primaryColorHex }}>
+                {/* Subtle SVG Guilloche wave strip top & bottom */}
+                <svg
+                  aria-hidden="true"
+                  className="w-full h-5 mb-3 opacity-80"
+                  viewBox="0 0 600 20"
+                  preserveAspectRatio="none"
+                >
+                  <path
+                    d="M0,10 Q25,0 50,10 T100,10 T150,10 T200,10 T250,10 T300,10 T350,10 T400,10 T450,10 T500,10 T550,10 T600,10"
+                    fill="none"
+                    stroke={draft.primaryColorHex}
+                    strokeWidth="0.9"
+                  />
+                  <path
+                    d="M0,10 Q25,20 50,10 T100,10 T150,10 T200,10 T250,10 T300,10 T350,10 T400,10 T450,10 T500,10 T550,10 T600,10"
+                    fill="none"
+                    stroke={draft.accentColorHex}
+                    strokeWidth="0.9"
+                  />
+                </svg>
+
+                {/* Translucent Diagonal Watermark Preview */}
+                <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center">
+                  <div className="-rotate-12 text-2xl sm:text-3xl font-display font-bold tracking-widest text-slate-200/70 uppercase text-center px-6">
+                    {customWatermark || draft.legalName}
+                  </div>
+                </div>
+
+                <div className="relative z-10 flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+                  <div className="flex items-center gap-3">
+                    {draft.logoDataUrl ? (
+                      <img src={draft.logoDataUrl} alt="Logo" className="w-12 h-12 object-contain rounded border border-slate-200 p-1 bg-white" />
+                    ) : (
+                      <div className="w-12 h-12 rounded border border-dashed border-slate-300 flex items-center justify-center text-[10px] font-mono text-slate-400">
+                        LOGO
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-display text-base font-bold text-slate-950">{draft.legalName}</div>
+                      <div className="text-[11px] text-slate-500">
+                        NIU: {draft.taxIdNiu || '—'} · RCCM: {draft.rccmNumber || '—'} · {draft.city}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right font-mono text-[10px]">
+                    <div className="font-bold" style={{ color: draft.accentColorHex }}>
+                      {selectedStyle.replace(/_/g, ' ')}
+                    </div>
+                    <div className="text-slate-500 mt-0.5">
+                      {computeSecurityFingerprint(`${draft.legalName}|${draft.taxIdNiu}`)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative z-10 py-4 text-xs text-slate-700 space-y-2">
+                  <div className="font-semibold text-slate-950">Embedded Anti-Counterfeit Security Layers (2400 DPI Vector PDF):</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" /> Parametric 4-Edge Banknote Guilloché Waves
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" /> 4 Corner Spirograph Rosette Medallions
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" /> Continuous 3.8pt Legal Microtext Seam
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" /> 2D Cryptographic Verification Matrix &amp; Seal
+                    </div>
+                  </div>
+                </div>
+
+                <svg
+                  aria-hidden="true"
+                  className="w-full h-5 mt-2 opacity-80"
+                  viewBox="0 0 600 20"
+                  preserveAspectRatio="none"
+                >
+                  <path
+                    d="M0,10 Q25,0 50,10 T100,10 T150,10 T200,10 T250,10 T300,10 T350,10 T400,10 T450,10 T500,10 T550,10 T600,10"
+                    fill="none"
+                    stroke={draft.primaryColorHex}
+                    strokeWidth="0.9"
+                  />
+                  <path
+                    d="M0,10 Q25,20 50,10 T100,10 T150,10 T200,10 T250,10 T300,10 T350,10 T400,10 T450,10 T500,10 T550,10 T600,10"
+                    fill="none"
+                    stroke={draft.accentColorHex}
+                    strokeWidth="0.9"
+                  />
+                </svg>
+              </div>
+
+              {/* 4 One-Click Industry-Standard Security Document Generators */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveCompanyBranding(draft);
+                    printExecutiveSecurityLetterheadPdf({
+                      style: selectedStyle,
+                      watermarkText: customWatermark,
+                    });
+                    onNotify('success', `Generated ${selectedStyle.replace(/_/g, ' ')} security letterhead PDF.`);
+                  }}
+                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#0F172A] text-left space-y-1 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-950">1. Official Security Letterhead PDF</span>
+                    <FileText className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    A4 portrait stationery with your logo, guilloché frame, diagonal watermark, stamp &amp; verification QR.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveCompanyBranding(draft);
+                    printStationComplianceCertificatePdf({
+                      stationName,
+                      stationCode: 'ST-01',
+                      city: draft.city || 'Douala',
+                      tankCount: 4,
+                      pumpCount: 8,
+                    });
+                    onNotify('success', 'Generated Station Compliance & Metrology Guilloché Certificate PDF.');
+                  }}
+                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#0F172A] text-left space-y-1 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-950">2. Station Compliance Certificate PDF</span>
+                    <Award className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Landscape banknote-grade HSE &amp; metrology certificate with rosette seal &amp; tamper hash.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveCompanyBranding(draft);
+                    printDealerAuthorizationCertificatePdf({
+                      dealerName: draft.tradingName || draft.legalName,
+                      operatingModel: 'DODO',
+                      stationName,
+                      validUntil: '2028-12-31',
+                    });
+                    onNotify('success', 'Generated Authorized Dealer / Franchise Guilloché Certificate PDF.');
+                  }}
+                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#0F172A] text-left space-y-1 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-950">3. Authorized Dealer Certificate PDF</span>
+                    <Stamp className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Landscape franchise/DODO brand authorization with corner rosettes, microtext &amp; licensor seal.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveCompanyBranding(draft);
+                    printSecurityLicenseCertificatePdf({
+                      licenseKey: 'OPF-ENT-2026-CM8842',
+                      organizationName: draft.legalName,
+                      tierName: 'Perpetual Multi-Station Enterprise License',
+                      maxStations: 25,
+                      annualFeeFcfa: 5000000,
+                      expiresAt: '2027-12-31',
+                      issuedToNiu: draft.taxIdNiu,
+                    });
+                    onNotify('success', 'Generated Sovereign Guilloché Enterprise Software License Certificate PDF.');
+                  }}
+                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#0F172A] text-left space-y-1 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-950">4. Enterprise License Certificate PDF</span>
+                    <ShieldCheck className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Full sovereign landscape license certificate with 4 corner rosettes, embossed seal &amp; QR matrix.
+                  </p>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -388,47 +388,83 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 bg-white">
-        <header className="sticky top-0 z-30 glass-surface border-b border-slate-200 px-3.5 sm:px-6 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2.5 no-print">
+        {role === 'PLATFORM_ADMIN' && activeSection !== 'platform-admin' && (
+          <div className="bg-[#0F172A] text-white px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-xs no-print">
+            <div className="flex items-center gap-2">
+              <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>
+                <strong>SaaS Super-Admin Support Mode</strong> — Inspecting tenant operations ({tenant.organizationName}).
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectSection('platform-admin')}
+              className="px-3 py-1 rounded bg-[#D97706] hover:bg-amber-700 text-white font-semibold text-[11px]"
+            >
+              Return to SaaS Control Plane
+            </button>
+          </div>
+        )}
+
+        <header className="sticky top-0 z-30 glass-surface border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 no-print">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 min-h-[40px] min-w-[40px] flex items-center justify-center"
+              className="lg:hidden p-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 min-h-[38px] min-w-[38px] flex items-center justify-center"
               aria-label="Open menu"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <OpesFuelLogo variant="dark" size="sm" className="shrink-0" />
-            <div className="h-6 w-px bg-slate-200 hidden sm:block shrink-0" />
+            <div className="lg:hidden shrink-0">
+              <OpesFuelLogo variant="dark" size="sm" />
+            </div>
             <div className="min-w-0">
-              <div className="text-[11px] text-slate-500 truncate hidden sm:block">
-                {tenant.organizationName} ·{' '}
-                {transportMode === 'SPRING_BOOT_REMOTE'
-                  ? 'Java 25 Spring Boot API'
-                  : 'OpenAPI 3.1 SaaS Live'}
-              </div>
-              <div className="font-display text-sm sm:text-base font-bold text-slate-900 truncate">
+              <div className="font-display text-sm sm:text-base font-bold text-slate-950 truncate">
                 {(() => {
                   const activeItem = NAV_ITEMS.find((n) => n.id === activeSection);
                   return activeItem ? (lang === 'fr' ? activeItem.labelFr : activeItem.label) : '';
                 })()}
               </div>
+              <div className="text-[11px] text-slate-500 truncate hidden sm:block">
+                {activeSection === 'platform-admin'
+                  ? 'Global Multi-Tenant SaaS Control Plane'
+                  : `${branding.tradingName || tenant.organizationName} · ${
+                      transportMode === 'SPRING_BOOT_REMOTE' ? 'Live Spring Boot API' : 'SaaS Workspace'
+                    }`}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {activeSection !== 'platform-admin' && stations.length > 0 && (
+              <select
+                aria-label="Select petrol station"
+                value={activeStationId}
+                onChange={(e) => onChangeStation(e.target.value)}
+                className="px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-900 min-h-[36px] max-w-[155px] sm:max-w-[210px]"
+              >
+                {(role === 'OWNER' || role === 'PLATFORM_ADMIN' || role === 'ACCOUNTANT') && (
+                  <option value="ALL">All Stations ({stations.length})</option>
+                )}
+                {stations.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.city})
+                  </option>
+                ))}
+              </select>
+            )}
+
             {onOpenGlobalSearch && (
               <button
                 type="button"
                 onClick={onOpenGlobalSearch}
-                aria-label="Global Search and Audit Evidence"
-                className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800 min-h-[38px]"
+                aria-label="Global Search"
+                title="Quick Search (⌘K)"
+                className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800 min-h-[36px]"
               >
                 <Search className="w-3.5 h-3.5 text-slate-600" />
-                <span className="hidden md:inline">{t('Search', 'Rechercher')}</span>
-                <span className="hidden lg:inline font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
-                  ⌘K
-                </span>
+                <span className="hidden xl:inline font-mono text-[10px] text-slate-500">⌘K</span>
               </button>
             )}
 
@@ -436,23 +472,10 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
               type="button"
               onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
               aria-label="Switch language EN / FR"
-              className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-mono font-bold text-slate-900 min-h-[38px]"
+              className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-mono font-bold text-slate-900 min-h-[36px]"
             >
               <Globe className="w-3.5 h-3.5 text-slate-700" />
               <span>{lang.toUpperCase()}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setProfileSavedNotice(false);
-                setProfileOpen(true);
-              }}
-              aria-label="My Profile & Settings"
-              className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 min-h-[38px]"
-            >
-              <UserCircle2 className="w-4 h-4 text-slate-700" />
-              <span className="hidden sm:inline">{t('Profile', 'Profil')}</span>
             </button>
 
             <button
@@ -462,11 +485,11 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
                 onRefreshNotifications();
               }}
               aria-label="Open notifications"
-              className="relative inline-flex items-center justify-center p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 min-h-[38px] min-w-[38px]"
+              className="relative inline-flex items-center justify-center p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 min-h-[36px] min-w-[36px]"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white font-mono text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-red-600 text-white font-mono text-[10px] font-bold flex items-center justify-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -474,63 +497,18 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
 
             <button
               type="button"
-              onClick={onOpenOnboardingGuide}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 min-h-[38px]"
+              onClick={() => {
+                setProfileSavedNotice(false);
+                setProfileOpen(true);
+              }}
+              aria-label="My Profile and RBAC Role"
+              className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 min-h-[36px]"
             >
-              <Database className="w-3.5 h-3.5 text-slate-700" />
-              <span>{t('Setup Guide', 'Guide Config')} ({onboardingCompletedCount}/5)</span>
+              <UserCircle2 className="w-4 h-4 text-slate-700 shrink-0" />
+              <span className="hidden md:inline font-mono text-[11px] text-slate-900">
+                {role === 'PLATFORM_ADMIN' ? 'SAAS ADMIN' : role}
+              </span>
             </button>
-
-            <div className="flex items-center gap-1.5">
-              <select
-                aria-label="Select petrol station"
-                value={activeStationId}
-                onChange={(e) => onChangeStation(e.target.value)}
-                className="px-2.5 sm:px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-900 min-h-[38px] max-w-[165px] sm:max-w-none"
-              >
-                <option value="ALL">All Stations ({stations.length})</option>
-                {stations.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.city})
-                  </option>
-                ))}
-              </select>
-              {activeStationId === 'ALL' && stations.length > 1 && (
-                <span
-                  title={`New shifts, expenses, and deliveries default to ${stations[0]?.name} unless a specific station is selected.`}
-                  className="hidden xl:inline-flex items-center px-2 py-1 rounded bg-white border border-slate-300 text-[10px] font-mono font-semibold text-slate-700 whitespace-nowrap"
-                >
-                  New entries → {stations[0]?.code}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 min-h-[38px]">
-              <Shield className="w-3.5 h-3.5 text-slate-700 shrink-0" />
-              <select
-                aria-label="Switch active RBAC role"
-                value={role}
-                disabled={authSession?.mode === 'AUTH0_OIDC'}
-                onChange={(e) => onChangeRole(e.target.value as UserRole)}
-                className="bg-transparent text-xs font-semibold text-slate-900 focus:outline-none disabled:opacity-75"
-              >
-                <option value="PLATFORM_ADMIN">Platform Admin</option>
-                <option value="OWNER">Owner</option>
-                <option value="MANAGER">Manager</option>
-                <option value="ATTENDANT">Attendant</option>
-                <option value="ACCOUNTANT">Accountant</option>
-              </select>
-            </div>
-
-            {isAuth0Configured && authSession?.mode !== 'AUTH0_OIDC' && (
-              <button
-                type="button"
-                onClick={() => void startAuth0Login({ screenHint: 'login' })}
-                className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 whitespace-nowrap"
-              >
-                Auth0 Sign In
-              </button>
-            )}
           </div>
         </header>
 

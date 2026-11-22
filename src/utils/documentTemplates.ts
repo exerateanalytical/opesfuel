@@ -22,6 +22,7 @@ import {
 } from '../domain/types';
 
 import { getCompanyBranding, hexToRgb } from './companyBranding';
+import { printSecurityLicenseCertificatePdf } from './securityGuilloche';
 
 type JsPdfAuto = jsPDF & { lastAutoTable?: { finalY: number } };
 
@@ -592,7 +593,7 @@ export function printSaasInvoicePdf(params: {
   doc.save(`opesfuel-saas-invoice-${params.invoiceNumber}.pdf`);
 }
 
-/** 11. Printable Official Enterprise Software License Certificate PDF */
+/** 11. Printable Official Enterprise Software License Certificate PDF (Sovereign Guilloche + Watermark + Verification QR) */
 export function printEnterpriseLicensePdf(params: {
   licenseKey: string;
   organizationName: string;
@@ -601,33 +602,15 @@ export function printEnterpriseLicensePdf(params: {
   expiresAt: string;
   feeLabel: string;
 }): void {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as JsPdfAuto;
-  const y = drawDocumentHeader(
-    doc,
-    'ENTERPRISE SOFTWARE LICENSE CERTIFICATE',
-    'OpesWare Technologies · Official Dedicated / Multi-Site Petrol Station OS License',
-    `License Key: ${params.licenseKey} | Valid Through: ${params.expiresAt}`
-  );
-
-  autoTable(doc, {
-    startY: y + 4,
-    head: [['License Entitlement', 'Authorized Grant']],
-    body: [
-      ['Licensed Organization', params.organizationName],
-      ['Signed License Key', params.licenseKey],
-      ['Enterprise Tier', params.tierName],
-      ['Maximum Licensed Petrol Stations', `${params.maxStations} Station(s)`],
-      ['Deployment Rights', 'Dedicated VPS / Cloud Cluster + Mobile App + OpenAPI 3.1 + SYSCOHADA'],
-      ['Contract Fee', params.feeLabel],
-      ['Validity Expiration', params.expiresAt],
-    ],
-    theme: 'grid',
-    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 9.5 },
-    bodyStyles: { fontSize: 10 },
+  const numericFee = Number(params.feeLabel.replace(/[^0-9]/g, '')) || 5000000;
+  printSecurityLicenseCertificatePdf({
+    licenseKey: params.licenseKey,
+    organizationName: params.organizationName,
+    tierName: params.tierName,
+    maxStations: params.maxStations,
+    annualFeeFcfa: numericFee,
+    expiresAt: params.expiresAt,
   });
-
-  drawSignatureFooter(doc, 'OpesWare Technologies — Authorized Signatory', `Licensee: ${params.organizationName}`);
-  doc.save(`opesfuel-license-${params.licenseKey}.pdf`);
 }
 
 /** 12. Export Forecourt Shifts Ledger to Excel (.xlsx) */

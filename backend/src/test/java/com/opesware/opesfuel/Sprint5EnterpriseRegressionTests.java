@@ -36,7 +36,8 @@ class Sprint5EnterpriseRegressionTests {
             "db/migration/V7__prelaunch_modules_hr_audit_safe_calibration.sql",
             "db/migration/V8__enterprise_modules_schema.sql",
             "db/migration/V11__sprint4_calibration_catalog_returns.sql",
-            "db/migration/V12__company_branding_and_letterhead.sql"
+            "db/migration/V12__company_branding_and_letterhead.sql",
+            "db/migration/V13__platform_admin_governance.sql"
         }) {
             var stream = getClass().getClassLoader().getResourceAsStream(mig);
             if (stream != null) {
@@ -224,5 +225,57 @@ class Sprint5EnterpriseRegressionTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.tradingName").value("Socomar Stations"))
             .andExpect(jsonPath("$.rccmNumber").value("RC/DLA/2023/B/4412"));
+    }
+
+    @Test
+    void platformAdminGovernancePricingFeatureFlagsAndMultiIdentifierLogin() throws Exception {
+        // Fuel Owner MUST be blocked from SaaS Super-Admin governance endpoints (403 Forbidden)
+        mockMvc.perform(get("/api/v1/platform-admin/governance/settings")
+                .with(user("owner_01").roles("OWNER")))
+            .andExpect(status().isForbidden());
+
+        // Platform Admin updates global FX rate, trial days, AI add-on & perpetual price
+        mockMvc.perform(put("/api/v1/platform-admin/governance/settings")
+                .with(user("superadmin@opesware.com").roles("PLATFORM_ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"xafPerUsdRate\":610.5,\"defaultTrialDays\":21,\"gracePeriodDays\":10,\"selfSignupEnabled\":true,\"maintenanceMode\":false,\"maintenanceBanner\":\"\",\"aiAddonMonthlyFcfa\":35000,\"perpetualLicenseAnnualFcfa\":5500000}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.xafPerUsdRate").value(610.5))
+            .andExpect(jsonPath("$.defaultTrialDays").value(21))
+            .andExpect(jsonPath("$.aiAddonMonthlyFcfa").value(35000));
+
+        // Platform Admin updates global SaaS subscription plan pricing in FCFA & USD
+        mockMvc.perform(put("/api/v1/platform-admin/governance/plans")
+                .with(user("superadmin@opesware.com").roles("PLATFORM_ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"planCode\":\"growth\",\"planName\":\"Growth Network\",\"monthlyPriceFcfa\":60000,\"monthlyPriceUsd\":99.0,\"maxStations\":10,\"maxPumps\":24,\"trialDays\":14,\"active\":true}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.monthlyPriceFcfa").value(60000))
+            .andExpect(jsonPath("$.monthlyPriceUsd").value(99.0));
+
+        // Platform Admin toggles per-tenant feature flags & custom monthly override price
+        mockMvc.perform(patch("/api/v1/platform-admin/governance/tenants/ten_opes_cm/features")
+                .with(user("superadmin@opesware.com").roles("PLATFORM_ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"aiCopilotEnabled\":true,\"hardwareBridgeEnabled\":true,\"ocppEvEnabled\":true,\"b2bWholesaleEnabled\":true,\"franchiseModeEnabled\":true,\"whiteLabelBrandingEnabled\":true,\"customMonthlyOverrideFcfa\":120000}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.franchiseModeEnabled").value(true))
+            .andExpect(jsonPath("$.customMonthlyOverrideFcfa").value(120000));
+
+        // Seed operator directory entry and verify resolution by Email, Phone Number, AND Member ID
+        jdbcTemplate.update("""
+            MERGE INTO operator_directory_credentials (id, tenant_id, member_id, email, phone_number, full_name, role, station_id, active)
+            KEY(id) VALUES ('op_own_01', 'ten_opes_cm', 'OPF-OWN-001', 'owner@opesfuel.com', '+237690000002', 'Jean-Paul Mbarga', 'OWNER', 'st_plateau', TRUE)
+            """);
+
+        for (String idf : new String[]{"owner@opesfuel.com", "+237690000002", "OPF-OWN-001"}) {
+            mockMvc.perform(post("/api/v1/platform-admin/governance/directory/resolve")
+                    .with(user("login_gateway").roles("OWNER"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"identifier\":\"" + idf + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memberId").value("OPF-OWN-001"))
+                .andExpect(jsonPath("$.role").value("OWNER"));
+        }
     }
 }

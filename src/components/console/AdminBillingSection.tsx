@@ -52,6 +52,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   brandingSlot,
   auditAndProfileSlot,
 }) => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'branding' | 'stations' | 'billing' | 'governance'>('branding');
   const [selectedStationId, setSelectedStationId] = useState(stations[0]?.id ?? '');
   const [detailStationId, setDetailStationId] = useState<string | null>(null);
   const [showAddStationModal, setShowAddStationModal] = useState(false);
@@ -292,9 +293,34 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
         </div>
       </div>
 
-      {brandingSlot}
+      {/* Clean 4-Tab Fuel Owner Administration Navigation */}
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+        {[
+          { id: 'branding', label: '1. Company Logo & Letterhead' },
+          { id: 'stations', label: `2. Stations & Plans (${stations.length})` },
+          { id: 'billing', label: '3. Billing, Invoices & Staff Invites' },
+          { id: 'governance', label: '4. Data Import, IAM & Audit' },
+        ].map((tabItem) => (
+          <button
+            key={tabItem.id}
+            type="button"
+            onClick={() => setActiveAdminTab(tabItem.id as 'branding' | 'stations' | 'billing' | 'governance')}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+              activeAdminTab === tabItem.id
+                ? 'bg-[#0F172A] text-white border-[#0F172A]'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {tabItem.label}
+          </button>
+        ))}
+      </div>
+
+      {activeAdminTab === 'branding' && brandingSlot}
 
       {/* Multi-Station Admin Directory & Billing Summary */}
+      {activeAdminTab === 'stations' && (
+      <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
@@ -464,8 +490,6 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
         </form>
       </FormModal>
 
-      {auditAndProfileSlot}
-
       {/* Subscription Tier Switcher for Selected Station */}
       {selectedStation && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
@@ -592,62 +616,74 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
           </div>
         </div>
       )}
+      </div>
+      )}
 
-      {/* Auth0 Tenant & RBAC Matrix */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-emerald-700" />
-          <div>
-            <h3 className="font-display text-base font-bold text-slate-900">
-              Auth0 Security &amp; RBAC Policy Matrix
-            </h3>
-            <p className="text-xs text-slate-500">
-              Status: {isAuth0Configured ? 'Auth0 RS256 OIDC Production Active' : 'Workspace RBAC Policy Active'}
-            </p>
+      {activeAdminTab === 'billing' && (
+        <div className="space-y-6">
+          <BillingAndInvitesPanel
+            engine={engine}
+            role={role}
+            stations={stations}
+            employees={employees}
+            onNotify={onNotify}
+          />
+
+          {/* Perpetual & Custom Source Code IP License Options */}
+          <div className="bg-slate-900 text-white border border-slate-800 rounded-xl p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <div className="text-xs font-mono text-amber-400">Self-Hosted Enterprise Deployment</div>
+              <h3 className="font-display text-lg font-bold">
+                Perpetual License — 5 000 000 FCFA / year
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Dedicated private infrastructure deployment with full system management, security patching,
+                database backups, and ongoing maintenance included.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-mono text-amber-400">Bespoke Development &amp; IP Transfer</div>
+              <h3 className="font-display text-lg font-bold">
+                Custom Source Code &amp; Intellectual Property Buyout
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Negotiated contract granting full source code and IP ownership across Web, Mobile Apps
+                (Android &amp; iPhone), Desktop terminal apps, and Java 25 Spring Boot backend. Contact info@opesware.com.
+              </p>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {(['PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as UserRole[]).map((r) => (
-            <div key={r} className="border border-slate-200 rounded-lg p-4 space-y-1.5">
-              <div className="font-mono text-xs font-bold text-amber-700">ROLE_{r}</div>
-              <div className="text-sm font-semibold text-slate-900">{ROLE_PROFILES[r].title}</div>
-              <p className="text-xs text-slate-600 leading-relaxed">{ROLE_PROFILES[r].summary}</p>
+      )}
+
+      {activeAdminTab === 'governance' && (
+        <div className="space-y-6">
+          {auditAndProfileSlot}
+
+          {/* Tenant RBAC Policy Matrix */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-700" />
+              <div>
+                <h3 className="font-display text-base font-bold text-slate-900">
+                  Station Role-Based Access Control (RBAC) Matrix
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Status: {isAuth0Configured ? 'Auth0 RS256 OIDC Production Active' : 'Workspace RBAC Policy Active'}
+                </p>
+              </div>
             </div>
-          ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(['OWNER', 'MANAGER', 'ACCOUNTANT', 'ATTENDANT'] as UserRole[]).map((r) => (
+                <div key={r} className="border border-slate-200 rounded-lg p-4 space-y-1.5">
+                  <div className="font-mono text-xs font-bold text-amber-700">ROLE_{r}</div>
+                  <div className="text-sm font-semibold text-slate-900">{ROLE_PROFILES[r].title}</div>
+                  <p className="text-xs text-slate-600 leading-relaxed">{ROLE_PROFILES[r].summary}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Perpetual & Custom Source Code IP License Options */}
-      <div className="bg-slate-900 text-white border border-slate-800 rounded-xl p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <div className="text-xs font-mono text-amber-400">Self-Hosted Enterprise Deployment</div>
-          <h3 className="font-display text-lg font-bold">
-            Perpetual License — 5 000 000 FCFA / year
-          </h3>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Dedicated private infrastructure deployment with full system management, security patching,
-            database backups, and ongoing maintenance included.
-          </p>
-        </div>
-        <div className="space-y-2">
-          <div className="text-xs font-mono text-amber-400">Bespoke Development &amp; IP Transfer</div>
-          <h3 className="font-display text-lg font-bold">
-            Custom Source Code &amp; Intellectual Property Buyout
-          </h3>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Negotiated contract granting full source code and IP ownership across Web, Mobile Apps
-            (Android &amp; iPhone), Desktop terminal apps, and Java 25 Spring Boot backend. Contact info@opesware.com.
-          </p>
-        </div>
-      </div>
-
-      <BillingAndInvitesPanel
-        engine={engine}
-        role={role}
-        stations={stations}
-        employees={employees}
-        onNotify={onNotify}
-      />
+      )}
     </div>
   );
 };

@@ -26,44 +26,62 @@ const PKCE_RETURN_HASH_KEY = 'opesfuel.auth0.return_hash';
 
 export const isAuth0Configured = Boolean(AUTH0_DOMAIN && AUTH0_CLIENT_ID);
 
-export const ROLE_PROFILES: Record<UserRole, { name: string; email: string; title: string; summary: string }> = {
+export const ROLE_PROFILES: Record<
+  UserRole,
+  { name: string; email: string; phone: string; memberId: string; title: string; summary: string }
+> = {
   PLATFORM_ADMIN: {
     name: 'Opesware SaaS Admin',
     email: 'superadmin@opesware.com',
+    phone: '+237690000001',
+    memberId: 'OPF-ADM-001',
     title: 'SaaS Platform Super-Admin',
-    summary: 'Manages all customer station tenants, global SaaS MRR, enterprise licensing, tenant suspension, and inbound onboarding leads.',
+    summary:
+      'Controls every aspect of the OpesFuel SaaS platform: all customer tenants, global FCFA/USD plan pricing, FX rates, feature flags, suspension, enterprise licenses, and broadcasts.',
   },
   OWNER: {
     name: 'Jean-Paul Mbarga',
     email: 'owner@opesfuel.com',
-    title: 'Station Network Owner',
-    summary: 'Full access across stations, pricing, accounting statements, payroll, billing invoices, and API keys.',
+    phone: '+237690000002',
+    memberId: 'OPF-OWN-001',
+    title: 'Fuel Station Network Owner',
+    summary:
+      'Full business authority across owned stations: company logo & letterhead, fuel price approval, payroll approval, SYSCOHADA accounting, staff invites, billing, and API keys.',
   },
   MANAGER: {
     name: 'Amina Diallo',
     email: 'manager@opesfuel.com',
+    phone: '+237690000003',
+    memberId: 'OPF-MGR-002',
     title: 'Forecourt Station Manager',
-    summary: 'Manages pump shifts, tanker deliveries, dipstick checks, staff roster, and station expenses.',
+    summary:
+      'Supervises daily pump shifts, wet-stock deliveries, dipsticks, fleet & shop POS, HSE/QC quarantine, and staff rosters (blocked from SaaS billing & payroll approvals).',
   },
   ATTENDANT: {
     name: 'Koffi Mensah',
     email: 'attendant@opesfuel.com',
+    phone: '+237690000004',
+    memberId: 'OPF-ATT-004',
     title: 'Pump Island Attendant',
-    summary: 'Opens/closes assigned pump shifts, records cash/MoMo tenders, fleet vouchers, and shop sales.',
+    summary:
+      'Operates assigned pump shifts, records cash/MoMo/card tenders, issues fleet vouchers, and rings up shop sales (zero access to payroll, GL, audit logs, or admin settings).',
   },
   ACCOUNTANT: {
     name: 'Clarisse Ndiaye',
     email: 'finance@opesfuel.com',
+    phone: '+237690000005',
+    memberId: 'OPF-ACC-003',
     title: 'Chief Accountant',
-    summary: 'Audits double-entry journals, settles fleet AR, locks fiscal periods, remits VAT, and exports SYSCOHADA reports.',
+    summary:
+      'Audits double-entry SYSCOHADA journals, manages cash vault & fixed assets, prepares payroll workflows, settles fleet AR, and exports statutory tax packs.',
   },
 };
 
 export function canAccessSection(role: UserRole, section: ConsoleSection): boolean {
   if (section === 'platform-admin') return role === 'PLATFORM_ADMIN';
-  if (section === 'mobile-app') return true;
   switch (role) {
     case 'PLATFORM_ADMIN':
+      return true;
     case 'OWNER':
       return true;
     case 'MANAGER':
@@ -73,17 +91,15 @@ export function canAccessSection(role: UserRole, section: ConsoleSection): boole
         section === 'overview' ||
         section === 'forecourt' ||
         section === 'fleet' ||
-        section === 'hse-fraud' ||
-        section === 'enterprise-ops'
+        section === 'mobile-app'
       );
     case 'ACCOUNTANT':
       return (
         section === 'overview' ||
-        section === 'fleet' ||
         section === 'accounting' ||
         section === 'workforce' ||
-        section === 'hse-fraud' ||
-        section === 'enterprise-ops' ||
+        section === 'fleet' ||
+        section === 'inventory' ||
         section === 'ai-assistant'
       );
   }
@@ -102,6 +118,7 @@ export function canPerformAction(
     | 'MANAGE_API_PLATFORM'
     | 'MANAGE_AI_ADDON'
     | 'MANAGE_PLATFORM_SAAS'
+    | 'MANAGE_COMPANY_BRANDING'
 ): boolean {
   if (role === 'PLATFORM_ADMIN') return true;
   switch (action) {
@@ -110,13 +127,12 @@ export function canPerformAction(
     case 'MANAGE_STATIONS_PRICES':
     case 'MANAGE_API_PLATFORM':
       return role === 'OWNER';
+    case 'MANAGE_COMPANY_BRANDING':
     case 'MANAGE_AI_ADDON':
-      return role === 'OWNER' || role === 'MANAGER';
-    case 'OPEN_CLOSE_SHIFT':
-      return role === 'OWNER' || role === 'MANAGER' || role === 'ATTENDANT';
     case 'RECORD_DELIVERY':
     case 'MANAGE_EMPLOYEES':
       return role === 'OWNER' || role === 'MANAGER';
+    case 'OPEN_CLOSE_SHIFT':
     case 'RECORD_DIPSTICK':
       return role === 'OWNER' || role === 'MANAGER' || role === 'ATTENDANT';
     case 'SETTLE_FLEET':

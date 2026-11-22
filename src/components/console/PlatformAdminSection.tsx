@@ -32,13 +32,16 @@ import {
   printSaasInvoicePdf,
 } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
+import { PlatformGovernanceControlsPanel } from './PlatformGovernanceControlsPanel';
 
 interface PlatformAdminSectionProps {
   engine: OpesFuelApiEngine;
+  onPostBackend?: (path: string, method: 'POST' | 'PATCH' | 'PUT', body?: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
+  onEnterSupportView?: () => void;
   onNotify: (type: 'success' | 'error', message: string) => void;
 }
 
-type AdminTab = 'overview' | 'tenants' | 'leads' | 'plans' | 'invoices' | 'licenses' | 'broadcasts';
+type AdminTab = 'overview' | 'tenants' | 'leads' | 'plans' | 'invoices' | 'licenses' | 'broadcasts' | 'governance';
 const LEAD_STATUSES = ['RECEIVED', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'ARCHIVED'] as const;
 
 interface GlobalInvoiceRow {
@@ -72,7 +75,12 @@ interface BroadcastRow {
   sentAt: string;
 }
 
-export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engine, onNotify }) => {
+export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({
+  engine,
+  onPostBackend,
+  onEnterSupportView,
+  onNotify,
+}) => {
   const { formatFromXaf, formatUsdFromXaf, currency, xafPerUsd } = useCurrency();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [overview, setOverview] = useState<Record<string, unknown> | null>(null);
@@ -467,6 +475,7 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engi
           { id: 'invoices' as const, label: `Global Invoices (${globalInvoices.length})`, icon: CreditCard },
           { id: 'licenses' as const, label: `Enterprise Licenses (${licenses.length})`, icon: KeyRound },
           { id: 'broadcasts' as const, label: 'Broadcasts & Health', icon: Megaphone },
+          { id: 'governance' as const, label: 'Governance, FX & Feature Flags', icon: ShieldCheck },
         ].map((t) => {
           const Icon = t.icon;
           const active = activeTab === t.id;
@@ -1262,6 +1271,15 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engi
           </div>
         </form>
       </FormModal>
+
+      {activeTab === 'governance' && (
+        <PlatformGovernanceControlsPanel
+          tenants={tenants}
+          onPostBackend={onPostBackend}
+          onEnterSupportView={onEnterSupportView}
+          onNotify={onNotify}
+        />
+      )}
 
       <FormModal open={broadcastOpen} onClose={() => setBroadcastOpen(false)} title="Send Platform-Wide Announcement" subtitle="Delivers an immediate broadcast to station owners and managers.">
         <form onSubmit={handleSendBroadcast} className="space-y-4">
