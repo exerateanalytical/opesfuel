@@ -1188,4 +1188,238 @@ class OpesFuelBackendIntegrationTests {
             .andExpect(jsonPath("$.status").value("ACTIVE"))
             .andExpect(jsonPath("$.tenantId", not(emptyOrNullString())));
     }
+
+    @Test
+    void enterpriseChecklistModulesWorkflowsEndToEnd() throws Exception {
+        // Apply V8 enterprise DDL in H2 test context
+        String v8Sql = new String(
+            getClass().getClassLoader().getResourceAsStream("db/migration/V8__enterprise_modules_schema.sql").readAllBytes()
+        ).replaceAll("(?m)^--.*$", "");
+        for (String stmt : v8Sql.split(";")) {
+            String trimmed = stmt.trim();
+            if (!trimmed.isEmpty()) {
+                jdbcTemplate.execute(trimmed);
+            }
+        }
+
+        // M38: HSE Safety Record
+        mockMvc.perform(post("/api/v1/enterprise/hse-records")
+                .with(user("manager_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "recordType":"FIRE_EXTINGUISHER",
+                      "severity":"LOW",
+                      "title":"Island A CO2 Extinguisher Annual Inspection",
+                      "details":"Pressure gauge green, seal intact, mounted at Island A",
+                      "inspectorOrReporter":"HSE Officer Paul M.",
+                      "nextDueDate":"2027-06-01",
+                      "capaAction":"Schedule next refill in 12 months"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("OPEN"));
+
+        // M39: Fraud Case Open & Recovery Update
+        MvcResult fraudRes = mockMvc.perform(post("/api/v1/enterprise/fraud-cases")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "anomalyType":"SHIFT_SHORTAGE",
+                      "severity":"HIGH",
+                      "subjectRef":"SHF-2026-089",
+                      "suspectedLossFcfa":75000,
+                      "investigator":"Chief Auditor",
+                      "findings":"Repeated cash shortfall across 3 consecutive night shifts"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andReturn();
+        String fraudId = objectMapper.readTree(fraudRes.getResponse().getContentAsString()).get("id").asText();
+        mockMvc.perform(patch("/api/v1/enterprise/fraud-cases/" + fraudId)
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"disposition\":\"RECOVERED_CLOSED\",\"recoveredFcfa\":75000,\"findings\":\"Recovered via payroll deduction\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.disposition").value("RECOVERED_CLOSED"));
+
+        // M55: Fuel Quality Sample (auto-quarantine on water detection -> release)
+        MvcResult qcRes = mockMvc.perform(post("/api/v1/enterprise/quality-samples")
+                .with(user("manager_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "tankId":"tk_01",
+                      "tankName":"Underground Tank T-01 (Super)",
+                      "fuelGrade":"SUPER",
+                      "batchCoaRef":"SCDP-COA-2026-441",
+                      "densityKgM3":744.2,
+                      "temperatureC":28.1,
+                      "waterPasteDetected":true,
+                      "testedBy":"Manager Jean-Luc",
+                      "notes":"Trace water at bottom dip, pump drained"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.quarantined").value(true))
+            .andReturn();
+        String qcId = objectMapper.readTree(qcRes.getResponse().getContentAsString()).get("id").asText();
+        mockMvc.perform(patch("/api/v1/enterprise/quality-samples/" + qcId + "/quarantine")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"quarantined\":false}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.quarantined").value(false));
+
+        // M25: Inter-Station Transfer Dispatch & Receive
+        MvcResult trfRes = mockMvc.perform(post("/api/v1/enterprise/transfers")
+                .with(user("manager_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "fromStationId":"st_plateau",
+                      "fromStationName":"OpesFuel Bonanjo Plateau",
+                      "toStationId":"st_test_1",
+                      "toStationName":"Test Station Alpha",
+                      "fuelGrade":"GASOIL",
+                      "dispatchedLitres":5000,
+                      "sealNumber":"SEAL-CM-9921",
+                      "tankerPlate":"LT-884-TK",
+                      "driverName":"Ibrahim S."
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("IN_TRANSIT"))
+            .andReturn();
+        String trfId = objectMapper.readTree(trfRes.getResponse().getContentAsString()).get("id").asText();
+        mockMvc.perform(patch("/api/v1/enterprise/transfers/" + trfId + "/receive")
+                .with(user("manager_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"receivedLitres\":4992}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("RECEIVED"));
+
+        // M18: Car Wash & Service Bay POS Ticket
+        mockMvc.perform(post("/api/v1/enterprise/service-bay")
+                .with(user("att_01").roles("ATTENDANT"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "serviceCategory":"OIL_CHANGE",
+                      "vehiclePlate":"LT-309-CM",
+                      "customerName":"Dr. Alain N.",
+                      "technicianName":"Tech. Samuel",
+                      "amountFcfa":22500,
+                      "paymentMethod":"MOBILE_MONEY"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("COMPLETED"));
+
+        // M23: Prepaid Fuel Voucher Issue & Partial Redemption
+        MvcResult vchRes = mockMvc.perform(post("/api/v1/enterprise/loyalty-vouchers")
+                .with(user("att_01").roles("ATTENDANT"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"stationId\":\"st_plateau\",\"customerName\":\"Marie Claire\",\"customerPhone\":\"+237677001122\",\"issuedFcfa\":50000}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.loyaltyPoints").value(50))
+            .andReturn();
+        String vchId = objectMapper.readTree(vchRes.getResponse().getContentAsString()).get("id").asText();
+        mockMvc.perform(patch("/api/v1/enterprise/loyalty-vouchers/" + vchId + "/redeem")
+                .with(user("att_01").roles("ATTENDANT"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amountFcfa\":20000}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.balanceFcfa").value(30000));
+
+        // M24 & M52: B2B Bulk Wholesale + Tanker Dispatch
+        mockMvc.perform(post("/api/v1/enterprise/bulk-orders")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "customerCompany":"CamTel Telecom Generators SA",
+                      "fuelGrade":"GASOIL",
+                      "volumeLitres":12000,
+                      "unitPriceFcfa":795,
+                      "tankerTruckCode":"TRK-OPF-02",
+                      "driverName":"Moussa K.",
+                      "deliveryDestination":"Douala Bassa Data Center"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalFcfa").value(9540000));
+
+        // M36: Fixed Assets Register
+        mockMvc.perform(post("/api/v1/enterprise/fixed-assets")
+                .with(user("acct_01").roles("ACCOUNTANT"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "assetTag":"FA-DISP-001",
+                      "assetName":"Wayne Helix 6000 Dual Dispenser",
+                      "category":"FUEL_DISPENSER",
+                      "acquisitionDate":"2025-01-15",
+                      "acquisitionCostFcfa":14500000,
+                      "usefulLifeYears":10,
+                      "custodian":"Station Manager",
+                      "insurancePolicy":"ACTIVA-IND-2026"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        // M54 & M05: Budgets + Maker-Checker Approval Flow
+        mockMvc.perform(post("/api/v1/enterprise/budgets")
+                .with(user("acct_01").roles("ACCOUNTANT"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"stationId\":\"st_plateau\",\"periodLabel\":\"2026-11\",\"category\":\"MAINTENANCE\",\"budgetFcfa\":650000,\"actualFcfa\":410000}"))
+            .andExpect(status().isOk());
+
+        MvcResult aprRes = mockMvc.perform(post("/api/v1/enterprise/approvals")
+                .with(user("manager_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"stationId\":\"st_plateau\",\"requestType\":\"CAPEX_EXPENSE\",\"title\":\"Solar Backup Inverter Upgrade\",\"amountFcfa\":2800000}"))
+            .andExpect(status().isOk())
+            .andReturn();
+        String aprId = objectMapper.readTree(aprRes.getResponse().getContentAsString()).get("id").asText();
+        mockMvc.perform(patch("/api/v1/enterprise/approvals/" + aprId)
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"APPROVED\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("APPROVED"));
+
+        // M53: EV Charging & Utility Metering + M51: Franchise Agreement
+        mockMvc.perform(post("/api/v1/enterprise/ev-utility")
+                .with(user("manager_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"stationId\":\"st_plateau\",\"meterType\":\"EV_CHARGER_SESSION\",\"connectorOrMeter\":\"CCS2-FAST-01\",\"quantityUnit\":42.5,\"unitLabel\":\"kWh\",\"revenueOrCostFcfa\":14875}"))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/enterprise/franchises")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"stationId\":\"st_plateau\",\"dealerName\":\"Littoral Energy Partners SARL\",\"operatingModel\":\"CODO\",\"royaltyFcfaPerLitre\":9.5,\"monthlyTargetLitres\":220000,\"complianceScorePct\":96,\"renewalDate\":\"2028-12-31\"}"))
+            .andExpect(status().isOk());
+
+        // Verify Executive Enterprise Overview Aggregates
+        mockMvc.perform(get("/api/v1/enterprise/overview")
+                .with(user("owner_01").roles("OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.hseRecords").value(1))
+            .andExpect(jsonPath("$.serviceBayTickets").value(1))
+            .andExpect(jsonPath("$.activeVouchers").value(1))
+            .andExpect(jsonPath("$.bulkOrders").value(1))
+            .andExpect(jsonPath("$.fixedAssetsCount").value(1))
+            .andExpect(jsonPath("$.evUtilityReadings").value(1))
+            .andExpect(jsonPath("$.franchiseAgreements").value(1));
+    }
 }

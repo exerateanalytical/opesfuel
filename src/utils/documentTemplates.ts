@@ -575,3 +575,277 @@ export function exportSaasGlobalExcel(
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(leads), 'Onboarding Leads');
   XLSX.writeFile(wb, `opesfuel-saas-control-plane-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
+
+/** 14. Printable HSE Safety, Environmental & Incident Report PDF (M38) */
+export function printHseIncidentReportPdf(params: {
+  stationName: string;
+  record: {
+    id: string;
+    recordType: string;
+    severity: string;
+    title: string;
+    details: string;
+    inspectorOrReporter: string;
+    nextDueDate: string;
+    capaAction: string;
+    status: string;
+    recordedAt: string;
+  };
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const y = drawDocumentHeader(
+    doc,
+    'HSE SAFETY & COMPLIANCE RECORD',
+    `${params.stationName} · Health, Safety, Fire & Environmental Control`,
+    `Ref: ${params.record.id} | Category: ${params.record.recordType} | Severity: ${params.record.severity}`
+  );
+  autoTable(doc, {
+    startY: y,
+    head: [['HSE Field', 'Verified Record']],
+    body: [
+      ['Subject / Title', params.record.title],
+      ['Record Type', params.record.recordType.replace(/_/g, ' ')],
+      ['Severity / Risk Level', params.record.severity],
+      ['Current Status', params.record.status],
+      ['Inspector / Reporter', params.record.inspectorOrReporter],
+      ['Observation / Incident Details', params.record.details],
+      ['Corrective & Preventive Action (CAPA)', params.record.capaAction || 'Standard monitoring'],
+      ['Next Inspection / Renewal Due', params.record.nextDueDate || 'N/A'],
+      ['Logged Timestamp', params.record.recordedAt.slice(0, 16).replace('T', ' ')],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 9 },
+  });
+  drawSignatureFooter(doc, `HSE Officer (${params.record.inspectorOrReporter})`, 'Station Manager Sign-Off');
+  doc.save(`opesfuel-hse-${params.record.id}.pdf`);
+}
+
+/** 15. Printable Fraud & Loss Prevention Investigation Case PDF (M39) */
+export function printFraudCaseReportPdf(params: {
+  stationName: string;
+  fraudCase: {
+    id: string;
+    anomalyType: string;
+    severity: string;
+    subjectRef: string;
+    suspectedLossFcfa: number;
+    recoveredFcfa: number;
+    investigator: string;
+    findings: string;
+    disposition: string;
+    openedAt: string;
+  };
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const y = drawDocumentHeader(
+    doc,
+    'LOSS PREVENTION & FRAUD CASE DOSSIER',
+    `${params.stationName} · Confidential Audit Investigation Record`,
+    `Case ID: ${params.fraudCase.id} | Type: ${params.fraudCase.anomalyType} | Disposition: ${params.fraudCase.disposition}`
+  );
+  autoTable(doc, {
+    startY: y,
+    head: [['Investigation Field', 'Case Evidence']],
+    body: [
+      ['Linked Transaction / Subject Ref', params.fraudCase.subjectRef],
+      ['Anomaly Classification', params.fraudCase.anomalyType.replace(/_/g, ' ')],
+      ['Risk Severity', params.fraudCase.severity],
+      ['Estimated Financial Exposure', pdfMoney(params.fraudCase.suspectedLossFcfa)],
+      ['Amount Recovered to Date', pdfMoney(params.fraudCase.recoveredFcfa)],
+      ['Net Unrecovered Variance', pdfMoney(Math.max(0, params.fraudCase.suspectedLossFcfa - params.fraudCase.recoveredFcfa))],
+      ['Lead Investigator', params.fraudCase.investigator],
+      ['Audit Findings & Evidence', params.fraudCase.findings],
+      ['Case Disposition', params.fraudCase.disposition.replace(/_/g, ' ')],
+      ['Opened At', params.fraudCase.openedAt.slice(0, 16).replace('T', ' ')],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 9 },
+  });
+  drawSignatureFooter(doc, `Lead Investigator (${params.fraudCase.investigator})`, 'Owner / Chief Auditor Approval');
+  doc.save(`opesfuel-fraud-case-${params.fraudCase.id}.pdf`);
+}
+
+/** 16. Printable Fuel Quality Control & Water-Paste Test Certificate PDF (M55) */
+export function printFuelQualityCertPdf(params: {
+  stationName: string;
+  sample: {
+    id: string;
+    tankName: string;
+    fuelGrade: string;
+    batchCoaRef: string;
+    densityKgM3: number;
+    temperatureC: number;
+    waterPasteDetected: boolean;
+    quarantined: boolean;
+    testedBy: string;
+    notes: string;
+    testedAt: string;
+  };
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const y = drawDocumentHeader(
+    doc,
+    'FUEL QUALITY & SAMPLING CERTIFICATE',
+    `${params.stationName} · Density, Water-Paste & Quarantine Verification`,
+    `QC Ref: ${params.sample.id} | Batch COA: ${params.sample.batchCoaRef} | Grade: ${params.sample.fuelGrade}`
+  );
+  autoTable(doc, {
+    startY: y,
+    head: [['Quality Parameter', 'Measured Value']],
+    body: [
+      ['Underground Tank', params.sample.tankName],
+      ['Fuel Grade', params.sample.fuelGrade],
+      ['Supplier Batch COA Reference', params.sample.batchCoaRef],
+      ['Measured Density', `${params.sample.densityKgM3} kg/m3`],
+      ['Sample Temperature', `${params.sample.temperatureC} °C`],
+      ['Water-Finding Paste Test', params.sample.waterPasteDetected ? 'POSITIVE — WATER DETECTED' : 'NEGATIVE — CLEAN'],
+      ['Tank Quarantine / Stop-Sale', params.sample.quarantined ? 'ACTIVE QUARANTINE (STOP SALE)' : 'CLEARED FOR SALE'],
+      ['Tested By', params.sample.testedBy],
+      ['Inspector Notes', params.sample.notes || 'Standard batch verification'],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 9 },
+  });
+  drawSignatureFooter(doc, `QC Technician (${params.sample.testedBy})`, 'Station Quality Release Sign-Off');
+  doc.save(`opesfuel-fuel-qc-${params.sample.id}.pdf`);
+}
+
+/** 17. Printable Inter-Station Fuel Transfer Manifest PDF (M25) */
+export function printInterstationTransferPdf(transfer: {
+  id: string;
+  fromStationName: string;
+  toStationName: string;
+  fuelGrade: string;
+  dispatchedLitres: number;
+  receivedLitres: number | null;
+  sealNumber: string;
+  tankerPlate: string;
+  driverName: string;
+  status: string;
+  dispatchedAt: string;
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const y = drawDocumentHeader(
+    doc,
+    'INTER-STATION FUEL TRANSFER MANIFEST',
+    'OpesFuel Network Logistics · Sealed Tanker Dispatch & Custody Note',
+    `Manifest #: ${transfer.id} | Seal #: ${transfer.sealNumber} | Status: ${transfer.status}`
+  );
+  const delta = transfer.receivedLitres !== null ? transfer.receivedLitres - transfer.dispatchedLitres : null;
+  autoTable(doc, {
+    startY: y,
+    head: [['Transfer Field', 'Custody Value']],
+    body: [
+      ['Origin Dispatch Station', transfer.fromStationName],
+      ['Destination Receiving Station', transfer.toStationName],
+      ['Fuel Grade', transfer.fuelGrade],
+      ['Dispatched Volume', pdfLitres(transfer.dispatchedLitres)],
+      ['Received Volume at Destination', transfer.receivedLitres !== null ? pdfLitres(transfer.receivedLitres) : 'Pending Offload'],
+      ['Transit Variance', delta !== null ? `${delta >= 0 ? '+' : ''}${pdfLitres(delta)}` : 'In Transit'],
+      ['Tanker Plate & Seal #', `${transfer.tankerPlate} · Seal ${transfer.sealNumber}`],
+      ['Authorized Driver', transfer.driverName],
+      ['Dispatched Timestamp', transfer.dispatchedAt.slice(0, 16).replace('T', ' ')],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 9 },
+  });
+  drawSignatureFooter(doc, `Dispatching Station / Driver (${transfer.driverName})`, `Receiving Station (${transfer.toStationName})`);
+  doc.save(`opesfuel-transfer-${transfer.id}.pdf`);
+}
+
+/** 18. Printable Fixed Assets & Depreciation Register PDF (M36 — SYSCOHADA Class 2) */
+export function printFixedAssetsRegisterPdf(params: {
+  stationName: string;
+  assets: Array<{
+    assetTag: string;
+    assetName: string;
+    category: string;
+    acquisitionDate: string;
+    acquisitionCostFcfa: number;
+    usefulLifeYears: number;
+    custodian: string;
+  }>;
+}): void {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const y = drawDocumentHeader(
+    doc,
+    'FIXED ASSETS & DEPRECIATION REGISTER',
+    `${params.stationName} · SYSCOHADA Class 2 Straight-Line Valuation`,
+    `Assets Count: ${params.assets.length} | Generated: ${new Date().toISOString().slice(0, 10)}`
+  );
+  const nowYear = new Date().getFullYear();
+  const rows = params.assets.map((a) => {
+    const acqYear = Number(a.acquisitionDate.slice(0, 4)) || nowYear;
+    const elapsed = Math.max(0, Math.min(a.usefulLifeYears, nowYear - acqYear));
+    const annualDep = Math.round(a.acquisitionCostFcfa / Math.max(1, a.usefulLifeYears));
+    const accumDep = Math.min(a.acquisitionCostFcfa, annualDep * elapsed);
+    const nbv = Math.max(0, a.acquisitionCostFcfa - accumDep);
+    return [
+      a.assetTag,
+      a.assetName,
+      a.category,
+      a.acquisitionDate,
+      pdfMoney(a.acquisitionCostFcfa),
+      pdfMoney(annualDep),
+      pdfMoney(nbv),
+    ];
+  });
+  autoTable(doc, {
+    startY: y,
+    head: [['Tag', 'Asset Description', 'Category', 'Acquired', 'Cost (FCFA)', 'Annual Dep.', 'Net Book Value']],
+    body: rows,
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 8 },
+    columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' } },
+  });
+  drawSignatureFooter(doc, 'Station Accountant', 'Owner / Statutory Auditor');
+  doc.save(`opesfuel-fixed-assets-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/** 19. Printable Statutory Audit Evidence Pack PDF (M56) */
+export function printAuditEvidencePackPdf(params: {
+  organizationName: string;
+  stationScope: string;
+  summaryRows: Array<[string, string]>;
+  recentAuditLogs: Array<{ createdAt: string; actorEmail: string; action: string; entityType: string; summary: string }>;
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  let y = drawDocumentHeader(
+    doc,
+    'STATUTORY AUDIT EVIDENCE PACKAGE',
+    `${params.organizationName} · Immutable Compliance & Financial Verification`,
+    `Scope: ${params.stationScope} | Generated: ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
+  );
+  autoTable(doc, {
+    startY: y,
+    head: [['Control Domain / Verification Metric', 'Certified Value']],
+    body: params.summaryRows,
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 8.5 },
+    columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+  });
+  y = (doc.lastAutoTable?.finalY ?? y) + 8;
+  autoTable(doc, {
+    startY: y,
+    head: [['Timestamp', 'Actor', 'Action', 'Entity', 'Audit Summary']],
+    body: params.recentAuditLogs.slice(0, 20).map((l) => [
+      l.createdAt.slice(0, 16).replace('T', ' '),
+      l.actorEmail,
+      l.action,
+      l.entityType,
+      l.summary,
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7.5 },
+    bodyStyles: { fontSize: 7 },
+  });
+  drawSignatureFooter(doc, 'Compliance Officer / Accountant', 'External Statutory Auditor');
+  doc.save(`opesfuel-audit-evidence-pack-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+

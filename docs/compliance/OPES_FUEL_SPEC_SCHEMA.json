@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opesware.com/schemas/opes-fuel-master-specification.schema.json",
+  "title": "OPES Fuel Master Specification",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "document_title",
+    "modules",
+    "forms",
+    "reports",
+    "document_templates",
+    "data_entities",
+    "release_test_cases",
+    "inventory_counts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "document_title": {
+      "type": "string"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "tier",
+          "features",
+          "form_ids",
+          "report_ids",
+          "document_template_ids"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^M[0-9]{2}$"
+          },
+          "tier": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ]
+          },
+          "features": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "title",
+                "tier",
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "UNVERIFIED",
+                    "NOT_IMPLEMENTED",
+                    "PARTIAL",
+                    "IMPLEMENTED_UNTESTED",
+                    "TESTED_PASS",
+                    "TESTED_FAIL",
+                    "NOT_APPLICABLE"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "forms": {
+      "type": "array"
+    },
+    "reports": {
+      "type": "array"
+    },
+    "document_templates": {
+      "type": "array"
+    },
+    "data_entities": {
+      "type": "array"
+    },
+    "release_test_cases": {
+      "type": "array"
+    },
+    "inventory_counts": {
+      "type": "object"
+    }
+  }
+}

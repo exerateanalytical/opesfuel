@@ -4,6 +4,10 @@ import {
   ExtendedOperationsBundle,
 } from './api/demoDataset1000';
 import {
+  buildEnterpriseModulesDataset,
+  EnterpriseModulesDataset,
+} from './api/enterpriseModulesData';
+import {
   CHART_OF_ACCOUNTS,
   computeFinancialReports,
   OpesFuelApiEngine,
@@ -27,9 +31,14 @@ import { AiAssistantSection } from './components/console/AiAssistantSection';
 import { ApiPlatformSection } from './components/console/ApiPlatformSection';
 import { CashVaultPanel } from './components/console/CashVaultPanel';
 import { ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
+import { DataImportWizardPanel } from './components/console/DataImportWizardPanel';
+import { EnterpriseOperationsSection } from './components/console/EnterpriseOperationsSection';
+import { FixedAssetsAndBudgetsPanel } from './components/console/FixedAssetsAndBudgetsPanel';
 import { FleetShopSection } from './components/console/FleetShopSection';
 import { ForecourtSection } from './components/console/ForecourtSection';
+import { GlobalSearchModal } from './components/console/GlobalSearchModal';
 import { HrManagementPanel } from './components/console/HrManagementPanel';
+import { HseFraudQcSection } from './components/console/HseFraudQcSection';
 import { InventorySection } from './components/console/InventorySection';
 import { OnboardingGuideModal } from './components/console/OnboardingGuideModal';
 import { OverviewSection } from './components/console/OverviewSection';
@@ -143,6 +152,8 @@ const CONSOLE_SECTIONS: ConsoleSection[] = [
   'fleet',
   'workforce',
   'accounting',
+  'hse-fraud',
+  'enterprise-ops',
   'ai-assistant',
   'mobile-app',
   'api-platform',
@@ -187,6 +198,10 @@ export default function App() {
   const [extOps, setExtOps] = useState<ExtendedOperationsBundle>(() =>
     buildExtendedOperationsDataset(engineRef.current.getSnapshot().stations[0]?.id ?? 'st_plateau')
   );
+  const [entOps, setEntOps] = useState<EnterpriseModulesDataset>(() =>
+    buildEnterpriseModulesDataset(engineRef.current.getSnapshot().stations[0]?.id ?? 'st_plateau')
+  );
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   const initialRoute = useMemo(() => parseHashRoute(), []);
   const [mode, setMode] = useState<'public' | 'login' | 'console'>(initialRoute.mode);
@@ -704,6 +719,7 @@ export default function App() {
       activeSection={consoleSection}
       onSelectSection={setConsoleSection}
       onOpenOnboardingGuide={() => openOnboardingGuide('guide')}
+      onOpenGlobalSearch={() => setGlobalSearchOpen(true)}
       onboardingCompletedCount={onboardingCompletedCount}
       notifications={notifications}
       onRefreshNotifications={() => void refreshNotifications(effectiveActiveStationId)}
@@ -1085,31 +1101,243 @@ export default function App() {
           }
           onNotify={notify}
           vaultSlot={
-            <CashVaultPanel
-              stationId={scopedStationId}
-              stationName={scopedStationName}
-              entries={extOps.vaultEntries}
-              canRecord={role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN'}
-              onRecordEntry={(entry) => {
-                const prevBal = extOps.vaultEntries[0]?.runningBalanceFcfa ?? 0;
-                const delta =
-                  entry.entryType === 'SHIFT_DROP'
-                    ? entry.amountFcfa
-                    : entry.entryType === 'MANAGER_HANDOVER'
-                    ? 0
-                    : -entry.amountFcfa;
-                const rec = {
-                  ...entry,
-                  id: `vlt_${Date.now().toString(36)}`,
-                  runningBalanceFcfa: Math.max(0, prevBal + delta),
-                  recordedAt: new Date().toISOString(),
-                };
-                setExtOps((prev) => ({ ...prev, vaultEntries: [rec, ...prev.vaultEntries] }));
-                void postOptionalBackend('/api/v1/accounting/vault/entries', 'POST', entry as unknown as Record<string, unknown>);
-                appendAudit('VAULT_MOVEMENT', 'CASH_VAULT', rec.id, `${entry.entryType} of ${entry.amountFcfa} FCFA`, entry.stationId);
-                notify('success', `Recorded ${entry.entryType.replace(/_/g, ' ')} in Station Cash Safe.`);
-              }}
-            />
+            <div className="space-y-6">
+              <CashVaultPanel
+                stationId={scopedStationId}
+                stationName={scopedStationName}
+                entries={extOps.vaultEntries}
+                canRecord={role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN'}
+                onRecordEntry={(entry) => {
+                  const prevBal = extOps.vaultEntries[0]?.runningBalanceFcfa ?? 0;
+                  const delta =
+                    entry.entryType === 'SHIFT_DROP'
+                      ? entry.amountFcfa
+                      : entry.entryType === 'MANAGER_HANDOVER'
+                      ? 0
+                      : -entry.amountFcfa;
+                  const rec = {
+                    ...entry,
+                    id: `vlt_${Date.now().toString(36)}`,
+                    runningBalanceFcfa: Math.max(0, prevBal + delta),
+                    recordedAt: new Date().toISOString(),
+                  };
+                  setExtOps((prev) => ({ ...prev, vaultEntries: [rec, ...prev.vaultEntries] }));
+                  void postOptionalBackend('/api/v1/accounting/vault/entries', 'POST', entry as unknown as Record<string, unknown>);
+                  appendAudit('VAULT_MOVEMENT', 'CASH_VAULT', rec.id, `${entry.entryType} of ${entry.amountFcfa} FCFA`, entry.stationId);
+                  notify('success', `Recorded ${entry.entryType.replace(/_/g, ' ')} in Station Cash Safe.`);
+                }}
+              />
+              <FixedAssetsAndBudgetsPanel
+                role={role}
+                stationId={scopedStationId}
+                stationName={scopedStationName}
+                assets={entOps.fixedAssets}
+                budgets={entOps.budgets}
+                approvals={entOps.approvals}
+                onCreateAsset={(assetInput) => {
+                  const rec = { ...assetInput, id: `ast_${Date.now().toString(36)}`, status: 'ACTIVE' as const };
+                  setEntOps((prev) => ({ ...prev, fixedAssets: [rec, ...prev.fixedAssets] }));
+                  void postOptionalBackend('/api/v1/enterprise/fixed-assets', 'POST', assetInput as unknown as Record<string, unknown>);
+                  appendAudit('FIXED_ASSET_CAPITALIZED', 'FIXED_ASSET', rec.id, `${assetInput.assetTag} (${assetInput.assetName})`, assetInput.stationId);
+                  notify('success', `Capitalized fixed asset ${assetInput.assetTag} (${assetInput.assetName}).`);
+                }}
+                onCreateBudget={(budgetInput) => {
+                  const rec = { ...budgetInput, id: `bdg_${Date.now().toString(36)}` };
+                  setEntOps((prev) => ({ ...prev, budgets: [rec, ...prev.budgets] }));
+                  void postOptionalBackend('/api/v1/enterprise/budgets', 'POST', budgetInput as unknown as Record<string, unknown>);
+                  notify('success', `Saved monthly budget line for ${budgetInput.category}.`);
+                }}
+                onCreateApproval={(aprInput) => {
+                  const rec = { ...aprInput, id: `apr_${Date.now().toString(36)}`, status: 'PENDING' as const, createdAt: new Date().toISOString() };
+                  setEntOps((prev) => ({ ...prev, approvals: [rec, ...prev.approvals] }));
+                  void postOptionalBackend('/api/v1/enterprise/approvals', 'POST', aprInput as unknown as Record<string, unknown>);
+                  notify('success', `Submitted "${aprInput.title}" into Maker-Checker Approval Inbox.`);
+                }}
+                onDecideApproval={(id, status) => {
+                  const target = entOps.approvals.find((a) => a.id === id);
+                  if (target && target.requestedBy.toLowerCase() === currentActorEmail.toLowerCase()) {
+                    notify('error', 'Maker-Checker rule (T005): you cannot approve your own submission.');
+                    return;
+                  }
+                  setEntOps((prev) => ({
+                    ...prev,
+                    approvals: prev.approvals.map((a) =>
+                      a.id === id ? { ...a, status, decidedBy: currentActorEmail } : a
+                    ),
+                  }));
+                  void postOptionalBackend(`/api/v1/enterprise/approvals/${encodeURIComponent(id)}`, 'PATCH', { status });
+                  appendAudit('APPROVAL_DECIDED', 'APPROVAL', id, `Marked approval ${id} as ${status}`);
+                  notify('success', `Approval request ${status.toLowerCase()}.`);
+                }}
+              />
+            </div>
+          }
+        />
+      )}
+
+      {consoleSection === 'hse-fraud' && (
+        <HseFraudQcSection
+          role={role}
+          stationId={scopedStationId}
+          stationName={scopedStationName}
+          tanks={store.tanks.filter((t) => effectiveActiveStationId === 'ALL' || t.stationId === effectiveActiveStationId)}
+          shifts={store.shifts.filter((s) => effectiveActiveStationId === 'ALL' || s.stationId === effectiveActiveStationId)}
+          deliveries={store.deliveries}
+          hseRecords={entOps.hseRecords}
+          fraudCases={entOps.fraudCases}
+          qualitySamples={entOps.qualitySamples}
+          onCreateHseRecord={(recInput) => {
+            const rec = { ...recInput, id: `hse_${Date.now().toString(36)}`, status: 'OPEN' as const, recordedAt: new Date().toISOString() };
+            setEntOps((prev) => ({ ...prev, hseRecords: [rec, ...prev.hseRecords] }));
+            void postOptionalBackend('/api/v1/enterprise/hse-records', 'POST', recInput as unknown as Record<string, unknown>);
+            appendAudit('HSE_RECORD_LOGGED', 'HSE', rec.id, recInput.title, recInput.stationId);
+            notify('success', `Logged HSE record: ${recInput.title}.`);
+          }}
+          onCreateFraudCase={(fcInput) => {
+            const rec = {
+              ...fcInput,
+              id: `frd_${Date.now().toString(36)}`,
+              recoveredFcfa: 0,
+              disposition: 'UNDER_INVESTIGATION' as const,
+              openedAt: new Date().toISOString(),
+            };
+            setEntOps((prev) => ({ ...prev, fraudCases: [rec, ...prev.fraudCases] }));
+            void postOptionalBackend('/api/v1/enterprise/fraud-cases', 'POST', fcInput as unknown as Record<string, unknown>);
+            appendAudit('FRAUD_CASE_OPENED', 'FRAUD_CASE', rec.id, `${fcInput.anomalyType}: ${fcInput.subjectRef}`, fcInput.stationId);
+            notify('success', `Opened fraud investigation case ${rec.id}.`);
+          }}
+          onUpdateFraudCase={(id, disposition, recoveredFcfa) => {
+            setEntOps((prev) => ({
+              ...prev,
+              fraudCases: prev.fraudCases.map((fc) =>
+                fc.id === id ? { ...fc, disposition, recoveredFcfa } : fc
+              ),
+            }));
+            void postOptionalBackend(`/api/v1/enterprise/fraud-cases/${encodeURIComponent(id)}`, 'PATCH', { disposition, recoveredFcfa });
+            appendAudit('FRAUD_CASE_UPDATED', 'FRAUD_CASE', id, `Disposition ${disposition} (recovered ${recoveredFcfa} FCFA)`);
+            notify('success', `Updated fraud investigation case ${id} to ${disposition.replace(/_/g, ' ')}.`);
+          }}
+          onCreateQualitySample={(qcInput) => {
+            const rec = {
+              ...qcInput,
+              id: `qc_${Date.now().toString(36)}`,
+              quarantined: qcInput.waterPasteDetected,
+              testedAt: new Date().toISOString(),
+            };
+            setEntOps((prev) => ({ ...prev, qualitySamples: [rec, ...prev.qualitySamples] }));
+            void postOptionalBackend('/api/v1/enterprise/quality-samples', 'POST', qcInput as unknown as Record<string, unknown>);
+            appendAudit('FUEL_QC_TESTED', 'TANK', qcInput.tankId, `${qcInput.tankName} density ${qcInput.densityKgM3} · water=${qcInput.waterPasteDetected}`, qcInput.stationId);
+            notify(
+              qcInput.waterPasteDetected ? 'error' : 'success',
+              qcInput.waterPasteDetected
+                ? `Water detected in ${qcInput.tankName} — tank automatically placed in STOP-SALE Quarantine!`
+                : `Recorded Fuel Quality Certificate for ${qcInput.tankName}.`
+            );
+          }}
+          onToggleQuarantine={(id, quarantined) => {
+            setEntOps((prev) => ({
+              ...prev,
+              qualitySamples: prev.qualitySamples.map((q) => (q.id === id ? { ...q, quarantined } : q)),
+            }));
+            void postOptionalBackend(`/api/v1/enterprise/quality-samples/${encodeURIComponent(id)}/quarantine`, 'PATCH', { quarantined });
+            appendAudit('TANK_QUARANTINE_TOGGLED', 'FUEL_QC', id, quarantined ? 'Placed tank under STOP-SALE Quarantine' : 'Released tank from Quarantine');
+            notify('success', quarantined ? 'Tank placed under STOP-SALE Quarantine.' : 'Tank released for forecourt dispensing.');
+          }}
+        />
+      )}
+
+      {consoleSection === 'enterprise-ops' && (
+        <EnterpriseOperationsSection
+          role={role}
+          stationId={scopedStationId}
+          stationName={scopedStationName}
+          stations={store.stations}
+          tanks={store.tanks.filter((t) => effectiveActiveStationId === 'ALL' || t.stationId === effectiveActiveStationId)}
+          shifts={store.shifts.filter((s) => effectiveActiveStationId === 'ALL' || s.stationId === effectiveActiveStationId)}
+          serviceBayTickets={entOps.serviceBayTickets}
+          transfers={entOps.transfers}
+          vouchers={entOps.loyaltyVouchers}
+          bulkOrders={entOps.bulkOrders}
+          evUtility={entOps.evUtility}
+          franchises={entOps.franchises}
+          onCreateServiceBay={(bayInput) => {
+            const rec = { ...bayInput, id: `bay_${Date.now().toString(36)}`, status: 'COMPLETED' as const, createdAt: new Date().toISOString() };
+            setEntOps((prev) => ({ ...prev, serviceBayTickets: [rec, ...prev.serviceBayTickets] }));
+            void postOptionalBackend('/api/v1/enterprise/service-bay', 'POST', bayInput as unknown as Record<string, unknown>);
+            notify('success', `Posted ${bayInput.serviceCategory.replace(/_/g, ' ')} ticket for ${bayInput.vehiclePlate} (${bayInput.amountFcfa} FCFA).`);
+          }}
+          onCreateTransfer={(trfInput) => {
+            const rec = { ...trfInput, id: `trf_${Date.now().toString(36)}`, receivedLitres: null, status: 'IN_TRANSIT' as const, dispatchedAt: new Date().toISOString() };
+            setEntOps((prev) => ({ ...prev, transfers: [rec, ...prev.transfers] }));
+            void postOptionalBackend('/api/v1/enterprise/transfers', 'POST', trfInput as unknown as Record<string, unknown>);
+            notify('success', `Dispatched ${trfInput.dispatchedLitres} L ${trfInput.fuelGrade} transfer (${trfInput.sealNumber}) to ${trfInput.toStationName}.`);
+          }}
+          onReceiveTransfer={(id, receivedLitres) => {
+            setEntOps((prev) => ({
+              ...prev,
+              transfers: prev.transfers.map((t) => (t.id === id ? { ...t, receivedLitres, status: 'RECEIVED' as const } : t)),
+            }));
+            void postOptionalBackend(`/api/v1/enterprise/transfers/${encodeURIComponent(id)}/receive`, 'PATCH', { receivedLitres });
+            notify('success', `Confirmed receipt of ${receivedLitres} L on transfer ${id}.`);
+          }}
+          onIssueVoucher={(vInput) => {
+            const code = `OPF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+            const rec = {
+              ...vInput,
+              id: `vch_${Date.now().toString(36)}`,
+              voucherCode: code,
+              balanceFcfa: vInput.issuedFcfa,
+              loyaltyPoints: Math.round(vInput.issuedFcfa / 1000),
+              status: 'ACTIVE' as const,
+              issuedAt: new Date().toISOString(),
+            };
+            setEntOps((prev) => ({ ...prev, loyaltyVouchers: [rec, ...prev.loyaltyVouchers] }));
+            void postOptionalBackend('/api/v1/enterprise/loyalty-vouchers', 'POST', vInput as unknown as Record<string, unknown>);
+            notify('success', `Issued prepaid fuel voucher ${code} for ${vInput.customerName}.`);
+          }}
+          onRedeemVoucher={(id, amountFcfa) => {
+            setEntOps((prev) => ({
+              ...prev,
+              loyaltyVouchers: prev.loyaltyVouchers.map((v) => {
+                if (v.id !== id) return v;
+                const nextBal = Math.max(0, v.balanceFcfa - amountFcfa);
+                return { ...v, balanceFcfa: nextBal, status: nextBal === 0 ? ('REDEEMED' as const) : ('ACTIVE' as const) };
+              }),
+            }));
+            void postOptionalBackend(`/api/v1/enterprise/loyalty-vouchers/${encodeURIComponent(id)}/redeem`, 'PATCH', { amountFcfa });
+            notify('success', `Redeemed ${amountFcfa} FCFA from prepaid fuel voucher.`);
+          }}
+          onCreateBulkOrder={(blkInput) => {
+            const totalFcfa = Math.round(blkInput.volumeLitres * blkInput.unitPriceFcfa);
+            const rec = { ...blkInput, id: `blk_${Date.now().toString(36)}`, totalFcfa, status: 'SCHEDULED' as const, createdAt: new Date().toISOString() };
+            setEntOps((prev) => ({ ...prev, bulkOrders: [rec, ...prev.bulkOrders] }));
+            void postOptionalBackend('/api/v1/enterprise/bulk-orders', 'POST', blkInput as unknown as Record<string, unknown>);
+            notify('success', `Scheduled B2B bulk tanker delivery for ${blkInput.customerCompany} (${blkInput.volumeLitres} L).`);
+          }}
+          onCreateEvUtility={(evInput) => {
+            const rec = { ...evInput, id: `evu_${Date.now().toString(36)}`, recordedAt: new Date().toISOString() };
+            setEntOps((prev) => ({ ...prev, evUtility: [rec, ...prev.evUtility] }));
+            void postOptionalBackend('/api/v1/enterprise/ev-utility', 'POST', evInput as unknown as Record<string, unknown>);
+            notify('success', `Logged ${evInput.meterType.replace(/_/g, ' ')} reading (${evInput.quantityUnit} ${evInput.unitLabel}).`);
+          }}
+          onCreateFranchise={(frnInput) => {
+            const rec = { ...frnInput, id: `frn_${Date.now().toString(36)}`, status: 'ACTIVE' as const };
+            setEntOps((prev) => ({ ...prev, franchises: [rec, ...prev.franchises] }));
+            void postOptionalBackend('/api/v1/enterprise/franchises', 'POST', frnInput as unknown as Record<string, unknown>);
+            notify('success', `Registered ${frnInput.operatingModel} dealer agreement for ${frnInput.dealerName}.`);
+          }}
+          onRaiseSuggestedPo={(grade, litres, unitCostFcfa) =>
+            runCommand(
+              () =>
+                engineRef.current.createPurchaseOrder(role, {
+                  stationId: scopedStationId,
+                  supplierName: 'SCDP Depot Douala (Auto-Forecast)',
+                  grade,
+                  orderedLitres: litres,
+                  unitCostFcfa,
+                }),
+              `Raised forecast replenishment PO for ${litres} L of ${grade}.`
+            )
           }
         />
       )}
@@ -1297,51 +1525,101 @@ export default function App() {
           }
           onNotify={notify}
           auditAndProfileSlot={
-            <SecurityAuditAndProfilePanel
-              accounts={extOps.accounts}
-              auditLogs={extOps.auditLogs}
-              outboundMessages={extOps.outboundMessages}
-              totalDemoRecords={extOps.totalDemoRecords}
-              onSeed1000Demo={() => void handleSeed1000Demo()}
-              onSendOutbound={(msg) => {
-                const rec = {
-                  id: `msg_${Date.now().toString(36)}`,
-                  channel: msg.channel,
-                  recipient: msg.recipient,
-                  subject: msg.subject,
-                  bodyPreview: msg.body.slice(0, 120),
-                  status: 'SENT' as const,
-                  provider: msg.channel === 'EMAIL' ? 'SMTP_RELAY' : msg.channel === 'WHATSAPP' ? 'META_WHATSAPP' : 'AFRICASTALKING_SMS',
-                  createdAt: new Date().toISOString(),
-                };
-                setExtOps((prev) => ({ ...prev, outboundMessages: [rec, ...prev.outboundMessages] }));
-                void postOptionalBackend('/api/v1/notifications/outbound/send', 'POST', msg as unknown as Record<string, unknown>);
-                appendAudit('OUTBOUND_MESSAGE_SENT', 'NOTIFICATION', rec.id, `${msg.channel} to ${msg.recipient}: ${msg.subject}`);
-                notify('success', `Dispatched ${msg.channel} message to ${msg.recipient}.`);
-              }}
-              onUpdateProfile={(profileInput) => {
-                setExtOps((prev) => ({
-                  ...prev,
-                  accounts: prev.accounts.map((acc) =>
-                    acc.role === role
-                      ? {
-                          ...acc,
-                          fullName: profileInput.fullName,
-                          phone: profileInput.phone,
-                          preferredLanguage: profileInput.preferredLanguage,
-                          emailAlertsEnabled: profileInput.emailAlertsEnabled,
-                        }
-                      : acc
-                  ),
-                }));
-                void postOptionalBackend('/api/v1/identity/profile', 'PATCH', profileInput as unknown as Record<string, unknown>);
-                appendAudit('PROFILE_UPDATED', 'USER_ACCOUNT', role, `Updated profile & language (${profileInput.preferredLanguage.toUpperCase()})`);
-                notify('success', `Saved profile settings (${profileInput.preferredLanguage.toUpperCase()}).`);
-              }}
-            />
+            <div className="space-y-6">
+              <DataImportWizardPanel
+                stationId={scopedStationId}
+                onImportTank={(input) =>
+                  runCommand(
+                    () => engineRef.current.createTank(role, input),
+                    `Imported underground tank ${input.name}.`
+                  )
+                }
+                onImportEmployee={(input) =>
+                  runCommand(
+                    () => engineRef.current.createEmployee(role, input),
+                    `Imported employee ${input.fullName}.`
+                  )
+                }
+                onImportFleet={(input) =>
+                  runCommand(
+                    () => engineRef.current.createFleetAccount(role, input),
+                    `Imported corporate fleet client ${input.companyName}.`
+                  )
+                }
+                onImportShop={(input) =>
+                  runCommand(
+                    () => engineRef.current.createShopItem(role, input),
+                    `Imported shop SKU ${input.sku}.`
+                  )
+                }
+                onNotify={notify}
+              />
+              <SecurityAuditAndProfilePanel
+                accounts={extOps.accounts}
+                auditLogs={extOps.auditLogs}
+                outboundMessages={extOps.outboundMessages}
+                totalDemoRecords={extOps.totalDemoRecords}
+                onSeed1000Demo={() => void handleSeed1000Demo()}
+                onSendOutbound={(msg) => {
+                  const rec = {
+                    id: `msg_${Date.now().toString(36)}`,
+                    channel: msg.channel,
+                    recipient: msg.recipient,
+                    subject: msg.subject,
+                    bodyPreview: msg.body.slice(0, 120),
+                    status: 'SENT' as const,
+                    provider: msg.channel === 'EMAIL' ? 'SMTP_RELAY' : msg.channel === 'WHATSAPP' ? 'META_WHATSAPP' : 'AFRICASTALKING_SMS',
+                    createdAt: new Date().toISOString(),
+                  };
+                  setExtOps((prev) => ({ ...prev, outboundMessages: [rec, ...prev.outboundMessages] }));
+                  void postOptionalBackend('/api/v1/notifications/outbound/send', 'POST', msg as unknown as Record<string, unknown>);
+                  appendAudit('OUTBOUND_MESSAGE_SENT', 'NOTIFICATION', rec.id, `${msg.channel} to ${msg.recipient}: ${msg.subject}`);
+                  notify('success', `Dispatched ${msg.channel} message to ${msg.recipient}.`);
+                }}
+                onUpdateProfile={(profileInput) => {
+                  setExtOps((prev) => ({
+                    ...prev,
+                    accounts: prev.accounts.map((acc) =>
+                      acc.role === role
+                        ? {
+                            ...acc,
+                            fullName: profileInput.fullName,
+                            phone: profileInput.phone,
+                            preferredLanguage: profileInput.preferredLanguage,
+                            emailAlertsEnabled: profileInput.emailAlertsEnabled,
+                          }
+                        : acc
+                    ),
+                  }));
+                  void postOptionalBackend('/api/v1/identity/profile', 'PATCH', profileInput as unknown as Record<string, unknown>);
+                  appendAudit('PROFILE_UPDATED', 'USER_ACCOUNT', role, `Updated profile & language (${profileInput.preferredLanguage.toUpperCase()})`);
+                  notify('success', `Saved profile settings (${profileInput.preferredLanguage.toUpperCase()}).`);
+                }}
+              />
+            </div>
           }
         />
       )}
+
+      <GlobalSearchModal
+        open={globalSearchOpen}
+        onClose={() => setGlobalSearchOpen(false)}
+        organizationName={store.tenant.organizationName}
+        stationScope={scopedStationName}
+        pumps={store.pumps}
+        tanks={store.tanks}
+        shifts={store.shifts}
+        employees={store.employees}
+        fleetAccounts={store.fleetAccounts}
+        shopItems={store.shopItems}
+        purchaseOrders={store.purchaseOrders}
+        journals={store.journals}
+        auditLogs={extOps.auditLogs}
+        report={report}
+        onNavigateSection={(sec) => {
+          if (canAccessSection(role, sec)) setConsoleSection(sec);
+        }}
+      />
 
       <OnboardingGuideModal
         open={onboardingOpen}

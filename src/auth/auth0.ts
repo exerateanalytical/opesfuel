@@ -69,13 +69,21 @@ export function canAccessSection(role: UserRole, section: ConsoleSection): boole
     case 'MANAGER':
       return section !== 'api-platform' && section !== 'admin';
     case 'ATTENDANT':
-      return section === 'overview' || section === 'forecourt' || section === 'fleet';
+      return (
+        section === 'overview' ||
+        section === 'forecourt' ||
+        section === 'fleet' ||
+        section === 'hse-fraud' ||
+        section === 'enterprise-ops'
+      );
     case 'ACCOUNTANT':
       return (
         section === 'overview' ||
         section === 'fleet' ||
         section === 'accounting' ||
         section === 'workforce' ||
+        section === 'hse-fraud' ||
+        section === 'enterprise-ops' ||
         section === 'ai-assistant'
       );
   }

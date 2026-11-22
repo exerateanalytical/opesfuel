@@ -28,6 +28,8 @@ export type ConsoleSection =
   | 'fleet'
   | 'workforce'
   | 'accounting'
+  | 'hse-fraud'
+  | 'enterprise-ops'
   | 'ai-assistant'
   | 'mobile-app'
   | 'api-platform'

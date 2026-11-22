@@ -12,11 +12,14 @@ import {
   Database,
   Fuel,
   Globe,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
   RefreshCw,
+  Search,
   Shield,
+  ShieldAlert,
   Smartphone,
   Sparkles,
   Truck,
@@ -59,6 +62,7 @@ interface ConsoleLayoutProps {
   activeSection: ConsoleSection;
   onSelectSection: (section: ConsoleSection) => void;
   onOpenOnboardingGuide: () => void;
+  onOpenGlobalSearch?: () => void;
   onboardingCompletedCount: number;
   notifications: NotificationItem[];
   onRefreshNotifications: () => void;
@@ -80,6 +84,8 @@ const NAV_ITEMS: { id: ConsoleSection; label: string; labelFr: string; shortLabe
   { id: 'fleet', label: 'Fleet Credit & POS', labelFr: 'Flotte & Boutique', shortLabel: 'POS', icon: CreditCard },
   { id: 'workforce', label: 'Staff, HR & Payroll', labelFr: 'Personnel, RH & Paie', shortLabel: 'HR', icon: Users },
   { id: 'accounting', label: 'Accounting & Reports', labelFr: 'Comptabilité & Rapports', shortLabel: 'Ledger', icon: BookOpen },
+  { id: 'hse-fraud', label: 'HSE, Fraud & Fuel QC', labelFr: 'HSE, Fraude & Qualité', shortLabel: 'HSE/QC', icon: ShieldAlert },
+  { id: 'enterprise-ops', label: 'Services & Network Ops', labelFr: 'Services & Réseau', shortLabel: 'Services', icon: Layers },
   { id: 'ai-assistant', label: 'AI Copilot', labelFr: 'Assistant IA', shortLabel: 'AI', icon: Sparkles },
   { id: 'mobile-app', label: 'Mobile App', labelFr: 'App Mobile', shortLabel: 'Mobile', icon: Smartphone },
   { id: 'api-platform', label: 'API & Events', labelFr: 'API & Webhooks', shortLabel: 'API', icon: Code2 },
@@ -97,6 +103,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
   activeSection,
   onSelectSection,
   onOpenOnboardingGuide,
+  onOpenGlobalSearch,
   onboardingCompletedCount,
   notifications,
   onRefreshNotifications,
@@ -123,8 +130,12 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
-    if (!sidebarOpen && !alertsOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        onOpenGlobalSearch?.();
+        return;
+      }
       if (e.key === 'Escape') {
         setSidebarOpen(false);
         setAlertsOpen(false);
@@ -132,7 +143,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [sidebarOpen, alertsOpen]);
+  }, [onOpenGlobalSearch]);
 
   const permittedItems = NAV_ITEMS.filter((item) => canAccessSection(role, item.id));
   const preferredMobileIds: ConsoleSection[] =
@@ -379,6 +390,21 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {onOpenGlobalSearch && (
+              <button
+                type="button"
+                onClick={onOpenGlobalSearch}
+                aria-label="Global Search and Audit Evidence"
+                className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800 min-h-[38px]"
+              >
+                <Search className="w-3.5 h-3.5 text-slate-600" />
+                <span className="hidden md:inline">{t('Search', 'Rechercher')}</span>
+                <span className="hidden lg:inline font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+                  ⌘K
+                </span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}

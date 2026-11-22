@@ -156,3 +156,59 @@ export function printShopPosThermalSlip(params: {
   `;
   openThermalPrintWindow(`Shop Receipt ${params.sku}`, body);
 }
+
+export function printServiceBayThermalSlip(params: {
+  stationName: string;
+  ticketId: string;
+  serviceCategory: string;
+  vehiclePlate: string;
+  customerName: string;
+  technicianName: string;
+  amountFcfa: number;
+  paymentMethod: string;
+}): void {
+  const body = `
+    <div class="center bold" style="font-size:13px;">OPESFUEL SERVICE BAY</div>
+    <div class="center">${params.stationName}</div>
+    <div class="center" style="font-size:10px;">CAR WASH &amp; LUBE PIT RECEIPT (80mm)</div>
+    <div class="hr"></div>
+    <div class="row"><span>Ticket #:</span><span class="bold">${params.ticketId}</span></div>
+    <div class="row"><span>Date:</span><span>${new Date().toLocaleString()}</span></div>
+    <div class="row"><span>Service:</span><span class="bold">${params.serviceCategory.replace(/_/g, ' ')}</span></div>
+    <div class="row"><span>Vehicle:</span><span class="bold">${params.vehiclePlate}</span></div>
+    <div class="row"><span>Customer:</span><span>${params.customerName}</span></div>
+    <div class="row"><span>Technician:</span><span>${params.technicianName}</span></div>
+    <div class="hr"></div>
+    <div class="row bold" style="font-size:13px;"><span>TOTAL PAID:</span><span>${formatFcfa(params.amountFcfa)}</span></div>
+    <div class="row"><span>Tender:</span><span>${params.paymentMethod}</span></div>
+    <div class="hr"></div>
+    <div class="center" style="margin-top:10px;font-size:9px;">Posted to Ancillary Revenue · OpesFuel</div>
+  `;
+  openThermalPrintWindow(`Service Bay ${params.ticketId}`, body);
+}
+
+export function printPrepaidVoucherThermalSlip(params: {
+  stationName: string;
+  voucherCode: string;
+  customerName: string;
+  issuedFcfa: number;
+  balanceFcfa: number;
+  loyaltyPoints: number;
+}): void {
+  const body = `
+    <div class="center bold" style="font-size:13px;">OPESFUEL PREPAID VOUCHER</div>
+    <div class="center">${params.stationName}</div>
+    <div class="center" style="font-size:10px;">LOYALTY &amp; FUEL CREDIT SLIP (80mm)</div>
+    <div class="hr"></div>
+    <div class="center bold" style="font-size:16px;letter-spacing:2px;margin:6px 0;">${params.voucherCode}</div>
+    <div class="hr"></div>
+    <div class="row"><span>Holder:</span><span class="bold">${params.customerName}</span></div>
+    <div class="row"><span>Original Value:</span><span>${formatFcfa(params.issuedFcfa)}</span></div>
+    <div class="row bold" style="font-size:13px;"><span>Remaining Bal:</span><span>${formatFcfa(params.balanceFcfa)}</span></div>
+    <div class="row"><span>Loyalty Points:</span><span class="bold">${params.loyaltyPoints} pts</span></div>
+    <div class="hr"></div>
+    <div class="center" style="margin-top:10px;font-size:9px;">Present code at any OpesFuel pump island</div>
+  `;
+  openThermalPrintWindow(`Fuel Voucher ${params.voucherCode}`, body);
+}
+
