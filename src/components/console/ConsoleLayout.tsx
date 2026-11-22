@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
+  Award,
   Bell,
   BookOpen,
   Building2,
@@ -12,16 +13,22 @@ import {
   Database,
   Fuel,
   Globe,
+  Headphones,
+  KeyRound,
   Layers,
   LayoutDashboard,
   LogOut,
   Menu,
   RefreshCw,
   Search,
+  Server,
   Shield,
   ShieldAlert,
+  ShieldCheck,
+  Sliders,
   Smartphone,
   Sparkles,
+  TrendingUp,
   Truck,
   UserCircle2,
   Users,
@@ -40,6 +47,7 @@ import { ConsoleSection, Station, TenantWorkspace, UserRole } from '../../domain
 import { useLanguage } from '../../i18n/LanguageContext';
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
 import { FormModal } from '../shared/FormModal';
+import type { PlatformAdminTab } from './PlatformAdminSection';
 
 export interface NotificationItem {
   id: string;
@@ -52,6 +60,15 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+export interface ActiveImpersonationSession {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  ticketId?: string;
+  reason: string;
+  startedAt: string;
+}
+
 interface ConsoleLayoutProps {
   tenant: TenantWorkspace;
   role: UserRole;
@@ -62,6 +79,10 @@ interface ConsoleLayoutProps {
   stations: Station[];
   activeSection: ConsoleSection;
   onSelectSection: (section: ConsoleSection) => void;
+  platformAdminTab?: PlatformAdminTab;
+  onSelectPlatformAdminTab?: (tab: PlatformAdminTab) => void;
+  impersonationSession?: ActiveImpersonationSession | null;
+  onEndImpersonation?: () => void;
   onOpenOnboardingGuide: () => void;
   onOpenGlobalSearch?: () => void;
   onboardingCompletedCount: number;
@@ -76,6 +97,20 @@ interface ConsoleLayoutProps {
   onDismissToast: () => void;
   children: React.ReactNode;
 }
+
+const SAAS_NAV_ITEMS: { id: PlatformAdminTab; label: string; labelFr: string; shortLabel: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'overview', label: 'Platform KPIs & MRR', labelFr: 'Performance SaaS & MRR', shortLabel: 'KPIs', icon: TrendingUp },
+  { id: 'tenants', label: 'Tenants Directory', labelFr: 'Clients & Tenants', shortLabel: 'Tenants', icon: Building2 },
+  { id: 'support', label: 'Support Desk', labelFr: 'Support & Tickets', shortLabel: 'Support', icon: Headphones },
+  { id: 'leads', label: 'Onboarding Leads', labelFr: 'Prospects & Leads', shortLabel: 'Leads', icon: Users },
+  { id: 'plans', label: 'Plans & Quotas', labelFr: 'Plans & Tarifs', shortLabel: 'Plans', icon: Sliders },
+  { id: 'invoices', label: 'Global Billing & MoMo', labelFr: 'Facturation & MoMo', shortLabel: 'Billing', icon: CreditCard },
+  { id: 'licenses', label: 'Enterprise Licenses', labelFr: 'Licences Entreprise', shortLabel: 'Licenses', icon: Award },
+  { id: 'integrations', label: 'API & MoMo Gateways', labelFr: 'Passerelles API & MoMo', shortLabel: 'APIs', icon: KeyRound },
+  { id: 'broadcasts', label: 'Broadcasts & Health', labelFr: 'Annonces & Santé', shortLabel: 'Health', icon: Server },
+  { id: 'governance', label: 'Global Governance', labelFr: 'Gouvernance SaaS', shortLabel: 'Gov', icon: ShieldCheck },
+  { id: 'audit', label: 'Security & Audit Log', labelFr: 'Sécurité & Audit', shortLabel: 'Audit', icon: ShieldAlert },
+];
 
 const NAV_ITEMS: { id: ConsoleSection; label: string; labelFr: string; shortLabel: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'platform-admin', label: 'SaaS Control Plane', labelFr: 'Contrôle SaaS', shortLabel: 'SaaS', icon: Crown },
@@ -103,6 +138,10 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
   stations,
   activeSection,
   onSelectSection,
+  platformAdminTab = 'overview',
+  onSelectPlatformAdminTab,
+  impersonationSession,
+  onEndImpersonation,
   onOpenOnboardingGuide,
   onOpenGlobalSearch,
   onboardingCompletedCount,
@@ -146,10 +185,14 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onOpenGlobalSearch]);
 
-  const permittedItems = NAV_ITEMS.filter((item) => canAccessSection(role, item.id));
+  const isSaasControlMode = role === 'PLATFORM_ADMIN' && !impersonationSession && activeSection === 'platform-admin';
+  const permittedItems = NAV_ITEMS.filter((item) => {
+    if (role === 'PLATFORM_ADMIN' && item.id === 'platform-admin') return false;
+    return canAccessSection(role, item.id);
+  });
   const preferredMobileIds: ConsoleSection[] =
     role === 'PLATFORM_ADMIN'
-      ? ['platform-admin', 'overview', 'admin', 'api-platform']
+      ? ['overview', 'forecourt', 'admin', 'api-platform']
       : role === 'GROUP_CFO'
       ? ['overview', 'accounting', 'inventory', 'ai-assistant']
       : role === 'ACCOUNTANT'
@@ -164,7 +207,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
     .filter((item): item is (typeof NAV_ITEMS)[number] => Boolean(item && canAccessSection(role, item.id)));
 
   const branding = useCompanyBranding(tenant.organizationName);
-  const canSeeSetupGuide = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
+  const canSeeSetupGuide = !isSaasControlMode && (role === 'OWNER' || role === 'MANAGER');
 
   useEffect(() => {
     setProfileName(authSession?.mode === 'AUTH0_OIDC' ? authSession.userName : profile.name);
@@ -174,7 +217,14 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
     <div className="flex flex-col h-full bg-slate-900 text-slate-200">
       <div className="px-5 py-4 flex items-center justify-between border-b border-slate-800">
         <div className="min-w-0 space-y-1">
-          {branding.logoDataUrl ? (
+          {isSaasControlMode ? (
+            <>
+              <OpesFuelLogo variant="light" size="md" />
+              <div className="text-[11px] font-mono uppercase tracking-wider text-amber-400 truncate pl-0.5">
+                SaaS Control Plane
+              </div>
+            </>
+          ) : branding.logoDataUrl ? (
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded bg-white p-1 flex items-center justify-center shrink-0">
                 <img
@@ -185,10 +235,10 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
               </div>
               <div className="min-w-0">
                 <div className="font-display text-sm font-bold text-white truncate">
-                  {branding.tradingName || tenant.organizationName}
+                  {impersonationSession?.tenantName || branding.tradingName || tenant.organizationName}
                 </div>
                 <div className="text-[10px] text-slate-400 truncate">
-                  {branding.legalName}
+                  {impersonationSession ? 'Support Impersonation Mode' : branding.legalName}
                 </div>
               </div>
             </div>
@@ -196,7 +246,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
             <>
               <OpesFuelLogo variant="light" size="md" />
               <div className="text-[11px] text-slate-400 truncate pl-0.5">
-                {branding.tradingName || tenant.organizationName}
+                {impersonationSession?.tenantName || branding.tradingName || tenant.organizationName}
               </div>
             </>
           )}
@@ -212,51 +262,100 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
       </div>
 
       <div className="p-4 space-y-1 flex-1 overflow-y-auto">
-        {permittedItems.map((item) => {
-          const Icon = item.icon;
-          const active = activeSection === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                onSelectSection(item.id);
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap min-h-[44px] ${
-                active
-                  ? 'bg-amber-600 text-white font-semibold'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{lang === 'fr' ? item.labelFr : item.label}</span>
-              </span>
-              {item.id === 'ai-assistant' && (
-                <span className="font-mono text-[10px] uppercase tracking-wider text-amber-300">
-                  {tenant.aiSubscription.active ? 'ON' : 'PRO'}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {isSaasControlMode ? (
+          <>
+            <div className="px-3 pb-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-500">
+              Platform Administration
+            </div>
+            {SAAS_NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active = platformAdminTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectPlatformAdminTab?.(item.id);
+                    onSelectSection('platform-admin');
+                    setSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap min-h-[42px] ${
+                    active
+                      ? 'bg-amber-600 text-white font-semibold'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span>{lang === 'fr' ? item.labelFr : item.label}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        ) : (
+          <>
+            {role === 'PLATFORM_ADMIN' && (
+              <button
+                type="button"
+                onClick={() => {
+                  onEndImpersonation?.();
+                  onSelectSection('platform-admin');
+                  setSidebarOpen(false);
+                }}
+                className="w-full mb-2 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold min-h-[42px]"
+              >
+                <Crown className="w-4 h-4 shrink-0" />
+                <span>← Exit to SaaS Control Plane</span>
+              </button>
+            )}
+            {permittedItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectSection(item.id);
+                    setSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap min-h-[44px] ${
+                    active
+                      ? 'bg-amber-600 text-white font-semibold'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span>{lang === 'fr' ? item.labelFr : item.label}</span>
+                  </span>
+                  {item.id === 'ai-assistant' && (
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-amber-300">
+                      {tenant.aiSubscription.active ? 'ON' : 'PRO'}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
 
-        {canSeeSetupGuide && (
-          <button
-            type="button"
-            onClick={() => {
-              setSidebarOpen(false);
-              onOpenOnboardingGuide();
-            }}
-            className="w-full mt-3 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-700 bg-slate-800/70 hover:bg-slate-800 text-xs font-semibold text-amber-300 min-h-[44px]"
-          >
-            <span className="flex items-center gap-2.5">
-              <Compass className="w-4 h-4 shrink-0" />
-              <span>Setup Guide</span>
-            </span>
-            <span className="font-mono text-[11px]">{onboardingCompletedCount}/5</span>
-          </button>
+            {canSeeSetupGuide && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  onOpenOnboardingGuide();
+                }}
+                className="w-full mt-3 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-700 bg-slate-800/70 hover:bg-slate-800 text-xs font-semibold text-amber-300 min-h-[44px]"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Compass className="w-4 h-4 shrink-0" />
+                  <span>Setup Guide</span>
+                </span>
+                <span className="font-mono text-[11px]">{onboardingCompletedCount}/5</span>
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -399,20 +498,26 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 bg-white">
-        {role === 'PLATFORM_ADMIN' && activeSection !== 'platform-admin' && (
-          <div className="bg-[#0F172A] text-white px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-xs no-print">
-            <div className="flex items-center gap-2">
-              <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>
-                <strong>SaaS Super-Admin Support Mode</strong> — Inspecting tenant operations ({tenant.organizationName}).
+        {role === 'PLATFORM_ADMIN' && (impersonationSession || activeSection !== 'platform-admin') && (
+          <div className="bg-[#0F172A] text-white px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs no-print border-b border-amber-500/40">
+            <div className="flex items-center gap-2 min-w-0">
+              <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="truncate">
+                <strong className="text-amber-300">AUDITED SUPPORT IMPERSONATION ACTIVE</strong> · Tenant:{' '}
+                <strong>{impersonationSession?.tenantName ?? tenant.organizationName}</strong>
+                {impersonationSession?.reason ? ` · Reason: "${impersonationSession.reason}"` : ''}
+                {impersonationSession?.id ? ` · Session ${impersonationSession.id}` : ''}
               </span>
             </div>
             <button
               type="button"
-              onClick={() => onSelectSection('platform-admin')}
-              className="px-3 py-1 rounded bg-[#D97706] hover:bg-amber-700 text-white font-semibold text-[11px]"
+              onClick={() => {
+                onEndImpersonation?.();
+                onSelectSection('platform-admin');
+              }}
+              className="px-3.5 py-1.5 rounded bg-[#D97706] hover:bg-amber-700 text-white font-semibold text-[11px] shrink-0"
             >
-              Return to SaaS Control Plane
+              End Support Session &amp; Return to SaaS Control Plane
             </button>
           </div>
         )}
@@ -642,23 +747,44 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
           aria-label="Mobile quick navigation"
           className="md:hidden fixed bottom-0 inset-x-0 z-30 h-14 bg-white border-t border-slate-200 grid grid-cols-5 no-print"
         >
-          {mobileBarItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeSection === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelectSection(item.id)}
-                className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${
-                  active ? 'text-amber-700' : 'text-slate-600'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{item.shortLabel}</span>
-              </button>
-            );
-          })}
+          {isSaasControlMode
+            ? SAAS_NAV_ITEMS.filter((i) => ['overview', 'tenants', 'support', 'invoices'].includes(i.id)).map((item) => {
+                const Icon = item.icon;
+                const active = platformAdminTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      onSelectPlatformAdminTab?.(item.id);
+                      onSelectSection('platform-admin');
+                    }}
+                    className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${
+                      active ? 'text-amber-700' : 'text-slate-600'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.shortLabel}</span>
+                  </button>
+                );
+              })
+            : mobileBarItems.map((item) => {
+                const Icon = item.icon;
+                const active = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onSelectSection(item.id)}
+                    className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${
+                      active ? 'text-amber-700' : 'text-slate-600'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.shortLabel}</span>
+                  </button>
+                );
+              })}
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,6 +10,7 @@ import {
   ToggleRight,
   Wrench,
 } from 'lucide-react';
+import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { formatFcfa } from '../../domain/formatters';
 
 interface TenantFeatureRow {
@@ -25,6 +26,7 @@ interface TenantFeatureRow {
 }
 
 interface PlatformGovernanceControlsPanelProps {
+  engine: OpesFuelApiEngine;
   tenants: Array<Record<string, unknown>>;
   onPostBackend?: (path: string, method: 'POST' | 'PATCH' | 'PUT', body?: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
   onEnterSupportView?: () => void;
@@ -32,12 +34,13 @@ interface PlatformGovernanceControlsPanelProps {
 }
 
 export const PlatformGovernanceControlsPanel: React.FC<PlatformGovernanceControlsPanelProps> = ({
+  engine,
   tenants,
   onPostBackend,
   onEnterSupportView,
   onNotify,
 }) => {
-  // Global SaaS Platform Controls
+  // Global SaaS Platform Controls (hydrated from GET /api/v1/platform-admin/governance/settings)
   const [xafPerUsdRate, setXafPerUsdRate] = useState('605');
   const [defaultTrialDays, setDefaultTrialDays] = useState('14');
   const [gracePeriodDays, setGracePeriodDays] = useState('7');
@@ -47,27 +50,83 @@ export const PlatformGovernanceControlsPanel: React.FC<PlatformGovernanceControl
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceBanner, setMaintenanceBanner] = useState('');
   const [savingGlobal, setSavingGlobal] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Per-Tenant Feature Flag Matrix
-  const [featureRows, setFeatureRows] = useState<TenantFeatureRow[]>(() =>
-    (tenants.length > 0
-      ? tenants
-      : [
-          { id: 'ten_opes_cm', name: 'OpesFuel Cameroon Flagship' },
-          { id: 'ten_littoral', name: 'Littoral Energy Stations SARL' },
-        ]
-    ).map((t) => ({
-      tenantId: String(t.id ?? 'ten_default'),
-      tenantName: String(t.name ?? 'Customer Organization'),
-      aiCopilotEnabled: true,
-      hardwareBridgeEnabled: true,
-      ocppEvEnabled: true,
-      b2bWholesaleEnabled: true,
-      franchiseModeEnabled: false,
-      whiteLabelBrandingEnabled: true,
-      customMonthlyOverrideFcfa: '',
-    }))
-  );
+  // Per-Tenant Feature Flag Matrix (hydrated from GET /api/v1/platform-admin/governance/tenants/{id}/features)
+  const [featureRows, setFeatureRows] = useState<TenantFeatureRow[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const s = await engine.getPlatformGovernanceSettings();
+        if (!active || !s) return;
+        if (s.xafPerUsdRate != null) setXafPerUsdRate(String(s.xafPerUsdRate));
+        if (s.defaultTrialDays != null) setDefaultTrialDays(String(s.defaultTrialDays));
+        if (s.gracePeriodDays != null) setGracePeriodDays(String(s.gracePeriodDays));
+        if (s.aiAddonMonthlyFcfa != null) setAiAddonMonthlyFcfa(String(s.aiAddonMonthlyFcfa));
+        if (s.perpetualLicenseAnnualFcfa != null) setPerpetualLicenseAnnualFcfa(String(s.perpetualLicenseAnnualFcfa));
+        if (s.selfSignupEnabled != null) setSelfSignupEnabled(Boolean(s.selfSignupEnabled));
+        if (s.maintenanceMode != null) setMaintenanceMode(Boolean(s.maintenanceMode));
+        if (s.maintenanceBanner != null) setMaintenanceBanner(String(s.maintenanceBanner));
+        setHydrated(true);
+      } catch {
+        // Keep safe defaults
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [engine]);
+
+  useEffect(() => {
+    let active = true;
+    const source =
+      tenants.length > 0
+        ? tenants
+        : [
+            { id: 'ten_opes_cm', name: 'OpesFuel Cameroon Flagship' },
+            { id: 'ten_littoral', name: 'Littoral Energy Stations SARL' },
+          ];
+    (async () => {
+      const loaded = await Promise.all(
+        source.map(async (t) => {
+          const tid = String(t.id ?? 'ten_default');
+          const tname = String(t.name ?? 'Customer Organization');
+          try {
+            const flags = await engine.getPlatformTenantFeatures(tid);
+            return {
+              tenantId: tid,
+              tenantName: tname,
+              aiCopilotEnabled: flags.aiCopilotEnabled !== false,
+              hardwareBridgeEnabled: flags.hardwareBridgeEnabled !== false,
+              ocppEvEnabled: flags.ocppEvEnabled !== false,
+              b2bWholesaleEnabled: flags.b2bWholesaleEnabled !== false,
+              franchiseModeEnabled: Boolean(flags.franchiseModeEnabled),
+              whiteLabelBrandingEnabled: flags.whiteLabelBrandingEnabled !== false,
+              customMonthlyOverrideFcfa: flags.customMonthlyOverrideFcfa != null ? String(flags.customMonthlyOverrideFcfa) : '',
+            };
+          } catch {
+            return {
+              tenantId: tid,
+              tenantName: tname,
+              aiCopilotEnabled: true,
+              hardwareBridgeEnabled: true,
+              ocppEvEnabled: true,
+              b2bWholesaleEnabled: true,
+              franchiseModeEnabled: false,
+              whiteLabelBrandingEnabled: true,
+              customMonthlyOverrideFcfa: '',
+            };
+          }
+        })
+      );
+      if (active) setFeatureRows(loaded);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [engine, tenants]);
 
   const handleSaveGlobalSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,13 +142,13 @@ export const PlatformGovernanceControlsPanel: React.FC<PlatformGovernanceControl
         aiAddonMonthlyFcfa: Math.max(0, Number(aiAddonMonthlyFcfa) || 30000),
         perpetualLicenseAnnualFcfa: Math.max(0, Number(perpetualLicenseAnnualFcfa) || 5000000),
       };
-      if (onPostBackend) {
-        await onPostBackend('/api/v1/platform-admin/governance/settings', 'PUT', payload);
-      }
+      await engine.updatePlatformGovernanceSettings(payload);
       onNotify(
         'success',
         `Saved global SaaS platform settings (FX: 1 USD = ${payload.xafPerUsdRate} XAF · AI Add-on: ${formatFcfa(payload.aiAddonMonthlyFcfa)}/mo · Self-Signup: ${selfSignupEnabled ? 'ON' : 'PAUSED'}).`
       );
+    } catch (err) {
+      onNotify('error', err instanceof Error ? err.message : 'Unable to save global settings.');
     } finally {
       setSavingGlobal(false);
     }
@@ -120,7 +179,7 @@ export const PlatformGovernanceControlsPanel: React.FC<PlatformGovernanceControl
     }
     onNotify(
       'success',
-      `Updated module entitlements & custom price override for ${row.tenantName}.`
+      `Updated module entitlements & custom price override for ${row.tenantName}${hydrated ? ' (synced to backend)' : ''}.`
     );
   };
 

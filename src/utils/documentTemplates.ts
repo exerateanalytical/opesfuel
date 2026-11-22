@@ -921,3 +921,213 @@ export function printAuditEvidencePackPdf(params: {
   doc.save(`opesfuel-audit-evidence-pack-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
+/** 20. SaaS Executive Monthly Performance & MRR Board Report PDF (PLATFORM_ADMIN) */
+export function printSaasExecutiveBoardReportPdf(params: {
+  mrrFcfa: number;
+  arrFcfa: number;
+  arpuFcfa: number;
+  collectionRatePct: number;
+  churnRatePct: number;
+  activeTenants: number;
+  totalTenants: number;
+  trialTenants: number;
+  totalStations: number;
+  outstandingReceivablesFcfa: number;
+  momoSettledVolumeFcfa: number;
+  openSupportTickets: number;
+  edgeDevicesOnline: number;
+  edgeDevicesTotal: number;
+  tierBreakdown: Array<{ planName: string; tenantCount: number; stationCount: number; mrrFcfa: number; sharePct: number }>;
+  topTenants: Array<{ name: string; status: string; stationCount: number; monthlyMrrFcfa: number; planCode?: string }>;
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  let y = drawDocumentHeader(
+    doc,
+    'SAAS EXECUTIVE PERFORMANCE & MRR BOARD REPORT',
+    'OpesWare Technologies · Global Multi-Tenant Platform Intelligence',
+    `Report Date: ${new Date().toISOString().slice(0, 10)} | Active Tenants: ${params.activeTenants}/${params.totalTenants} | Stations: ${params.totalStations}`
+  );
+
+  autoTable(doc, {
+    startY: y,
+    head: [['SaaS Executive KPI', 'Verified Platform Metric']],
+    body: [
+      ['Global Monthly Recurring Revenue (MRR)', pdfMoney(params.mrrFcfa)],
+      ['Annualized Run Rate (ARR)', pdfMoney(params.arrFcfa)],
+      ['Average Revenue Per Tenant (ARPU)', pdfMoney(params.arpuFcfa)],
+      ['Active / Total Customer Tenants', `${params.activeTenants} active / ${params.totalTenants} total (${params.trialTenants} on trial)`],
+      ['Provisioned Petrol Station Sites', `${params.totalStations} stations`],
+      ['Billing Collection Rate / Overdue AR', `${params.collectionRatePct.toFixed(1)}% collected | AR: ${pdfMoney(params.outstandingReceivablesFcfa)}`],
+      ['Cameroon MoMo Settled Volume (MTN + Orange)', pdfMoney(params.momoSettledVolumeFcfa)],
+      ['Account Suspension / Churn Rate', `${params.churnRatePct.toFixed(1)}%`],
+      ['Customer Support Queue', `${params.openSupportTickets} open ticket(s)`],
+      ['On-Site Edge Agent Fleet Connectivity', `${params.edgeDevicesOnline} online / ${params.edgeDevicesTotal} registered`],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 8.5 },
+    columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  y = (doc.lastAutoTable?.finalY ?? y) + 7;
+  autoTable(doc, {
+    startY: y,
+    head: [['Subscription Plan Tier', 'Tenants', 'Stations', 'Monthly MRR (FCFA)', 'Revenue Share']],
+    body: params.tierBreakdown.map((t) => [
+      t.planName,
+      String(t.tenantCount),
+      String(t.stationCount),
+      pdfMoney(t.mrrFcfa),
+      `${t.sharePct.toFixed(1)}%`,
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+    bodyStyles: { fontSize: 8 },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'right' } },
+  });
+
+  y = (doc.lastAutoTable?.finalY ?? y) + 7;
+  autoTable(doc, {
+    startY: y,
+    head: [['Customer Tenant', 'Plan', 'Status', 'Stations', 'Monthly MRR (FCFA)']],
+    body: params.topTenants.slice(0, 12).map((t) => [
+      t.name,
+      (t.planCode || 'growth').toUpperCase(),
+      t.status,
+      String(t.stationCount),
+      pdfMoney(t.monthlyMrrFcfa),
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+    bodyStyles: { fontSize: 7.8 },
+    columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  drawSignatureFooter(doc, 'OpesWare CEO / SaaS Super-Admin', 'Board of Directors / Finance Review');
+  doc.save(`opesfuel-saas-executive-board-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/** 21. Multi-Sheet Global SaaS Billing & MoMo Reconciliation Workbook (.xlsx) */
+export function exportSaasGlobalReconciliationExcel(params: {
+  tenants: Array<Record<string, unknown>>;
+  leads: Array<Record<string, unknown>>;
+  invoices: Array<Record<string, unknown>>;
+  momoSettlements: Array<Record<string, unknown>>;
+  licenses: Array<Record<string, unknown>>;
+  tickets: Array<Record<string, unknown>>;
+}): void {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.tenants.length ? params.tenants : [{ info: 'No tenants' }]), 'SaaS Tenants');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.invoices.length ? params.invoices : [{ info: 'No invoices' }]), 'Global Invoices');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.momoSettlements.length ? params.momoSettlements : [{ info: 'No MoMo transactions' }]), 'Cameroon MoMo Ledger');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.licenses.length ? params.licenses : [{ info: 'No licenses' }]), 'Enterprise Licenses');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.tickets.length ? params.tickets : [{ info: 'No support tickets' }]), 'Support Tickets');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.leads.length ? params.leads : [{ info: 'No leads' }]), 'Onboarding Leads');
+  XLSX.writeFile(wb, `opesfuel-saas-global-reconciliation-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+/** 22. Super-Admin Security & Impersonation Audit Trail PDF & CSV */
+export function printSaasAuditTrailPdf(
+  logs: Array<{ createdAt?: string; tenantId?: string; actorEmail?: string; action?: string; entityType?: string; summary?: string }>
+): void {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const y = drawDocumentHeader(
+    doc,
+    'SAAS PLATFORM SECURITY & IMPERSONATION AUDIT TRAIL',
+    'OpesWare Control Plane · Cross-Tenant Super-Admin Activity Register',
+    `Exported: ${new Date().toISOString().slice(0, 19).replace('T', ' ')} UTC | Entries: ${logs.length}`
+  );
+  autoTable(doc, {
+    startY: y,
+    head: [['Timestamp (UTC)', 'Tenant Scope', 'Actor', 'Action', 'Entity', 'Summary']],
+    body: logs.slice(0, 80).map((l) => [
+      String(l.createdAt ?? '').slice(0, 19).replace('T', ' '),
+      String(l.tenantId ?? 'PLATFORM'),
+      String(l.actorEmail ?? 'superadmin'),
+      String(l.action ?? ''),
+      String(l.entityType ?? ''),
+      String(l.summary ?? ''),
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7.5 },
+    bodyStyles: { fontSize: 7 },
+  });
+  drawSignatureFooter(doc, 'Platform Security Officer', 'Chief Technology Officer');
+  doc.save(`opesfuel-platform-audit-trail-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+export function exportSaasAuditCsv(
+  logs: Array<{ createdAt?: string; tenantId?: string; actorEmail?: string; actorRole?: string; action?: string; entityType?: string; entityId?: string; summary?: string }>
+): void {
+  const headers = ['Timestamp', 'TenantId', 'ActorEmail', 'ActorRole', 'Action', 'EntityType', 'EntityId', 'Summary'];
+  const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [
+    headers.join(','),
+    ...logs.map((l) =>
+      [l.createdAt, l.tenantId, l.actorEmail, l.actorRole, l.action, l.entityType, l.entityId, l.summary].map(esc).join(',')
+    ),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `opesfuel-platform-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** 23. Branded Tenant Onboarding & SLA Welcome Dossier PDF */
+export function printTenantWelcomeDossierPdf(params: {
+  tenantId: string;
+  organizationName: string;
+  ownerEmail: string;
+  planName: string;
+  stationCount: number;
+  monthlyMrrFcfa: number;
+  trialEndsAt?: string | null;
+  countryCode?: string;
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  let y = drawDocumentHeader(
+    doc,
+    'TENANT ONBOARDING & SLA WELCOME DOSSIER',
+    'OpesFuel SaaS Petrol Station Operating System · Provisioning Certificate',
+    `Tenant ID: ${params.tenantId} | Issued: ${new Date().toISOString().slice(0, 10)} | Region: ${params.countryCode || 'CM'}`
+  );
+  autoTable(doc, {
+    startY: y,
+    head: [['Workspace Provisioning Detail', 'Authorized Value']],
+    body: [
+      ['Organization Legal / Workspace Name', params.organizationName],
+      ['Primary Owner Account Email', params.ownerEmail],
+      ['Subscribed SaaS Plan', params.planName],
+      ['Provisioned Petrol Station Sites', String(params.stationCount)],
+      ['Monthly Subscription Commitment', pdfMoney(params.monthlyMrrFcfa)],
+      ['Trial Period Expiry', params.trialEndsAt ? params.trialEndsAt.slice(0, 10) : 'Active Paid Subscription'],
+      ['Console Sign-In URL', 'https://app.opesfuel.com/#/login'],
+      ['Public Verification Portal', 'https://app.opesfuel.com/#/verify'],
+      ['Support Desk & SLA Guarantee', 'support@opesware.com · Urgent P1 SLA: 2 Hours · Uptime: 99.9%'],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 8.5 },
+    columnStyles: { 1: { fontStyle: 'bold' } },
+  });
+  y = (doc.lastAutoTable?.finalY ?? y) + 8;
+  doc.setFontSize(8.5);
+  doc.setTextColor(51, 65, 85);
+  doc.text('Onboarding Activation Checklist:', 14, y);
+  const steps = [
+    '1. Sign in with your Owner Email / Member ID and complete your Company Legal Branding (NIU, RCCM, CNPS, Logo).',
+    '2. Configure your petrol station tanks, fuel grades, pumps, and opening meter totalizers.',
+    '3. Invite Station Managers, Accountants, and Attendants via Staff & HR.',
+    '4. Connect MTN MoMo / Orange Money Cameroon or on-site Edge Agent hardware via Admin & Billing.',
+  ];
+  steps.forEach((s, idx) => {
+    doc.text(s, 14, y + 6 + idx * 5.5);
+  });
+  drawSignatureFooter(doc, 'OpesWare Onboarding & Success Desk', `Tenant Owner (${params.ownerEmail})`);
+  doc.save(`opesfuel-welcome-dossier-${params.tenantId}.pdf`);
+}
+
+

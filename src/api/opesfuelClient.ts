@@ -3476,11 +3476,243 @@ export class OpesFuelApiEngine {
     countryCode: string;
     timezone: string;
     status: string;
+    planCode: string;
+    trialEndsAt: string | null;
+    billingStatus: string;
     stationCount: number;
     employeeCount: number;
     monthlyMrrFcfa: number;
+    openTicketsCount: number;
+    edgeDevicesOnline: number;
     createdAt: string;
   }> | null = null;
+
+  private previewPlatformTickets: Array<Record<string, unknown>> = [
+    {
+      id: 'tkt_seed_01',
+      ticketNumber: 'SUP-2026-0101',
+      tenantId: 'ten_opes_cm',
+      tenantName: 'OpesFuel Cameroon Flagship',
+      stationId: 'st_plateau',
+      requesterEmail: 'owner@opesfuel.cm',
+      subject: 'Verify MTN MoMo webhook callback timeout on Station Plateau',
+      category: 'PAYMENTS_MOMO',
+      priority: 'HIGH',
+      status: 'OPEN',
+      assignedTo: 'superadmin@opesware.com',
+      slaDueAt: new Date(Date.now() + 3600_000 * 4).toISOString(),
+      resolvedAt: null,
+      messageCount: 1,
+      createdAt: new Date(Date.now() - 3600_000 * 2).toISOString(),
+      updatedAt: new Date(Date.now() - 3600_000 * 2).toISOString(),
+    },
+    {
+      id: 'tkt_seed_02',
+      ticketNumber: 'SUP-2026-0102',
+      tenantId: 'ten_atlantic_oil',
+      tenantName: 'Atlantic Petroleum Cameroon SA',
+      stationId: 'st_akwa',
+      requesterEmail: 'ceo@atlanticoil.cm',
+      subject: 'Edge Agent TLS certificate renewal for Wayne Dart pumps',
+      category: 'EDGE_HARDWARE',
+      priority: 'URGENT',
+      status: 'IN_PROGRESS',
+      assignedTo: 'superadmin@opesware.com',
+      slaDueAt: new Date(Date.now() + 3600_000 * 1.5).toISOString(),
+      resolvedAt: null,
+      messageCount: 2,
+      createdAt: new Date(Date.now() - 3600_000 * 6).toISOString(),
+      updatedAt: new Date(Date.now() - 1800_000).toISOString(),
+    },
+  ];
+
+  private previewTicketMessages: Record<string, Array<Record<string, unknown>>> = {
+    tkt_seed_01: [
+      {
+        id: 'tmsg_01',
+        ticketId: 'tkt_seed_01',
+        senderEmail: 'owner@opesfuel.cm',
+        senderRole: 'OWNER',
+        internalNote: false,
+        body: 'We completed a subscription payment via MTN MoMo Cameroon and would like confirmation that the production callback URL is active on our workspace.',
+        createdAt: new Date(Date.now() - 3600_000 * 2).toISOString(),
+      },
+    ],
+    tkt_seed_02: [
+      {
+        id: 'tmsg_02',
+        ticketId: 'tkt_seed_02',
+        senderEmail: 'ceo@atlanticoil.cm',
+        senderRole: 'OWNER',
+        internalNote: false,
+        body: 'Our Douala Akwa Edge Agent device shows 4 queued pump readings waiting for sync.',
+        createdAt: new Date(Date.now() - 3600_000 * 6).toISOString(),
+      },
+      {
+        id: 'tmsg_03',
+        ticketId: 'tkt_seed_02',
+        senderEmail: 'superadmin@opesware.com',
+        senderRole: 'PLATFORM_ADMIN',
+        internalNote: true,
+        body: 'Checked heartbeat telemetry: outbox depth is 4, rotating edge API key next.',
+        createdAt: new Date(Date.now() - 1800_000).toISOString(),
+      },
+    ],
+  };
+
+  private previewImpersonations: Array<Record<string, unknown>> = [];
+
+  private previewGlobalInvoices: Array<Record<string, unknown>> = [
+    {
+      id: 'ginv_01',
+      tenantId: 'ten_opes_cm',
+      tenantName: 'OpesFuel Cameroon Flagship',
+      invoiceNumber: 'OPF-SAAS-2026-011',
+      periodLabel: '2026-11',
+      stationCount: 2,
+      totalFcfa: 110000,
+      paidFcfa: 110000,
+      status: 'PAID',
+      channel: 'ORANGE_MONEY',
+      dueDate: new Date(Date.now() + 86400_000 * 10).toISOString(),
+      createdAt: new Date(Date.now() - 86400_000 * 4).toISOString(),
+    },
+    {
+      id: 'ginv_02',
+      tenantId: 'ten_atlantic_oil',
+      tenantName: 'Atlantic Petroleum Cameroon SA',
+      invoiceNumber: 'OPF-SAAS-2026-012',
+      periodLabel: '2026-11',
+      stationCount: 4,
+      totalFcfa: 480000,
+      paidFcfa: 480000,
+      status: 'PAID',
+      channel: 'MTN_MOMO',
+      dueDate: new Date(Date.now() + 86400_000 * 12).toISOString(),
+      createdAt: new Date(Date.now() - 86400_000 * 3).toISOString(),
+    },
+    {
+      id: 'ginv_03',
+      tenantId: 'ten_sahel_energies',
+      tenantName: 'Sahel Energies Nord',
+      invoiceNumber: 'OPF-SAAS-2026-013',
+      periodLabel: '2026-11',
+      stationCount: 2,
+      totalFcfa: 110000,
+      paidFcfa: 0,
+      status: 'OVERDUE',
+      channel: 'UNSETTLED',
+      dueDate: new Date(Date.now() - 86400_000 * 3).toISOString(),
+      createdAt: new Date(Date.now() - 86400_000 * 17).toISOString(),
+    },
+  ];
+
+  private previewMomoSettlements: Array<Record<string, unknown>> = [
+    {
+      id: 'momo_tx_01',
+      tenantId: 'ten_atlantic_oil',
+      tenantName: 'Atlantic Petroleum Cameroon SA',
+      targetType: 'SAAS_INVOICE',
+      targetId: 'ginv_02',
+      provider: 'MTN_MOMO',
+      environment: 'mtn_cameroon',
+      msisdn: '237677112233',
+      amountFcfa: 480000,
+      referenceId: 'MOMO-CM-882011',
+      providerTxId: 'FIN-MTN-9920144',
+      status: 'SUCCESSFUL',
+      createdAt: new Date(Date.now() - 86400_000 * 2).toISOString(),
+      settledAt: new Date(Date.now() - 86400_000 * 2 + 12000).toISOString(),
+    },
+    {
+      id: 'momo_tx_02',
+      tenantId: 'ten_opes_cm',
+      tenantName: 'OpesFuel Cameroon Flagship',
+      targetType: 'SAAS_INVOICE',
+      targetId: 'ginv_01',
+      provider: 'ORANGE_MONEY',
+      environment: 'orange_cm',
+      msisdn: '237699445566',
+      amountFcfa: 110000,
+      referenceId: 'OM-CM-441098',
+      providerTxId: 'OMWP-772190',
+      status: 'SUCCESSFUL',
+      createdAt: new Date(Date.now() - 86400_000 * 3).toISOString(),
+      settledAt: new Date(Date.now() - 86400_000 * 3 + 18000).toISOString(),
+    },
+  ];
+
+  private previewLicenses: Array<Record<string, unknown>> = [
+    {
+      id: 'lic_01',
+      licenseKey: 'OPF-ENT-2026-8841-CMR',
+      tenantId: 'ten_atlantic_oil',
+      organizationName: 'Atlantic Petroleum Cameroon SA',
+      tierName: 'Enterprise On-Premises Perpetual',
+      maxStations: 25,
+      annualFeeFcfa: 5000000,
+      expiresAt: '2027-11-30',
+      status: 'ACTIVE',
+      issuedBy: 'superadmin@opesware.com',
+      issuedAt: new Date(Date.now() - 86400_000 * 30).toISOString(),
+    },
+  ];
+
+  private previewBroadcasts: Array<Record<string, unknown>> = [
+    {
+      id: 'bc_01',
+      channel: 'IN_APP',
+      audience: 'ALL_ACTIVE',
+      title: 'SYSCOHADA 2026 Tax & Margin Compliance Update',
+      message: 'All OpesFuel workspaces now include automated Cameroon MTN MoMo & Orange Money reconciliation and verifiable QR security documents.',
+      recipientCount: 3,
+      dispatchedCount: 3,
+      sentBy: 'superadmin@opesware.com',
+      sentAt: new Date(Date.now() - 86400_000 * 2).toISOString(),
+    },
+  ];
+
+  private previewPlatformAuditLogs: Array<Record<string, unknown>> = [
+    {
+      id: 'paud_01',
+      tenantId: 'PLATFORM',
+      actorEmail: 'superadmin@opesware.com',
+      actorRole: '[ROLE_PLATFORM_ADMIN]',
+      action: 'PLATFORM_SETTINGS_UPDATED',
+      entityType: 'PLATFORM_SETTINGS',
+      entityId: 'global',
+      summary: 'Verified Cameroon FX rate (605 XAF/USD) and 14-day default trial policy.',
+      createdAt: new Date(Date.now() - 3600_000 * 5).toISOString(),
+    },
+    {
+      id: 'paud_02',
+      tenantId: 'ten_atlantic_oil',
+      actorEmail: 'superadmin@opesware.com',
+      actorRole: '[ROLE_PLATFORM_ADMIN]',
+      action: 'ENTERPRISE_LICENSE_ISSUED',
+      entityType: 'ENTERPRISE_LICENSE',
+      entityId: 'lic_01',
+      summary: 'Issued sovereign license OPF-ENT-2026-8841-CMR (25 stations) to Atlantic Petroleum Cameroon SA.',
+      createdAt: new Date(Date.now() - 86400_000 * 3).toISOString(),
+    },
+  ];
+
+  private previewGovernanceSettings: Record<string, unknown> = {
+    xafPerUsdRate: 605,
+    defaultTrialDays: 14,
+    gracePeriodDays: 7,
+    selfSignupEnabled: true,
+    maintenanceMode: false,
+    maintenanceBanner: '',
+    aiAddonMonthlyFcfa: 30000,
+    perpetualLicenseAnnualFcfa: 5000000,
+  };
+
+  private previewGovernancePlans: Array<Record<string, unknown>> = [
+    { plan_code: 'starter', plan_name: 'Starter Station', monthly_price_fcfa: 25000, monthly_price_usd: 41.32, max_stations: 1, max_pumps: 6, trial_days: 14, active: true },
+    { plan_code: 'growth', plan_name: 'Multi-Pump Pro', monthly_price_fcfa: 55000, monthly_price_usd: 90.91, max_stations: 5, max_pumps: 18, trial_days: 14, active: true },
+    { plan_code: 'enterprise', plan_name: 'Network Enterprise', monthly_price_fcfa: 120000, monthly_price_usd: 198.35, max_stations: 999, max_pumps: 999, trial_days: 30, active: true },
+  ];
 
   private previewPlatformLeads: Array<{
     id: string;
@@ -3531,9 +3763,14 @@ export class OpesFuelApiEngine {
         countryCode: 'CM',
         timezone: 'Africa/Douala',
         status: 'ACTIVE',
+        planCode: 'growth',
+        trialEndsAt: null,
+        billingStatus: 'CURRENT',
         stationCount: this.state.stations.length,
         employeeCount: this.state.employees.length,
         monthlyMrrFcfa: currentMrr,
+        openTicketsCount: 1,
+        edgeDevicesOnline: 2,
         createdAt: this.state.tenant.createdAt,
       },
       {
@@ -3543,9 +3780,14 @@ export class OpesFuelApiEngine {
         countryCode: 'CM',
         timezone: 'Africa/Douala',
         status: 'ACTIVE',
+        planCode: 'enterprise',
+        trialEndsAt: null,
+        billingStatus: 'CURRENT',
         stationCount: 4,
         employeeCount: 26,
         monthlyMrrFcfa: 480000,
+        openTicketsCount: 1,
+        edgeDevicesOnline: 3,
         createdAt: new Date(Date.now() - 86400_000 * 42).toISOString(),
       },
       {
@@ -3555,9 +3797,14 @@ export class OpesFuelApiEngine {
         countryCode: 'CM',
         timezone: 'Africa/Douala',
         status: 'ACTIVE',
+        planCode: 'starter',
+        trialEndsAt: new Date(Date.now() + 86400_000 * 9).toISOString(),
+        billingStatus: 'TRIAL',
         stationCount: 2,
         employeeCount: 11,
-        monthlyMrrFcfa: 110000,
+        monthlyMrrFcfa: 50000,
+        openTicketsCount: 0,
+        edgeDevicesOnline: 1,
         createdAt: new Date(Date.now() - 86400_000 * 19).toISOString(),
       },
     ];
@@ -3586,22 +3833,60 @@ export class OpesFuelApiEngine {
       const tenants = this.ensurePreviewPlatformTenants();
       const stationMrrFcfa = tenants.reduce((s, t) => s + t.monthlyMrrFcfa, 0);
       const aiAddonMrrFcfa = this.state.tenant.aiSubscription.active ? this.state.tenant.aiSubscription.monthlyFeeFcfa : 0;
-      const totalBilledFcfa = this.previewInvoices.reduce((s, i) => s + i.totalFcfa, 0) + stationMrrFcfa;
-      const totalCollectedFcfa = this.previewInvoices.reduce((s, i) => s + i.paidFcfa, 0) + Math.round(stationMrrFcfa * 0.85);
+      const totalPlatformMrrFcfa = stationMrrFcfa + aiAddonMrrFcfa;
+      const totalBilledFcfa = this.previewGlobalInvoices.reduce((s, i) => s + Number(i.totalFcfa ?? 0), 0);
+      const totalCollectedFcfa = this.previewGlobalInvoices.reduce((s, i) => s + Number(i.paidFcfa ?? 0), 0);
+      const activeTenants = tenants.filter((t) => t.status === 'ACTIVE').length;
+      const suspendedTenants = tenants.filter((t) => t.status === 'SUSPENDED').length;
+      const trialTenants = tenants.filter((t) => t.trialEndsAt && new Date(t.trialEndsAt).getTime() > Date.now()).length;
+      const openTickets = this.previewPlatformTickets.filter((t) => ['OPEN', 'IN_PROGRESS', 'WAITING_TENANT', 'ESCALATED'].includes(String(t.status)));
+      const urgentTickets = openTickets.filter((t) => ['HIGH', 'URGENT'].includes(String(t.priority)));
+      const tierDefs = [
+        { planCode: 'starter', planName: 'Starter Station' },
+        { planCode: 'growth', planName: 'Multi-Pump Pro' },
+        { planCode: 'enterprise', planName: 'Network Enterprise' },
+      ];
+      const planTierBreakdown = tierDefs.map((def) => {
+        const group = tenants.filter((t) => (t.planCode || 'growth') === def.planCode);
+        const mrr = group.reduce((s, t) => s + t.monthlyMrrFcfa, 0);
+        return {
+          planCode: def.planCode,
+          planName: def.planName,
+          tenantCount: group.length,
+          stationCount: group.reduce((s, t) => s + t.stationCount, 0),
+          mrrFcfa: mrr,
+          sharePct: stationMrrFcfa > 0 ? Math.round((mrr * 1000) / stationMrrFcfa) / 10 : 0,
+        };
+      });
       return Promise.resolve({
         totalTenants: tenants.length,
-        activeTenants: tenants.filter((t) => t.status === 'ACTIVE').length,
-        suspendedTenants: tenants.filter((t) => t.status === 'SUSPENDED').length,
+        activeTenants,
+        suspendedTenants,
+        trialTenants,
         totalStations: tenants.reduce((s, t) => s + t.stationCount, 0),
-        totalPlatformMrrFcfa: stationMrrFcfa + aiAddonMrrFcfa,
+        totalPlatformMrrFcfa,
         stationMrrFcfa,
         aiAddonMrrFcfa,
         activeAiAddons: this.state.tenant.aiSubscription.active ? 2 : 1,
         totalBilledFcfa,
         totalCollectedFcfa,
         outstandingReceivablesFcfa: Math.max(0, totalBilledFcfa - totalCollectedFcfa),
+        collectionRatePct: totalBilledFcfa > 0 ? Math.round((totalCollectedFcfa * 1000) / totalBilledFcfa) / 10 : 100,
+        arpuFcfa: activeTenants > 0 ? Math.round(totalPlatformMrrFcfa / activeTenants) : 0,
+        churnRatePct: tenants.length > 0 ? Math.round((suspendedTenants * 1000) / tenants.length) / 10 : 0,
         openLeadsCount: this.previewPlatformLeads.filter((l) => ['RECEIVED', 'CONTACTED', 'QUALIFIED'].includes(l.status)).length,
         totalEmployees: tenants.reduce((s, t) => s + t.employeeCount, 0),
+        openSupportTickets: openTickets.length,
+        urgentSupportTickets: urgentTickets.length,
+        edgeDevicesTotal: 7,
+        edgeDevicesOnline: tenants.reduce((s, t) => s + t.edgeDevicesOnline, 0),
+        failedWebhooks24h: 0,
+        momoSettledVolumeFcfa: this.previewMomoSettlements
+          .filter((m) => m.status === 'SUCCESSFUL')
+          .reduce((s, m) => s + Number(m.amountFcfa ?? 0), 0),
+        momoSettledCount: this.previewMomoSettlements.filter((m) => m.status === 'SUCCESSFUL').length,
+        activeLicensesCount: this.previewLicenses.filter((l) => l.status === 'ACTIVE').length,
+        planTierBreakdown,
         generatedAt: new Date().toISOString(),
       });
     }
@@ -3615,16 +3900,222 @@ export class OpesFuelApiEngine {
     return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/tenants', { token });
   }
 
+  createPlatformTenant(
+    payload: { name: string; ownerEmail: string; countryCode?: string; city?: string; planCode?: string; initialStations: number; trialDays?: number },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const list = this.ensurePreviewPlatformTenants();
+      const planCode = payload.planCode || 'growth';
+      const fee = planCode === 'starter' ? 25000 : planCode === 'enterprise' ? 120000 : 55000;
+      const created = {
+        id: `ten_${Date.now().toString(36)}`,
+        name: payload.name,
+        ownerEmail: payload.ownerEmail,
+        countryCode: payload.countryCode || 'CM',
+        timezone: 'Africa/Douala',
+        status: 'ACTIVE',
+        planCode,
+        trialEndsAt: (payload.trialDays ?? 14) > 0 ? new Date(Date.now() + 86400_000 * (payload.trialDays ?? 14)).toISOString() : null,
+        billingStatus: (payload.trialDays ?? 14) > 0 ? 'TRIAL' : 'CURRENT',
+        stationCount: Math.max(1, payload.initialStations),
+        employeeCount: 1,
+        monthlyMrrFcfa: Math.max(1, payload.initialStations) * fee,
+        openTicketsCount: 0,
+        edgeDevicesOnline: 0,
+        createdAt: new Date().toISOString(),
+      };
+      list.unshift(created);
+      this.previewPlatformAuditLogs.unshift({
+        id: `paud_${Date.now().toString(36)}`,
+        tenantId: created.id,
+        actorEmail: 'superadmin@opesware.com',
+        actorRole: '[ROLE_PLATFORM_ADMIN]',
+        action: 'PLATFORM_TENANT_PROVISIONED',
+        entityType: 'TENANT',
+        entityId: created.id,
+        summary: `Provisioned ${created.name} (${created.ownerEmail}) on ${planCode} with ${created.stationCount} station(s).`,
+        createdAt: new Date().toISOString(),
+      });
+      return Promise.resolve(created);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/tenants', {
+      method: 'POST',
+      body: payload,
+      token,
+    });
+  }
+
+  getPlatformTenantDetail(tenantId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const list = this.ensurePreviewPlatformTenants();
+      const t = list.find((item) => item.id === tenantId) ?? list[0];
+      const planName = t.planCode === 'starter' ? 'Starter Station' : t.planCode === 'enterprise' ? 'Network Enterprise' : 'Multi-Pump Pro';
+      const stations =
+        t.id === this.state.tenant.tenantId
+          ? this.state.stations.map((s) => ({
+              id: s.id,
+              code: s.code,
+              name: s.name,
+              city: s.city,
+              plan_name: s.planName,
+              monthly_fee_fcfa: s.monthlyFeeFcfa,
+              pump_count: this.state.pumps.filter((p) => p.stationId === s.id).length,
+              tank_count: this.state.tanks.filter((tk) => tk.stationId === s.id).length,
+            }))
+          : Array.from({ length: Math.max(1, t.stationCount) }, (_, idx) => ({
+              id: `${t.id}_st_${idx + 1}`,
+              code: `ST-${idx + 1}`,
+              name: `${t.name} Site #${idx + 1}`,
+              city: idx % 2 === 0 ? 'Douala' : 'Yaoundé',
+              plan_name: planName,
+              monthly_fee_fcfa: Math.round(t.monthlyMrrFcfa / Math.max(1, t.stationCount)),
+              pump_count: 6,
+              tank_count: 3,
+            }));
+      return Promise.resolve({
+        ...t,
+        planName,
+        branding: {
+          legal_name: t.name,
+          trading_name: t.name,
+          tax_id_niu: 'M052614892011X',
+          rccm_number: 'RC/DLA/2024/B/4192',
+          city: 'Douala',
+          phone: '+237 699 00 11 22',
+          email: t.ownerEmail,
+        },
+        stations,
+        users: [
+          { id: `usr_${t.id}`, full_name: 'Primary Owner', email: t.ownerEmail, role: 'OWNER', phone: '+237 699 00 11 22' },
+        ],
+        invoices: this.previewGlobalInvoices.filter((inv) => inv.tenantId === t.id),
+        momoTransactions: this.previewMomoSettlements.filter((m) => m.tenantId === t.id),
+        edgeDevices: Array.from({ length: t.edgeDevicesOnline }, (_, idx) => ({
+          id: `edge_${t.id}_${idx + 1}`,
+          device_name: `Forecourt Pi Gateway #${idx + 1}`,
+          agent_version: '1.2.0',
+          status: 'ONLINE',
+          outbox_depth: 0,
+          last_heartbeat_at: new Date(Date.now() - 45_000).toISOString(),
+        })),
+        supportTickets: this.previewPlatformTickets.filter((tk) => tk.tenantId === t.id),
+        recentAuditLogs: this.previewPlatformAuditLogs.filter((l) => l.tenantId === t.id || l.entityId === t.id),
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(`/platform-admin/tenants/${encodeURIComponent(tenantId)}`, { token });
+  }
+
   updatePlatformTenantStatus(tenantId: string, status: 'ACTIVE' | 'SUSPENDED', token?: string | null) {
     if (!this.springBootBaseUrl) {
       const list = this.ensurePreviewPlatformTenants();
       const target = list.find((t) => t.id === tenantId);
       if (target) target.status = status;
+      this.previewPlatformAuditLogs.unshift({
+        id: `paud_${Date.now().toString(36)}`,
+        tenantId,
+        actorEmail: 'superadmin@opesware.com',
+        actorRole: '[ROLE_PLATFORM_ADMIN]',
+        action: `TENANT_STATUS_${status}`,
+        entityType: 'TENANT',
+        entityId: tenantId,
+        summary: `Changed tenant ${target?.name ?? tenantId} status to ${status}.`,
+        createdAt: new Date().toISOString(),
+      });
       return Promise.resolve(target ?? { id: tenantId, status });
     }
     return this.requestBackendJson<Record<string, unknown>>(
       `/platform-admin/tenants/${encodeURIComponent(tenantId)}/status`,
       { method: 'PATCH', body: { status }, token }
+    );
+  }
+
+  updatePlatformTenantPlan(tenantId: string, planCode: string, customMonthlyFeePerStationFcfa?: number | null, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const list = this.ensurePreviewPlatformTenants();
+      const target = list.find((t) => t.id === tenantId);
+      if (target) {
+        const fee = customMonthlyFeePerStationFcfa && customMonthlyFeePerStationFcfa > 0
+          ? customMonthlyFeePerStationFcfa
+          : planCode === 'starter' ? 25000 : planCode === 'enterprise' ? 120000 : 55000;
+        target.planCode = planCode;
+        target.billingStatus = 'CURRENT';
+        target.monthlyMrrFcfa = Math.max(1, target.stationCount) * fee;
+        this.previewPlatformAuditLogs.unshift({
+          id: `paud_${Date.now().toString(36)}`,
+          tenantId,
+          actorEmail: 'superadmin@opesware.com',
+          actorRole: '[ROLE_PLATFORM_ADMIN]',
+          action: 'TENANT_PLAN_CHANGED',
+          entityType: 'TENANT',
+          entityId: tenantId,
+          summary: `Upgraded ${target.name} to ${planCode} (${fee} FCFA/station/mo).`,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      return this.getPlatformTenantDetail(tenantId, token);
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/tenants/${encodeURIComponent(tenantId)}/plan`,
+      { method: 'PATCH', body: { planCode, customMonthlyFeePerStationFcfa: customMonthlyFeePerStationFcfa ?? null }, token }
+    );
+  }
+
+  extendPlatformTenantTrial(tenantId: string, days: number, reason?: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const list = this.ensurePreviewPlatformTenants();
+      const target = list.find((t) => t.id === tenantId);
+      if (target) {
+        const base = target.trialEndsAt && new Date(target.trialEndsAt).getTime() > Date.now()
+          ? new Date(target.trialEndsAt).getTime()
+          : Date.now();
+        target.trialEndsAt = new Date(base + 86400_000 * days).toISOString();
+        target.billingStatus = 'TRIAL';
+        this.previewPlatformAuditLogs.unshift({
+          id: `paud_${Date.now().toString(36)}`,
+          tenantId,
+          actorEmail: 'superadmin@opesware.com',
+          actorRole: '[ROLE_PLATFORM_ADMIN]',
+          action: 'TENANT_TRIAL_EXTENDED',
+          entityType: 'TENANT',
+          entityId: tenantId,
+          summary: `Extended trial for ${target.name} by +${days} days (${reason || 'Support grant'}).`,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      return this.getPlatformTenantDetail(tenantId, token);
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/tenants/${encodeURIComponent(tenantId)}/trial`,
+      { method: 'PATCH', body: { days, reason }, token }
+    );
+  }
+
+  resendPlatformTenantAccess(tenantId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const list = this.ensurePreviewPlatformTenants();
+      const target = list.find((t) => t.id === tenantId);
+      this.previewPlatformAuditLogs.unshift({
+        id: `paud_${Date.now().toString(36)}`,
+        tenantId,
+        actorEmail: 'superadmin@opesware.com',
+        actorRole: '[ROLE_PLATFORM_ADMIN]',
+        action: 'TENANT_ACCESS_RECOVERY_SENT',
+        entityType: 'TENANT',
+        entityId: tenantId,
+        summary: `Dispatched owner access recovery email to ${target?.ownerEmail ?? 'owner'}.`,
+        createdAt: new Date().toISOString(),
+      });
+      return Promise.resolve({
+        tenantId,
+        ownerEmail: target?.ownerEmail ?? 'owner@opesfuel.cm',
+        deliveryStatus: 'DISPATCHED',
+        sentAt: new Date().toISOString(),
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/tenants/${encodeURIComponent(tenantId)}/resend-access`,
+      { method: 'POST', token }
     );
   }
 
@@ -3650,6 +4141,454 @@ export class OpesFuelApiEngine {
       { method: 'PATCH', body: { status }, token }
     );
   }
+
+  // --- Support Desk & Impersonations ---
+
+  listPlatformSupportTickets(filters?: { status?: string; tenantId?: string; priority?: string }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve(
+        this.previewPlatformTickets.filter((t) => {
+          if (filters?.status && filters.status !== 'ALL' && t.status !== filters.status) return false;
+          if (filters?.tenantId && t.tenantId !== filters.tenantId) return false;
+          if (filters?.priority && filters.priority !== 'ALL' && t.priority !== filters.priority) return false;
+          return true;
+        })
+      );
+    }
+    const qs = new URLSearchParams();
+    if (filters?.status && filters.status !== 'ALL') qs.set('status', filters.status);
+    if (filters?.tenantId) qs.set('tenantId', filters.tenantId);
+    if (filters?.priority && filters.priority !== 'ALL') qs.set('priority', filters.priority);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.requestBackendJson<Array<Record<string, unknown>>>(`/platform-admin/support/tickets${suffix}`, { token });
+  }
+
+  createPlatformSupportTicket(
+    payload: { tenantId: string; tenantName?: string; requesterEmail?: string; subject: string; description: string; category: string; priority: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const id = `tkt_${Date.now().toString(36)}`;
+      const tenant = this.ensurePreviewPlatformTenants().find((t) => t.id === payload.tenantId);
+      const created = {
+        id,
+        ticketNumber: `SUP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        tenantId: payload.tenantId,
+        tenantName: tenant?.name ?? payload.tenantName ?? payload.tenantId,
+        requesterEmail: payload.requesterEmail || tenant?.ownerEmail || 'owner@opesfuel.cm',
+        subject: payload.subject,
+        category: payload.category,
+        priority: payload.priority,
+        status: 'OPEN',
+        assignedTo: 'superadmin@opesware.com',
+        slaDueAt: new Date(Date.now() + 3600_000 * (payload.priority === 'URGENT' ? 2 : 12)).toISOString(),
+        messageCount: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      this.previewPlatformTickets.unshift(created);
+      this.previewTicketMessages[id] = [
+        {
+          id: `tmsg_${Date.now().toString(36)}`,
+          ticketId: id,
+          senderEmail: created.requesterEmail,
+          senderRole: 'OWNER',
+          internalNote: false,
+          body: payload.description,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      return Promise.resolve(created);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/support/tickets', {
+      method: 'POST',
+      body: payload,
+      token,
+    });
+  }
+
+  updatePlatformSupportTicket(
+    ticketId: string,
+    payload: { status?: string; priority?: string; assignedTo?: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const t = this.previewPlatformTickets.find((item) => item.id === ticketId);
+      if (t) {
+        if (payload.status) t.status = payload.status;
+        if (payload.priority) t.priority = payload.priority;
+        if (payload.assignedTo) t.assignedTo = payload.assignedTo;
+        t.updatedAt = new Date().toISOString();
+      }
+      return Promise.resolve(t ?? { id: ticketId, ...payload });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/support/tickets/${encodeURIComponent(ticketId)}`,
+      { method: 'PATCH', body: payload, token }
+    );
+  }
+
+  listPlatformTicketMessages(ticketId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([...(this.previewTicketMessages[ticketId] ?? [])]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(
+      `/platform-admin/support/tickets/${encodeURIComponent(ticketId)}/messages`,
+      { token }
+    );
+  }
+
+  postPlatformTicketMessage(
+    ticketId: string,
+    payload: { body: string; internalNote: boolean; notifyRequester: boolean },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const msg = {
+        id: `tmsg_${Date.now().toString(36)}`,
+        ticketId,
+        senderEmail: 'superadmin@opesware.com',
+        senderRole: 'PLATFORM_ADMIN',
+        internalNote: payload.internalNote,
+        body: payload.body,
+        createdAt: new Date().toISOString(),
+      };
+      this.previewTicketMessages[ticketId] = [...(this.previewTicketMessages[ticketId] ?? []), msg];
+      const t = this.previewPlatformTickets.find((item) => item.id === ticketId);
+      if (t) {
+        t.messageCount = Number(t.messageCount ?? 0) + 1;
+        t.updatedAt = msg.createdAt;
+      }
+      return Promise.resolve(msg);
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/support/tickets/${encodeURIComponent(ticketId)}/messages`,
+      { method: 'POST', body: payload, token }
+    );
+  }
+
+  listPlatformImpersonations(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve([...this.previewImpersonations]);
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/support/impersonations', { token });
+  }
+
+  startPlatformImpersonation(
+    payload: { tenantId: string; tenantName?: string; ticketId?: string; reason: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const session = {
+        id: `imp_${Date.now().toString(36)}`,
+        adminEmail: 'superadmin@opesware.com',
+        tenantId: payload.tenantId,
+        tenantName: payload.tenantName || this.ensurePreviewPlatformTenants().find((t) => t.id === payload.tenantId)?.name || payload.tenantId,
+        ticketId: payload.ticketId ?? null,
+        reason: payload.reason,
+        status: 'ACTIVE',
+        startedAt: new Date().toISOString(),
+        endedAt: null,
+      };
+      this.previewImpersonations.unshift(session);
+      this.previewPlatformAuditLogs.unshift({
+        id: `paud_${Date.now().toString(36)}`,
+        tenantId: session.tenantId,
+        actorEmail: session.adminEmail,
+        actorRole: '[ROLE_PLATFORM_ADMIN]',
+        action: 'PLATFORM_IMPERSONATION_STARTED',
+        entityType: 'IMPERSONATION_SESSION',
+        entityId: session.id,
+        summary: `Entered audited support view for ${session.tenantName} — ${session.reason}`,
+        createdAt: session.startedAt,
+      });
+      return Promise.resolve(session);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/support/impersonations', {
+      method: 'POST',
+      body: payload,
+      token,
+    });
+  }
+
+  endPlatformImpersonation(sessionId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const found = this.previewImpersonations.find((s) => s.id === sessionId);
+      const now = new Date().toISOString();
+      if (found) {
+        found.status = 'ENDED';
+        found.endedAt = now;
+      }
+      this.previewPlatformAuditLogs.unshift({
+        id: `paud_${Date.now().toString(36)}`,
+        tenantId: 'PLATFORM',
+        actorEmail: 'superadmin@opesware.com',
+        actorRole: '[ROLE_PLATFORM_ADMIN]',
+        action: 'PLATFORM_IMPERSONATION_ENDED',
+        entityType: 'IMPERSONATION_SESSION',
+        entityId: sessionId,
+        summary: `Closed support impersonation session ${sessionId}.`,
+        createdAt: now,
+      });
+      return Promise.resolve({ id: sessionId, status: 'ENDED', endedAt: now });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/support/impersonations/${encodeURIComponent(sessionId)}/end`,
+      { method: 'POST', token }
+    );
+  }
+
+  // --- Global Billing, MoMo Settlements, Licenses, Broadcasts, Health, Audit, Governance ---
+
+  listPlatformGlobalInvoices(token?: string | null) {
+    if (!this.springBootBaseUrl) return Promise.resolve([...this.previewGlobalInvoices]);
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/invoices', { token });
+  }
+
+  issuePlatformGlobalInvoice(
+    payload: { tenantId: string; periodLabel: string; totalFcfa: number; channel: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const t = this.ensurePreviewPlatformTenants().find((x) => x.id === payload.tenantId);
+      const created = {
+        id: `ginv_${Date.now().toString(36)}`,
+        tenantId: payload.tenantId,
+        tenantName: t?.name ?? payload.tenantId,
+        invoiceNumber: `OPF-SAAS-${payload.periodLabel}-${Math.floor(100 + Math.random() * 900)}`,
+        periodLabel: payload.periodLabel,
+        totalFcfa: payload.totalFcfa,
+        paidFcfa: 0,
+        status: 'ISSUED',
+        channel: payload.channel,
+        createdAt: new Date().toISOString(),
+      };
+      this.previewGlobalInvoices.unshift(created);
+      return Promise.resolve(created);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/invoices', {
+      method: 'POST',
+      body: payload,
+      token,
+    });
+  }
+
+  markPlatformGlobalInvoicePaid(invoiceId: string, paymentChannel = 'MTN_MOMO', token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const inv = this.previewGlobalInvoices.find((i) => i.id === invoiceId);
+      if (inv) {
+        inv.status = 'PAID';
+        inv.paidFcfa = inv.totalFcfa;
+        inv.channel = paymentChannel;
+      }
+      return Promise.resolve(inv ?? { id: invoiceId, status: 'PAID' });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/invoices/${encodeURIComponent(invoiceId)}/mark-paid`,
+      { method: 'POST', body: { paymentChannel }, token }
+    );
+  }
+
+  listPlatformMomoSettlements(token?: string | null) {
+    if (!this.springBootBaseUrl) return Promise.resolve([...this.previewMomoSettlements]);
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/momo-settlements', { token });
+  }
+
+  listPlatformLicenses(token?: string | null) {
+    if (!this.springBootBaseUrl) return Promise.resolve([...this.previewLicenses]);
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/licenses', { token });
+  }
+
+  issuePlatformLicense(
+    payload: { tenantId?: string; organizationName: string; tierName: string; maxStations: number; annualFeeFcfa: number; expiresAt: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const created = {
+        id: `lic_${Date.now().toString(36)}`,
+        licenseKey: `OPF-ENT-2026-${Math.floor(1000 + Math.random() * 9000)}-CMR`,
+        ...payload,
+        status: 'ACTIVE',
+        issuedBy: 'superadmin@opesware.com',
+        issuedAt: new Date().toISOString(),
+      };
+      this.previewLicenses.unshift(created);
+      return Promise.resolve(created);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/licenses', {
+      method: 'POST',
+      body: payload,
+      token,
+    });
+  }
+
+  revokePlatformLicense(licenseId: string, reason: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const lic = this.previewLicenses.find((l) => l.id === licenseId);
+      if (lic) {
+        lic.status = 'REVOKED';
+        lic.revokedReason = reason;
+        lic.revokedAt = new Date().toISOString();
+      }
+      this.previewPlatformAuditLogs.unshift({
+        id: `paud_${Date.now().toString(36)}`,
+        tenantId: 'PLATFORM',
+        actorEmail: 'superadmin@opesware.com',
+        actorRole: '[ROLE_PLATFORM_ADMIN]',
+        action: 'ENTERPRISE_LICENSE_REVOKED',
+        entityType: 'ENTERPRISE_LICENSE',
+        entityId: licenseId,
+        summary: `Revoked license ${lic?.licenseKey ?? licenseId}: ${reason}`,
+        createdAt: new Date().toISOString(),
+      });
+      return Promise.resolve(lic ?? { id: licenseId, status: 'REVOKED' });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/licenses/${encodeURIComponent(licenseId)}/revoke`,
+      { method: 'POST', body: { reason }, token }
+    );
+  }
+
+  listPlatformBroadcasts(token?: string | null) {
+    if (!this.springBootBaseUrl) return Promise.resolve([...this.previewBroadcasts]);
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/broadcasts', { token });
+  }
+
+  sendPlatformBroadcast(
+    payload: { channel: string; audience: string; title: string; message: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const count = this.ensurePreviewPlatformTenants().filter((t) => payload.audience !== 'ALL_ACTIVE' || t.status === 'ACTIVE').length;
+      const created = {
+        id: `bc_${Date.now().toString(36)}`,
+        ...payload,
+        recipientCount: count,
+        dispatchedCount: count,
+        sentBy: 'superadmin@opesware.com',
+        sentAt: new Date().toISOString(),
+      };
+      this.previewBroadcasts.unshift(created);
+      return Promise.resolve(created);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/broadcasts', {
+      method: 'POST',
+      body: payload,
+      token,
+    });
+  }
+
+  getPlatformHealthTelemetry(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const tenants = this.ensurePreviewPlatformTenants();
+      return Promise.resolve({
+        status: 'HEALTHY',
+        databaseStatus: 'UP',
+        databaseLatencyMs: 6,
+        flywaySchemaVersion: 'V24',
+        flywayMigrationsApplied: 24,
+        javaVersion: '25.0.5 LTS',
+        heapUsedMb: 184,
+        heapMaxMb: 1024,
+        uptimeSeconds: 86420,
+        edgeDevicesTotal: 7,
+        edgeDevicesOnline: tenants.reduce((s, t) => s + t.edgeDevicesOnline, 0),
+        webhooksTotal: 142,
+        webhooksFailed: 0,
+        webhookSuccessRatePct: 100.0,
+        connectorsConfigured: 4,
+        connectorsVerified: 3,
+        momoPendingCount: 0,
+        momoFailedCount: 0,
+        checkedAt: new Date().toISOString(),
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/health-telemetry', { token });
+  }
+
+  listPlatformAuditLogs(filters?: { tenantId?: string; action?: string }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve(
+        this.previewPlatformAuditLogs.filter((l) => {
+          if (filters?.tenantId && filters.tenantId !== 'ALL' && l.tenantId !== filters.tenantId) return false;
+          if (filters?.action && !String(l.action ?? '').toUpperCase().includes(filters.action.toUpperCase())) return false;
+          return true;
+        })
+      );
+    }
+    const qs = new URLSearchParams();
+    if (filters?.tenantId && filters.tenantId !== 'ALL') qs.set('tenantId', filters.tenantId);
+    if (filters?.action) qs.set('action', filters.action);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.requestBackendJson<Array<Record<string, unknown>>>(`/platform-admin/audit-logs${suffix}`, { token });
+  }
+
+  getPlatformGovernanceSettings(token?: string | null) {
+    if (!this.springBootBaseUrl) return Promise.resolve({ ...this.previewGovernanceSettings });
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/governance/settings', { token });
+  }
+
+  updatePlatformGovernanceSettings(payload: Record<string, unknown>, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      this.previewGovernanceSettings = { ...this.previewGovernanceSettings, ...payload };
+      return Promise.resolve({ ...this.previewGovernanceSettings });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/governance/settings', {
+      method: 'PUT',
+      body: payload,
+      token,
+    });
+  }
+
+  listPlatformGovernancePlans(token?: string | null) {
+    if (!this.springBootBaseUrl) return Promise.resolve([...this.previewGovernancePlans]);
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/platform-admin/governance/plans', { token });
+  }
+
+  upsertPlatformGovernancePlan(payload: Record<string, unknown>, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const code = String(payload.planCode ?? '').toLowerCase();
+      const idx = this.previewGovernancePlans.findIndex((p) => String(p.plan_code).toLowerCase() === code);
+      const next = {
+        plan_code: code,
+        plan_name: payload.planName,
+        monthly_price_fcfa: payload.monthlyPriceFcfa,
+        monthly_price_usd: payload.monthlyPriceUsd,
+        max_stations: payload.maxStations,
+        max_pumps: payload.maxPumps,
+        trial_days: payload.trialDays,
+        active: payload.active ?? true,
+      };
+      if (idx >= 0) this.previewGovernancePlans[idx] = next;
+      else this.previewGovernancePlans.push(next);
+      return Promise.resolve(payload);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/platform-admin/governance/plans', {
+      method: 'PUT',
+      body: payload,
+      token,
+    });
+  }
+
+  getPlatformTenantFeatures(tenantId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve({
+        tenantId,
+        aiCopilotEnabled: true,
+        hardwareBridgeEnabled: true,
+        ocppEvEnabled: true,
+        b2bWholesaleEnabled: true,
+        franchiseModeEnabled: tenantId === 'ten_atlantic_oil',
+        whiteLabelBrandingEnabled: true,
+        customMonthlyOverrideFcfa: null,
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/platform-admin/governance/tenants/${encodeURIComponent(tenantId)}/features`,
+      { token }
+    );
+  }
 }
+
 
 

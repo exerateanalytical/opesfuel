@@ -25,7 +25,8 @@ import {
   refreshAuth0SessionIfNeeded,
 } from './auth/auth0';
 import { ClassicLoginPage } from './components/auth/ClassicLoginPage';
-import { ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
+import { ActiveImpersonationSession, ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
+import type { PlatformAdminTab } from './components/console/PlatformAdminSection';
 import { MobileAppShowcase } from './components/mobile/MobileAppShowcase';
 import { PublicFooter } from './components/public/PublicFooter';
 import { PublicHeader } from './components/public/PublicHeader';
@@ -237,6 +238,8 @@ export default function App() {
   const [publicPage, setPublicPage] = useState<PublicPage>(initialRoute.publicPage);
   const [unknownHash, setUnknownHash] = useState<string | null>(initialRoute.unknownHash);
   const [consoleSection, setConsoleSection] = useState<ConsoleSection>(initialRoute.consoleSection);
+  const [platformAdminTab, setPlatformAdminTab] = useState<PlatformAdminTab>('overview');
+  const [impersonationSession, setImpersonationSession] = useState<ActiveImpersonationSession | null>(null);
   const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(initialRoute.inviteToken);
   const [verifyCode, setVerifyCode] = useState<string | null>(initialRoute.verifyCode);
   const [loyaltyToken, setLoyaltyToken] = useState<string | null>(initialRoute.loyaltyToken);
@@ -352,7 +355,11 @@ export default function App() {
             setConsoleSection('overview');
           } else {
             setMode(parsedReturn.mode === 'public' ? 'console' : parsedReturn.mode);
-            setConsoleSection(parsedReturn.consoleSection);
+            const targetSection =
+              resolvedSession.role === 'PLATFORM_ADMIN' && parsedReturn.consoleSection === 'overview'
+                ? 'platform-admin'
+                : parsedReturn.consoleSection;
+            setConsoleSection(targetSection);
           }
         }
       }
@@ -794,17 +801,61 @@ export default function App() {
   const scopedEmployees = store.employees.filter((e) => effectiveActiveStationId === 'ALL' || e.stationId === effectiveActiveStationId);
   const canManageOps = role === 'OWNER' || role === 'MANAGER' || role === 'PLATFORM_ADMIN';
 
+  const handleStartImpersonation = async (payload: {
+    tenantId: string;
+    tenantName: string;
+    ticketId?: string;
+    reason: string;
+  }) => {
+    try {
+      const started = await engineRef.current.startPlatformImpersonation(payload);
+      setImpersonationSession({
+        id: String(started.id ?? `imp_${Date.now().toString(36)}`),
+        tenantId: payload.tenantId,
+        tenantName: payload.tenantName,
+        ticketId: payload.ticketId,
+        reason: payload.reason,
+        startedAt: String(started.startedAt ?? new Date().toISOString()),
+      });
+      setConsoleSection('overview');
+      notify('success', `Audited Support Session started for ${payload.tenantName}. All actions are logged.`);
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : 'Unable to start support impersonation session.');
+    }
+  };
+
+  const handleEndImpersonation = async () => {
+    const active = impersonationSession;
+    setImpersonationSession(null);
+    setConsoleSection('platform-admin');
+    if (active?.id) {
+      try {
+        await engineRef.current.endPlatformImpersonation(active.id);
+      } catch {
+        // non-blocking
+      }
+      notify('success', `Closed audited support session (${active.id}) for ${active.tenantName}.`);
+    }
+  };
+
   return (
     <ConsoleLayout
       tenant={store.tenant}
       role={role}
       authSession={authSession}
-      onChangeRole={handleRoleChange}
+      onChangeRole={(nextRole) => {
+        setImpersonationSession(null);
+        handleRoleChange(nextRole);
+      }}
       activeStationId={effectiveActiveStationId}
       onChangeStation={setActiveStationId}
       stations={store.stations}
       activeSection={consoleSection}
       onSelectSection={setConsoleSection}
+      platformAdminTab={platformAdminTab}
+      onSelectPlatformAdminTab={setPlatformAdminTab}
+      impersonationSession={impersonationSession}
+      onEndImpersonation={() => void handleEndImpersonation()}
       onOpenOnboardingGuide={() => openOnboardingGuide('guide')}
       onOpenGlobalSearch={() => setGlobalSearchOpen(true)}
       onboardingCompletedCount={onboardingCompletedCount}
@@ -813,7 +864,10 @@ export default function App() {
       onMarkNotificationRead={(id) => void handleMarkNotificationRead(id)}
       onMarkAllNotificationsRead={() => void handleMarkAllNotificationsRead()}
       onExitToPublic={() => setMode('public')}
-      onSignOut={handleSignOut}
+      onSignOut={() => {
+        setImpersonationSession(null);
+        handleSignOut();
+      }}
       transportMode={engineRef.current.getTransportMode()}
       toast={toast}
       onDismissToast={() => setToast(null)}
@@ -828,8 +882,10 @@ export default function App() {
       {consoleSection === 'platform-admin' && role === 'PLATFORM_ADMIN' && (
         <PlatformAdminSection
           engine={engineRef.current}
+          activeTab={platformAdminTab}
+          onChangeTab={setPlatformAdminTab}
           onPostBackend={postOptionalBackend}
-          onEnterSupportView={() => setConsoleSection('overview')}
+          onStartImpersonation={handleStartImpersonation}
           onNotify={notify}
         />
       )}
