@@ -88,6 +88,9 @@ export const ROLE_PROFILES: Record<
 
 export function canAccessSection(role: UserRole, section: ConsoleSection): boolean {
   if (section === 'platform-admin') return role === 'PLATFORM_ADMIN';
+  if (section === 'group-consolidation') {
+    return role === 'PLATFORM_ADMIN' || role === 'GROUP_CFO' || role === 'OWNER' || role === 'ACCOUNTANT';
+  }
   switch (role) {
     case 'PLATFORM_ADMIN':
       return true;
@@ -95,7 +98,6 @@ export function canAccessSection(role: UserRole, section: ConsoleSection): boole
       return (
         section === 'overview' ||
         section === 'accounting' ||
-        section === 'enterprise-ops' ||
         section === 'fleet' ||
         section === 'inventory' ||
         section === 'ai-assistant'

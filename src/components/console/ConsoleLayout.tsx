@@ -114,6 +114,7 @@ const SAAS_NAV_ITEMS: { id: PlatformAdminTab; label: string; labelFr: string; sh
 
 const NAV_ITEMS: { id: ConsoleSection; label: string; labelFr: string; shortLabel: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'platform-admin', label: 'SaaS Control Plane', labelFr: 'Contrôle SaaS', shortLabel: 'SaaS', icon: Crown },
+  { id: 'group-consolidation', label: 'Group Consolidation', labelFr: 'Consolidation Groupe', shortLabel: 'Group', icon: Globe },
   { id: 'overview', label: 'Station Overview', labelFr: 'Vue Station', shortLabel: 'Overview', icon: LayoutDashboard },
   { id: 'forecourt', label: 'Forecourt & Shifts', labelFr: 'Piste & Quarts', shortLabel: 'Shifts', icon: Fuel },
   { id: 'inventory', label: 'Tanks & Deliveries', labelFr: 'Cuves & Livraisons', shortLabel: 'Tanks', icon: Truck },
@@ -194,7 +195,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
     role === 'PLATFORM_ADMIN'
       ? ['overview', 'forecourt', 'admin', 'api-platform']
       : role === 'GROUP_CFO'
-      ? ['overview', 'accounting', 'inventory', 'ai-assistant']
+      ? ['group-consolidation', 'accounting', 'fleet', 'ai-assistant']
       : role === 'ACCOUNTANT'
       ? ['overview', 'accounting', 'fleet', 'workforce']
       : role === 'MANAGER'
@@ -545,6 +546,8 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
               <div className="text-[11px] text-slate-500 truncate hidden sm:block">
                 {activeSection === 'platform-admin'
                   ? 'Global Multi-Tenant SaaS Control Plane'
+                  : activeSection === 'group-consolidation'
+                  ? 'Multi-Subsidiary Holding Consolidation (CEMAC / UEMOA / USD)'
                   : `${branding.tradingName || tenant.organizationName} · ${
                       transportMode === 'SPRING_BOOT_REMOTE' ? 'Live Spring Boot API' : 'SaaS Workspace'
                     }`}
@@ -553,7 +556,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {activeSection !== 'platform-admin' && stations.length > 0 && (
+            {activeSection !== 'platform-admin' && activeSection !== 'group-consolidation' && stations.length > 0 && (
               <select
                 aria-label="Select petrol station"
                 value={activeStationId}

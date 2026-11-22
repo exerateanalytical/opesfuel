@@ -22,6 +22,7 @@ export type PublicPage =
   | 'legal';
 
 export type ConsoleSection =
+  | 'group-consolidation'
   | 'overview'
   | 'forecourt'
   | 'inventory'

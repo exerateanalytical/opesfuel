@@ -4588,7 +4588,390 @@ export class OpesFuelApiEngine {
       { token }
     );
   }
+
+  // --- Multi-Subsidiary Holding Consolidation (/api/v1/consolidation/*) ---
+  private previewHoldingGroups: Array<Record<string, unknown>> = [
+    {
+      id: 'hgrp_default',
+      name: 'OpesEnergy Central & West Africa Holding SA',
+      reporting_currency: 'XAF',
+      parent_tenant_id: 'ten_opes_cm',
+      created_by: 'group.cfo@opesfuel.com',
+      created_at: new Date(Date.now() - 86400_000 * 60).toISOString(),
+    },
+  ];
+
+  private previewHoldingMembers: Array<{
+    id: string;
+    groupId: string;
+    tenantId: string;
+    entityName: string;
+    countryLabel: string;
+    functionalCurrency: 'XAF' | 'XOF' | 'USD';
+    ownershipPct: number;
+  }> = [
+    { id: 'hmem_cm_01', groupId: 'hgrp_default', tenantId: 'ten_opes_cm', entityName: 'OpesFuel Cameroun SA', countryLabel: 'CM (CEMAC)', functionalCurrency: 'XAF', ownershipPct: 100 },
+    { id: 'hmem_sn_01', groupId: 'hgrp_default', tenantId: 'ten_opes_sn', entityName: 'OpesFuel Senegal SA', countryLabel: 'SN (UEMOA)', functionalCurrency: 'XOF', ownershipPct: 80 },
+    { id: 'hmem_lr_01', groupId: 'hgrp_default', tenantId: 'ten_opes_lr', entityName: 'OpesFuel Liberia Corp', countryLabel: 'LR (USD)', functionalCurrency: 'USD', ownershipPct: 100 },
+  ];
+
+  private previewSubsidiaryFinancials: Array<{
+    groupId: string;
+    tenantId: string;
+    periodLabel: string;
+    revenue: number;
+    costOfSales: number;
+    operatingExpenses: number;
+    totalAssets: number;
+    totalLiabilities: number;
+    equity: number;
+    receivablesIntercompany: number;
+    payablesIntercompany: number;
+  }> = [
+    { groupId: 'hgrp_default', tenantId: 'ten_opes_cm', periodLabel: '2026-11', revenue: 185_000_000, costOfSales: 148_000_000, operatingExpenses: 16_500_000, totalAssets: 420_000_000, totalLiabilities: 155_000_000, equity: 265_000_000, receivablesIntercompany: 14_500_000, payablesIntercompany: 0 },
+    { groupId: 'hgrp_default', tenantId: 'ten_opes_sn', periodLabel: '2026-11', revenue: 94_000_000, costOfSales: 74_200_000, operatingExpenses: 9_800_000, totalAssets: 210_000_000, totalLiabilities: 82_000_000, equity: 128_000_000, receivablesIntercompany: 0, payablesIntercompany: 14_500_000 },
+    { groupId: 'hgrp_default', tenantId: 'ten_opes_lr', periodLabel: '2026-11', revenue: 112_000, costOfSales: 86_000, operatingExpenses: 12_000, totalAssets: 340_000, totalLiabilities: 110_000, equity: 230_000, receivablesIntercompany: 0, payablesIntercompany: 0 },
+  ];
+
+  private previewIntercompanyTx: Array<Record<string, unknown>> = [
+    {
+      id: 'ictx_seed_01',
+      group_id: 'hgrp_default',
+      period_label: '2026-11',
+      seller_tenant_id: 'ten_opes_cm',
+      buyer_tenant_id: 'ten_opes_sn',
+      currency: 'XAF',
+      amount: 14_500_000,
+      description: 'Bulk Gasoil Coastal Transfer (Douala Depot -> Dakar Terminal)',
+      eliminated: false,
+      created_by: 'group.cfo@opesfuel.com',
+      created_at: new Date(Date.now() - 86400_000 * 3).toISOString(),
+    },
+  ];
+
+  private previewEliminationEntries: Array<Record<string, unknown>> = [];
+
+  private convertHoldingCcy(amount: number, from: string, to: string, fx: number): number {
+    const f = from.toUpperCase() === 'FCFA' ? 'XAF' : from.toUpperCase();
+    const t = to.toUpperCase() === 'FCFA' ? 'XAF' : to.toUpperCase();
+    if (f === t) return amount;
+    const inXaf = f === 'USD' ? amount * fx : amount;
+    return t === 'USD' ? inXaf / fx : inXaf;
+  }
+
+  listHoldingGroups(token?: string | null) {
+    if (!this.springBootBaseUrl) return Promise.resolve([...this.previewHoldingGroups]);
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/consolidation/groups', { token });
+  }
+
+  createHoldingGroup(payload: { name: string; reportingCurrency: string }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const created = {
+        id: `hgrp_${Date.now().toString(36)}`,
+        name: payload.name,
+        reporting_currency: payload.reportingCurrency,
+        parent_tenant_id: this.state.tenant.tenantId,
+        created_by: 'group.cfo@opesfuel.com',
+        created_at: new Date().toISOString(),
+      };
+      this.previewHoldingGroups.unshift(created);
+      return Promise.resolve(created);
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/consolidation/groups', {
+      method: 'POST',
+      body: payload,
+      token,
+    });
+  }
+
+  updateHoldingGroup(groupId: string, payload: { name?: string; reportingCurrency?: string }, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const g = this.previewHoldingGroups.find((item) => item.id === groupId);
+      if (g) {
+        if (payload.name) g.name = payload.name;
+        if (payload.reportingCurrency) g.reporting_currency = payload.reportingCurrency;
+      }
+      return Promise.resolve(g ?? { id: groupId, ...payload });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/consolidation/groups/${encodeURIComponent(groupId)}`,
+      { method: 'PATCH', body: payload, token }
+    );
+  }
+
+  addHoldingSubsidiary(
+    groupId: string,
+    payload: { tenantId: string; entityName: string; countryLabel: string; functionalCurrency: 'XAF' | 'XOF' | 'USD'; ownershipPct: number },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const member = {
+        id: `hmem_${Date.now().toString(36)}`,
+        groupId,
+        tenantId: payload.tenantId,
+        entityName: payload.entityName,
+        countryLabel: payload.countryLabel,
+        functionalCurrency: payload.functionalCurrency,
+        ownershipPct: payload.ownershipPct,
+      };
+      this.previewHoldingMembers.push(member);
+      return Promise.resolve(member);
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/consolidation/groups/${encodeURIComponent(groupId)}/members`,
+      { method: 'POST', body: payload, token }
+    );
+  }
+
+  removeHoldingSubsidiary(groupId: string, memberId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      this.previewHoldingMembers = this.previewHoldingMembers.filter(
+        (m) => !(m.groupId === groupId && (m.id === memberId || m.tenantId === memberId))
+      );
+      return Promise.resolve({ groupId, removed: memberId, deleted: true });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/consolidation/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
+      { method: 'DELETE', token }
+    );
+  }
+
+  submitSubsidiaryFinancials(
+    groupId: string,
+    payload: {
+      tenantId: string;
+      periodLabel: string;
+      revenue: number;
+      costOfSales: number;
+      operatingExpenses: number;
+      totalAssets: number;
+      totalLiabilities: number;
+      equity: number;
+      receivablesIntercompany: number;
+      payablesIntercompany: number;
+    },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const idx = this.previewSubsidiaryFinancials.findIndex(
+        (f) => f.groupId === groupId && f.tenantId === payload.tenantId && f.periodLabel === payload.periodLabel
+      );
+      const record = { groupId, ...payload };
+      if (idx >= 0) this.previewSubsidiaryFinancials[idx] = record;
+      else this.previewSubsidiaryFinancials.push(record);
+      return Promise.resolve(record);
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/consolidation/groups/${encodeURIComponent(groupId)}/financials`,
+      { method: 'POST', body: payload, token }
+    );
+  }
+
+  recordHoldingIntercompany(
+    groupId: string,
+    payload: { periodLabel: string; sellerTenantId: string; buyerTenantId: string; currency: string; amount: number; description: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const tx = {
+        id: `ictx_${Date.now().toString(36)}`,
+        group_id: groupId,
+        period_label: payload.periodLabel,
+        seller_tenant_id: payload.sellerTenantId,
+        buyer_tenant_id: payload.buyerTenantId,
+        currency: payload.currency,
+        amount: payload.amount,
+        description: payload.description,
+        eliminated: false,
+        created_by: 'group.cfo@opesfuel.com',
+        created_at: new Date().toISOString(),
+      };
+      this.previewIntercompanyTx.unshift(tx);
+      return Promise.resolve(tx);
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/consolidation/groups/${encodeURIComponent(groupId)}/intercompany`,
+      { method: 'POST', body: payload, token }
+    );
+  }
+
+  runHoldingEliminations(groupId: string, period: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const g = this.previewHoldingGroups.find((x) => x.id === groupId) ?? this.previewHoldingGroups[0];
+      const reportingCcy = String(g?.reporting_currency ?? 'XAF');
+      const fx = Number(this.previewGovernanceSettings.xafPerUsdRate ?? 605);
+      const pending = this.previewIntercompanyTx.filter(
+        (t) => t.group_id === groupId && t.period_label === period && !t.eliminated
+      );
+      let totalElim = 0;
+      for (const tx of pending) {
+        const amtRep = this.convertHoldingCcy(Number(tx.amount ?? 0), String(tx.currency ?? 'XAF'), reportingCcy, fx);
+        this.previewEliminationEntries.unshift({
+          id: `elim_${Date.now().toString(36)}_${Math.floor(Math.random() * 999)}`,
+          group_id: groupId,
+          period_label: period,
+          intercompany_tx_id: tx.id,
+          debit_account: '701_INTERCO_REVENUE',
+          credit_account: '601_INTERCO_COGS',
+          amount_reporting: Math.round(amtRep * 100) / 100,
+          created_at: new Date().toISOString(),
+        });
+        tx.eliminated = true;
+        totalElim += amtRep;
+      }
+      return Promise.resolve({
+        groupId,
+        period,
+        reportingCurrency: reportingCcy,
+        fxXafPerUsd: fx,
+        eliminatedTransactions: pending.length,
+        totalEliminatedReporting: Math.round(totalElim * 100) / 100,
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/consolidation/groups/${encodeURIComponent(groupId)}/eliminate?period=${encodeURIComponent(period)}`,
+      { method: 'POST', token }
+    );
+  }
+
+  getHoldingConsolidatedReport(
+    groupId: string,
+    period: string,
+    reportingCurrency?: string,
+    fxOverride?: number,
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const g = this.previewHoldingGroups.find((x) => x.id === groupId) ?? this.previewHoldingGroups[0];
+      const baseCcy = String(g?.reporting_currency ?? 'XAF');
+      const repCcy = reportingCurrency || baseCcy;
+      const fx = fxOverride && fxOverride > 0 ? fxOverride : Number(this.previewGovernanceSettings.xafPerUsdRate ?? 605);
+      const members = this.previewHoldingMembers.filter((m) => m.groupId === groupId);
+      const elims = this.previewEliminationEntries.filter((e) => e.group_id === groupId && e.period_label === period);
+      const txs = this.previewIntercompanyTx.filter((t) => t.group_id === groupId && t.period_label === period);
+      const totalElimPnl = elims.reduce(
+        (s, e) => s + this.convertHoldingCcy(Number(e.amount_reporting ?? 0), baseCcy, repCcy, fx),
+        0
+      );
+      const pendingTxs = txs.filter((t) => !t.eliminated);
+      const pendingReporting = pendingTxs.reduce(
+        (s, t) => s + this.convertHoldingCcy(Number(t.amount ?? 0), String(t.currency ?? 'XAF'), repCcy, fx),
+        0
+      );
+
+      let sumRev = 0, sumCogs = 0, sumOpex = 0, sumAssets = 0, sumLiab = 0, sumEq = 0, sumIcRec = 0, sumIcPay = 0;
+      let ctrlNi = 0, minNi = 0, ctrlEq = 0, minEq = 0;
+
+      const subsidiaries = members.map((m) => {
+        const fin =
+          this.previewSubsidiaryFinancials.find((f) => f.groupId === groupId && f.tenantId === m.tenantId && f.periodLabel === period) ??
+          this.previewSubsidiaryFinancials.find((f) => f.groupId === groupId && f.tenantId === m.tenantId);
+        const revF = fin?.revenue ?? 0;
+        const cogsF = fin?.costOfSales ?? 0;
+        const opexF = fin?.operatingExpenses ?? 0;
+        const assetsF = fin?.totalAssets ?? 0;
+        const liabF = fin?.totalLiabilities ?? 0;
+        const eqF = fin?.equity ?? 0;
+        const icRecF = fin?.receivablesIntercompany ?? 0;
+        const icPayF = fin?.payablesIntercompany ?? 0;
+
+        const rev = this.convertHoldingCcy(revF, m.functionalCurrency, repCcy, fx);
+        const cogs = this.convertHoldingCcy(cogsF, m.functionalCurrency, repCcy, fx);
+        const opex = this.convertHoldingCcy(opexF, m.functionalCurrency, repCcy, fx);
+        const assets = this.convertHoldingCcy(assetsF, m.functionalCurrency, repCcy, fx);
+        const liab = this.convertHoldingCcy(liabF, m.functionalCurrency, repCcy, fx);
+        const eq = this.convertHoldingCcy(eqF, m.functionalCurrency, repCcy, fx);
+        const icRec = this.convertHoldingCcy(icRecF, m.functionalCurrency, repCcy, fx);
+        const icPay = this.convertHoldingCcy(icPayF, m.functionalCurrency, repCcy, fx);
+        const ni = rev - cogs - opex;
+        const nciPct = Math.max(0, 100 - m.ownershipPct);
+
+        sumRev += rev; sumCogs += cogs; sumOpex += opex; sumAssets += assets; sumLiab += liab; sumEq += eq; sumIcRec += icRec; sumIcPay += icPay;
+        ctrlNi += ni * (m.ownershipPct / 100);
+        minNi += ni * (nciPct / 100);
+        ctrlEq += eq * (m.ownershipPct / 100);
+        minEq += eq * (nciPct / 100);
+
+        return {
+          memberId: m.id,
+          tenantId: m.tenantId,
+          entityName: m.entityName,
+          countryLabel: m.countryLabel,
+          functionalCurrency: m.functionalCurrency,
+          ownershipPct: m.ownershipPct,
+          minorityInterestPct: nciPct,
+          revenueFunctional: revF,
+          cogsFunctional: cogsF,
+          opexFunctional: opexF,
+          assetsFunctional: assetsF,
+          liabilitiesFunctional: liabF,
+          equityFunctional: eqF,
+          intercoReceivablesFunctional: icRecF,
+          intercoPayablesFunctional: icPayF,
+          revenueReporting: Math.round(rev * 100) / 100,
+          cogsReporting: Math.round(cogs * 100) / 100,
+          opexReporting: Math.round(opex * 100) / 100,
+          netIncomeReporting: Math.round(ni * 100) / 100,
+          assetsReporting: Math.round(assets * 100) / 100,
+          liabilitiesReporting: Math.round(liab * 100) / 100,
+          equityReporting: Math.round(eq * 100) / 100,
+          grossMarginPct: rev > 0 ? Math.round(((rev - cogs) / rev) * 1000) / 10 : 0,
+          netMarginPct: rev > 0 ? Math.round((ni / rev) * 1000) / 10 : 0,
+          debtToEquityRatio: eq > 0 ? Math.round((liab / eq) * 100) / 100 : 0,
+          roaPct: assets > 0 ? Math.round((ni / assets) * 1000) / 10 : 0,
+        };
+      });
+
+      const intercoBsElim = Math.min(sumIcRec, sumIcPay);
+      const consolidatedRev = Math.max(0, sumRev - totalElimPnl);
+      const consolidatedCogs = Math.max(0, sumCogs - totalElimPnl);
+      const consolidatedNi = consolidatedRev - consolidatedCogs - sumOpex;
+
+      return Promise.resolve({
+        groupId,
+        groupName: g?.name ?? 'Holding Group',
+        period,
+        reportingCurrency: repCcy,
+        fxXafPerUsd: fx,
+        fxNote: 'XAF and XOF are pegged 1:1 (CFA parity); USD converted via platform FX rate.',
+        pendingIntercompanyCount: pendingTxs.length,
+        pendingIntercompanyReporting: Math.round(pendingReporting * 100) / 100,
+        consolidatedPnl: {
+          grossRevenue: Math.round(sumRev * 100) / 100,
+          intercompanyRevenueElimination: Math.round(totalElimPnl * 100) / 100,
+          consolidatedRevenue: Math.round(consolidatedRev * 100) / 100,
+          consolidatedCogs: Math.round(consolidatedCogs * 100) / 100,
+          grossProfit: Math.round((consolidatedRev - consolidatedCogs) * 100) / 100,
+          operatingExpenses: Math.round(sumOpex * 100) / 100,
+          consolidatedNetIncome: Math.round(consolidatedNi * 100) / 100,
+          controllingShareNetIncome: Math.round(ctrlNi * 100) / 100,
+          minorityInterestNetIncome: Math.round(minNi * 100) / 100,
+        },
+        consolidatedBalanceSheet: {
+          grossAssets: Math.round(sumAssets * 100) / 100,
+          intercompanyBalanceElimination: Math.round(intercoBsElim * 100) / 100,
+          consolidatedAssets: Math.round((sumAssets - intercoBsElim) * 100) / 100,
+          consolidatedLiabilities: Math.round((sumLiab - intercoBsElim) * 100) / 100,
+          totalEquity: Math.round(sumEq * 100) / 100,
+          controllingEquity: Math.round(ctrlEq * 100) / 100,
+          minorityInterestEquity: Math.round(minEq * 100) / 100,
+        },
+        subsidiaries,
+        intercompanyTransactions: txs,
+        eliminations: elims,
+        generatedAt: new Date().toISOString(),
+      });
+    }
+    const qs = new URLSearchParams({ period });
+    if (reportingCurrency) qs.set('reportingCurrency', reportingCurrency);
+    if (fxOverride && fxOverride > 0) qs.set('fxXafPerUsdOverride', String(fxOverride));
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/consolidation/groups/${encodeURIComponent(groupId)}/report?${qs.toString()}`,
+      { token }
+    );
+  }
 }
+
 
 
 

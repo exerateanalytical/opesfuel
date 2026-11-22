@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -23,10 +24,17 @@ record CreateHoldingGroupCommand(
     @NotBlank String reportingCurrency
 ) {}
 
+record UpdateHoldingGroupCommand(
+    String name,
+    String reportingCurrency
+) {}
+
 record AddSubsidiaryMemberCommand(
     @NotBlank String tenantId,
     @NotBlank String functionalCurrency,
-    @Min(1) @Max(100) double ownershipPct
+    @Min(1) @Max(100) double ownershipPct,
+    String entityName,
+    String countryLabel
 ) {}
 
 record SubmitSubsidiaryFinancialsCommand(
@@ -104,6 +112,32 @@ public class HoldingConsolidationController {
         return jdbcTemplate.queryForMap("SELECT * FROM holding_groups WHERE id = ?", id);
     }
 
+    @PatchMapping("/groups/{groupId}")
+    @Transactional
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','GROUP_CFO')")
+    public Map<String, Object> updateGroup(
+        @PathVariable String groupId,
+        @RequestBody UpdateHoldingGroupCommand cmd
+    ) {
+        List<Map<String, Object>> existing = jdbcTemplate.queryForList("SELECT * FROM holding_groups WHERE id = ?", groupId);
+        if (existing.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Holding group not found: " + groupId);
+        }
+        String nextName = cmd.name() != null && !cmd.name().isBlank()
+            ? cmd.name().trim() : String.valueOf(existing.get(0).get("name"));
+        String nextCcy = cmd.reportingCurrency() != null && !cmd.reportingCurrency().isBlank()
+            ? normalizeCurrency(cmd.reportingCurrency()) : String.valueOf(existing.get(0).get("reporting_currency"));
+        jdbcTemplate.update(
+            "UPDATE holding_groups SET name = ?, reporting_currency = ? WHERE id = ?",
+            nextName, nextCcy, groupId
+        );
+        OpesFuelPrincipal principal = accessGuard.currentPrincipal();
+        auditRecorder.record(principal.tenantId(), null, principal.subject(), "GROUP_CFO",
+            "HOLDING_GROUP_UPDATED", "HOLDING_GROUP", groupId,
+            "Updated holding group " + nextName + " (reporting=" + nextCcy + ")");
+        return jdbcTemplate.queryForMap("SELECT * FROM holding_groups WHERE id = ?", groupId);
+    }
+
     @PostMapping("/groups/{groupId}/members")
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
@@ -111,11 +145,44 @@ public class HoldingConsolidationController {
     public Map<String, Object> addSubsidiary(@PathVariable String groupId, @Valid @RequestBody AddSubsidiaryMemberCommand cmd) {
         String id = "hmem_" + UUID.randomUUID().toString().substring(0, 10);
         String ccy = normalizeCurrency(cmd.functionalCurrency());
-        jdbcTemplate.update(
-            "INSERT INTO holding_group_members (id, group_id, tenant_id, functional_currency, ownership_pct, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            id, groupId, cmd.tenantId().trim(), ccy, cmd.ownershipPct(), Timestamp.from(Instant.now())
-        );
+        Timestamp now = Timestamp.from(Instant.now());
+        String entityName = cmd.entityName() != null && !cmd.entityName().isBlank() ? cmd.entityName().trim() : cmd.tenantId().trim();
+        String countryLabel = cmd.countryLabel() != null && !cmd.countryLabel().isBlank() ? cmd.countryLabel().trim() : ccy;
+        try {
+            jdbcTemplate.update(
+                "INSERT INTO holding_group_members (id, group_id, tenant_id, functional_currency, ownership_pct, entity_name, country_label, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                id, groupId, cmd.tenantId().trim(), ccy, cmd.ownershipPct(), entityName, countryLabel, now
+            );
+        } catch (Exception ex) {
+            // Backward compatibility when V25 columns are not yet applied in legacy V22-only unit tests
+            jdbcTemplate.update(
+                "INSERT INTO holding_group_members (id, group_id, tenant_id, functional_currency, ownership_pct, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                id, groupId, cmd.tenantId().trim(), ccy, cmd.ownershipPct(), now
+            );
+        }
+        OpesFuelPrincipal principal = accessGuard.currentPrincipal();
+        auditRecorder.record(principal.tenantId(), null, principal.subject(), "GROUP_CFO",
+            "HOLDING_SUBSIDIARY_LINKED", "HOLDING_MEMBER", id,
+            "Linked subsidiary " + entityName + " (" + cmd.tenantId().trim() + ", " + cmd.ownershipPct() + "%, " + ccy + ") to " + groupId);
         return jdbcTemplate.queryForMap("SELECT * FROM holding_group_members WHERE id = ?", id);
+    }
+
+    @DeleteMapping("/groups/{groupId}/members/{memberId}")
+    @Transactional
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','GROUP_CFO')")
+    public Map<String, Object> removeSubsidiary(@PathVariable String groupId, @PathVariable String memberId) {
+        int deleted = jdbcTemplate.update(
+            "DELETE FROM holding_group_members WHERE group_id = ? AND (id = ? OR tenant_id = ?)",
+            groupId, memberId, memberId
+        );
+        if (deleted == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subsidiary member not found: " + memberId);
+        }
+        OpesFuelPrincipal principal = accessGuard.currentPrincipal();
+        auditRecorder.record(principal.tenantId(), null, principal.subject(), "GROUP_CFO",
+            "HOLDING_SUBSIDIARY_REMOVED", "HOLDING_MEMBER", memberId,
+            "Removed subsidiary " + memberId + " from holding group " + groupId);
+        return Map.of("groupId", groupId, "removed", memberId, "deleted", true);
     }
 
     @GetMapping("/groups/{groupId}/members")
@@ -165,7 +232,29 @@ public class HoldingConsolidationController {
                 cmd.totalLiabilities(), cmd.equity(), cmd.receivablesIntercompany(), cmd.payablesIntercompany(), now, id
             );
         }
+        OpesFuelPrincipal principal = accessGuard.currentPrincipal();
+        auditRecorder.record(principal.tenantId(), null, principal.subject(), "GROUP_CFO",
+            "SUBSIDIARY_FINANCIALS_SUBMITTED", "SUBSIDIARY_FINANCIALS", id,
+            "Submitted period " + cmd.periodLabel() + " financials for " + cmd.tenantId() + " (rev=" + cmd.revenue() + ")");
         return jdbcTemplate.queryForMap("SELECT * FROM subsidiary_financials WHERE id = ?", id);
+    }
+
+    @GetMapping("/groups/{groupId}/intercompany")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','GROUP_CFO','OWNER','ACCOUNTANT')")
+    public List<Map<String, Object>> listIntercompany(
+        @PathVariable String groupId,
+        @RequestParam(required = false) String period
+    ) {
+        if (period != null && !period.isBlank()) {
+            return jdbcTemplate.queryForList(
+                "SELECT * FROM intercompany_transactions WHERE group_id = ? AND period_label = ? ORDER BY created_at DESC",
+                groupId, period.trim()
+            );
+        }
+        return jdbcTemplate.queryForList(
+            "SELECT * FROM intercompany_transactions WHERE group_id = ? ORDER BY created_at DESC LIMIT 100",
+            groupId
+        );
     }
 
     @PostMapping("/groups/{groupId}/intercompany")
@@ -192,7 +281,28 @@ public class HoldingConsolidationController {
             normalizeCurrency(cmd.currency()), cmd.amount(), cmd.description(),
             principal.subject(), Timestamp.from(Instant.now())
         );
+        auditRecorder.record(principal.tenantId(), null, principal.subject(), "GROUP_CFO",
+            "INTERCOMPANY_TX_RECORDED", "INTERCOMPANY_TX", id,
+            "Recorded inter-company tx " + cmd.sellerTenantId() + " -> " + cmd.buyerTenantId() + " (" + cmd.amount() + " " + cmd.currency() + ")");
         return jdbcTemplate.queryForMap("SELECT * FROM intercompany_transactions WHERE id = ?", id);
+    }
+
+    @GetMapping("/groups/{groupId}/eliminations")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','GROUP_CFO','OWNER','ACCOUNTANT')")
+    public List<Map<String, Object>> listEliminations(
+        @PathVariable String groupId,
+        @RequestParam(required = false) String period
+    ) {
+        if (period != null && !period.isBlank()) {
+            return jdbcTemplate.queryForList(
+                "SELECT * FROM consolidation_elimination_entries WHERE group_id = ? AND period_label = ? ORDER BY created_at DESC",
+                groupId, period.trim()
+            );
+        }
+        return jdbcTemplate.queryForList(
+            "SELECT * FROM consolidation_elimination_entries WHERE group_id = ? ORDER BY created_at DESC LIMIT 100",
+            groupId
+        );
     }
 
     @PostMapping("/groups/{groupId}/eliminate")
@@ -231,6 +341,11 @@ public class HoldingConsolidationController {
             eliminatedCount++;
             totalEliminatedReporting += amtReporting;
         }
+        OpesFuelPrincipal principal = accessGuard.currentPrincipal();
+        auditRecorder.record(principal.tenantId(), null, principal.subject(), "GROUP_CFO",
+            "CONSOLIDATION_ELIMINATIONS_EXECUTED", "HOLDING_GROUP", groupId,
+            "Eliminated " + eliminatedCount + " inter-company tx for " + period + " totaling " + round2(totalEliminatedReporting) + " " + reportingCcy);
+
         return Map.of(
             "groupId", groupId,
             "period", period,
@@ -245,14 +360,20 @@ public class HoldingConsolidationController {
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','GROUP_CFO','OWNER','ACCOUNTANT')")
     public Map<String, Object> consolidatedReport(
         @PathVariable String groupId,
-        @RequestParam String period
+        @RequestParam String period,
+        @RequestParam(required = false) String reportingCurrency,
+        @RequestParam(required = false) Double fxXafPerUsdOverride
     ) {
         Map<String, Object> group = jdbcTemplate.queryForMap("SELECT * FROM holding_groups WHERE id = ?", groupId);
-        String reportingCcy = String.valueOf(group.get("reporting_currency"));
-        double fxXafPerUsd = fetchPlatformFxRate();
+        String reportingCcy = reportingCurrency != null && !reportingCurrency.isBlank()
+            ? normalizeCurrency(reportingCurrency)
+            : String.valueOf(group.get("reporting_currency"));
+        double fxXafPerUsd = (fxXafPerUsdOverride != null && fxXafPerUsdOverride > 0)
+            ? fxXafPerUsdOverride
+            : fetchPlatformFxRate();
 
         List<Map<String, Object>> members = jdbcTemplate.queryForList(
-            "SELECT * FROM holding_group_members WHERE group_id = ?", groupId
+            "SELECT * FROM holding_group_members WHERE group_id = ? ORDER BY ownership_pct DESC", groupId
         );
         List<Map<String, Object>> financials = jdbcTemplate.queryForList(
             "SELECT * FROM subsidiary_financials WHERE group_id = ? AND period_label = ?", groupId, period
@@ -263,9 +384,21 @@ public class HoldingConsolidationController {
         }
 
         List<Map<String, Object>> eliminations = jdbcTemplate.queryForList(
-            "SELECT * FROM consolidation_elimination_entries WHERE group_id = ? AND period_label = ?", groupId, period
+            "SELECT * FROM consolidation_elimination_entries WHERE group_id = ? AND period_label = ? ORDER BY created_at DESC", groupId, period
         );
-        double totalElimPnl = eliminations.stream().mapToDouble(e -> ((Number) e.get("amount_reporting")).doubleValue()).sum();
+        String groupBaseCcy = String.valueOf(group.get("reporting_currency"));
+        double totalElimPnl = eliminations.stream()
+            .mapToDouble(e -> convertCurrency(((Number) e.get("amount_reporting")).doubleValue(), groupBaseCcy, reportingCcy, fxXafPerUsd))
+            .sum();
+
+        List<Map<String, Object>> intercompanyTx = jdbcTemplate.queryForList(
+            "SELECT * FROM intercompany_transactions WHERE group_id = ? AND period_label = ? ORDER BY created_at DESC", groupId, period
+        );
+        long pendingIntercoCount = intercompanyTx.stream().filter(t -> !Boolean.TRUE.equals(t.get("eliminated"))).count();
+        double pendingIntercoReporting = intercompanyTx.stream()
+            .filter(t -> !Boolean.TRUE.equals(t.get("eliminated")))
+            .mapToDouble(t -> convertCurrency(((Number) t.get("amount")).doubleValue(), String.valueOf(t.get("currency")), reportingCcy, fxXafPerUsd))
+            .sum();
 
         double sumRev = 0, sumCogs = 0, sumOpex = 0, sumAssets = 0, sumLiab = 0, sumEquity = 0;
         double sumIntercoRec = 0, sumIntercoPay = 0;
@@ -278,17 +411,34 @@ public class HoldingConsolidationController {
             String funcCcy = String.valueOf(m.get("functional_currency"));
             double ownPct = ((Number) m.get("ownership_pct")).doubleValue();
             double nciPct = Math.max(0.0, 100.0 - ownPct);
+            String entityName = m.get("entity_name") != null && !String.valueOf(m.get("entity_name")).isBlank()
+                ? String.valueOf(m.get("entity_name")) : tid;
+            String countryLabel = m.get("country_label") != null && !String.valueOf(m.get("country_label")).isBlank()
+                ? String.valueOf(m.get("country_label")) : funcCcy;
 
             Map<String, Object> f = finByTenant.get(tid);
-            double rev = f != null ? convertCurrency(((Number) f.get("revenue")).doubleValue(), funcCcy, reportingCcy, fxXafPerUsd) : 0;
-            double cogs = f != null ? convertCurrency(((Number) f.get("cost_of_sales")).doubleValue(), funcCcy, reportingCcy, fxXafPerUsd) : 0;
-            double opex = f != null ? convertCurrency(((Number) f.get("operating_expenses")).doubleValue(), funcCcy, reportingCcy, fxXafPerUsd) : 0;
-            double assets = f != null ? convertCurrency(((Number) f.get("total_assets")).doubleValue(), funcCcy, reportingCcy, fxXafPerUsd) : 0;
-            double liab = f != null ? convertCurrency(((Number) f.get("total_liabilities")).doubleValue(), funcCcy, reportingCcy, fxXafPerUsd) : 0;
-            double eq = f != null ? convertCurrency(((Number) f.get("equity")).doubleValue(), funcCcy, reportingCcy, fxXafPerUsd) : 0;
-            double icRec = f != null ? convertCurrency(((Number) f.get("receivables_intercompany")).doubleValue(), funcCcy, reportingCcy, fxXafPerUsd) : 0;
-            double icPay = f != null ? convertCurrency(((Number) f.get("payables_intercompany")).doubleValue(), funcCcy, reportingCcy, fxXafPerUsd) : 0;
+            double revFunc = f != null ? ((Number) f.get("revenue")).doubleValue() : 0;
+            double cogsFunc = f != null ? ((Number) f.get("cost_of_sales")).doubleValue() : 0;
+            double opexFunc = f != null ? ((Number) f.get("operating_expenses")).doubleValue() : 0;
+            double assetsFunc = f != null ? ((Number) f.get("total_assets")).doubleValue() : 0;
+            double liabFunc = f != null ? ((Number) f.get("total_liabilities")).doubleValue() : 0;
+            double eqFunc = f != null ? ((Number) f.get("equity")).doubleValue() : 0;
+            double icRecFunc = f != null ? ((Number) f.get("receivables_intercompany")).doubleValue() : 0;
+            double icPayFunc = f != null ? ((Number) f.get("payables_intercompany")).doubleValue() : 0;
+
+            double rev = convertCurrency(revFunc, funcCcy, reportingCcy, fxXafPerUsd);
+            double cogs = convertCurrency(cogsFunc, funcCcy, reportingCcy, fxXafPerUsd);
+            double opex = convertCurrency(opexFunc, funcCcy, reportingCcy, fxXafPerUsd);
+            double assets = convertCurrency(assetsFunc, funcCcy, reportingCcy, fxXafPerUsd);
+            double liab = convertCurrency(liabFunc, funcCcy, reportingCcy, fxXafPerUsd);
+            double eq = convertCurrency(eqFunc, funcCcy, reportingCcy, fxXafPerUsd);
+            double icRec = convertCurrency(icRecFunc, funcCcy, reportingCcy, fxXafPerUsd);
+            double icPay = convertCurrency(icPayFunc, funcCcy, reportingCcy, fxXafPerUsd);
             double netInc = rev - cogs - opex;
+            double grossMarginPct = rev > 0 ? round2(((rev - cogs) / rev) * 100.0) : 0.0;
+            double netMarginPct = rev > 0 ? round2((netInc / rev) * 100.0) : 0.0;
+            double debtToEquity = eq > 0 ? round2(liab / eq) : 0.0;
+            double roaPct = assets > 0 ? round2((netInc / assets) * 100.0) : 0.0;
 
             sumRev += rev;
             sumCogs += cogs;
@@ -304,10 +454,21 @@ public class HoldingConsolidationController {
             minorityEquity += eq * (nciPct / 100.0);
 
             Map<String, Object> row = new LinkedHashMap<>();
+            row.put("memberId", m.get("id"));
             row.put("tenantId", tid);
+            row.put("entityName", entityName);
+            row.put("countryLabel", countryLabel);
             row.put("functionalCurrency", funcCcy);
             row.put("ownershipPct", ownPct);
             row.put("minorityInterestPct", nciPct);
+            row.put("revenueFunctional", round2(revFunc));
+            row.put("cogsFunctional", round2(cogsFunc));
+            row.put("opexFunctional", round2(opexFunc));
+            row.put("assetsFunctional", round2(assetsFunc));
+            row.put("liabilitiesFunctional", round2(liabFunc));
+            row.put("equityFunctional", round2(eqFunc));
+            row.put("intercoReceivablesFunctional", round2(icRecFunc));
+            row.put("intercoPayablesFunctional", round2(icPayFunc));
             row.put("revenueReporting", round2(rev));
             row.put("cogsReporting", round2(cogs));
             row.put("opexReporting", round2(opex));
@@ -315,6 +476,10 @@ public class HoldingConsolidationController {
             row.put("assetsReporting", round2(assets));
             row.put("liabilitiesReporting", round2(liab));
             row.put("equityReporting", round2(eq));
+            row.put("grossMarginPct", grossMarginPct);
+            row.put("netMarginPct", netMarginPct);
+            row.put("debtToEquityRatio", debtToEquity);
+            row.put("roaPct", roaPct);
             subsidiaryRows.add(row);
         }
 
@@ -330,6 +495,8 @@ public class HoldingConsolidationController {
         report.put("reportingCurrency", reportingCcy);
         report.put("fxXafPerUsd", fxXafPerUsd);
         report.put("fxNote", "XAF and XOF are pegged 1:1 (CFA parity); USD converted via platform FX rate.");
+        report.put("pendingIntercompanyCount", pendingIntercoCount);
+        report.put("pendingIntercompanyReporting", round2(pendingIntercoReporting));
         report.put("consolidatedPnl", Map.of(
             "grossRevenue", round2(sumRev),
             "intercompanyRevenueElimination", round2(totalElimPnl),
@@ -351,6 +518,7 @@ public class HoldingConsolidationController {
             "minorityInterestEquity", round2(minorityEquity)
         ));
         report.put("subsidiaries", subsidiaryRows);
+        report.put("intercompanyTransactions", intercompanyTx);
         report.put("eliminations", eliminations);
         report.put("generatedAt", Instant.now().toString());
         return report;

@@ -1130,4 +1130,217 @@ export function printTenantWelcomeDossierPdf(params: {
   doc.save(`opesfuel-welcome-dossier-${params.tenantId}.pdf`);
 }
 
+/** 24. Multi-Section Consolidated Financial Statements Board Pack PDF (GROUP_CFO) */
+export function printConsolidatedFinancialStatementsPackPdf(params: {
+  groupName: string;
+  period: string;
+  reportingCurrency: string;
+  fxXafPerUsd: number;
+  pnl: {
+    grossRevenue: number;
+    intercompanyRevenueElimination: number;
+    consolidatedRevenue: number;
+    consolidatedCogs: number;
+    grossProfit: number;
+    operatingExpenses: number;
+    consolidatedNetIncome: number;
+    controllingShareNetIncome: number;
+    minorityInterestNetIncome: number;
+  };
+  balanceSheet: {
+    grossAssets: number;
+    intercompanyBalanceElimination: number;
+    consolidatedAssets: number;
+    consolidatedLiabilities: number;
+    totalEquity: number;
+    controllingEquity: number;
+    minorityInterestEquity: number;
+  };
+  subsidiaries: Array<{
+    entityName: string;
+    tenantId: string;
+    functionalCurrency: string;
+    ownershipPct: number;
+    minorityInterestPct: number;
+    revenueReporting: number;
+    cogsReporting: number;
+    opexReporting: number;
+    netIncomeReporting: number;
+    assetsReporting: number;
+    grossMarginPct: number;
+    netMarginPct: number;
+  }>;
+  eliminations: Array<{
+    id: string;
+    intercompany_tx_id?: string;
+    debit_account?: string;
+    credit_account?: string;
+    amount_reporting?: number;
+  }>;
+}): void {
+  const fmtCcy = (v: number) =>
+    params.reportingCurrency === 'USD'
+      ? `$${Math.round(v).toLocaleString('en-US')}`
+      : `${Math.round(v).toLocaleString('en-US').replace(/,/g, ' ')} ${params.reportingCurrency}`;
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  let y = drawDocumentHeader(
+    doc,
+    'CONSOLIDATED GROUP FINANCIAL STATEMENTS (SYSCOHADA / IFRS)',
+    `${params.groupName} · Multi-Subsidiary Consolidation Pack`,
+    `Period: ${params.period} | Reporting CCY: ${params.reportingCurrency} | FX: 1 USD = ${params.fxXafPerUsd} XAF (XAF/XOF 1:1 Parity)`
+  );
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Consolidated Income Statement (P&L)', `Amount (${params.reportingCurrency})`, 'Consolidated Balance Sheet', `Amount (${params.reportingCurrency})`]],
+    body: [
+      ['Gross Subsidiary Revenue', fmtCcy(params.pnl.grossRevenue), 'Gross Subsidiary Assets', fmtCcy(params.balanceSheet.grossAssets)],
+      ['Less: Inter-Company Revenue Elimination', `(${fmtCcy(params.pnl.intercompanyRevenueElimination)})`, 'Less: Inter-Company AR/AP Elimination', `(${fmtCcy(params.balanceSheet.intercompanyBalanceElimination)})`],
+      ['CONSOLIDATED REVENUE', fmtCcy(params.pnl.consolidatedRevenue), 'CONSOLIDATED TOTAL ASSETS', fmtCcy(params.balanceSheet.consolidatedAssets)],
+      ['Consolidated Cost of Goods Sold (COGS)', `(${fmtCcy(params.pnl.consolidatedCogs)})`, 'Consolidated Liabilities', fmtCcy(params.balanceSheet.consolidatedLiabilities)],
+      ['Consolidated Gross Profit', fmtCcy(params.pnl.grossProfit), 'Controlling Parent Equity', fmtCcy(params.balanceSheet.controllingEquity)],
+      ['Operating Expenses (OpEx)', `(${fmtCcy(params.pnl.operatingExpenses)})`, 'Minority Interest (NCI) Equity', fmtCcy(params.balanceSheet.minorityInterestEquity)],
+      ['CONSOLIDATED NET INCOME', fmtCcy(params.pnl.consolidatedNetIncome), 'TOTAL CONSOLIDATED EQUITY', fmtCcy(params.balanceSheet.totalEquity)],
+      ['Attributable to Parent (Controlling Share)', fmtCcy(params.pnl.controllingShareNetIncome), 'Liabilities + Total Equity', fmtCcy(params.balanceSheet.consolidatedLiabilities + params.balanceSheet.totalEquity)],
+      ['Attributable to Minority Interest (NCI)', fmtCcy(params.pnl.minorityInterestNetIncome), 'FX Translation Basis', `1 USD = ${params.fxXafPerUsd} XAF`],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+    bodyStyles: { fontSize: 7.8 },
+    columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  y = (doc.lastAutoTable?.finalY ?? y) + 7;
+  autoTable(doc, {
+    startY: y,
+    head: [['Legal Subsidiary', 'Func. CCY', 'Own % / NCI %', `Revenue`, `Net Income`, `Total Assets`, 'Gross Margin', 'Net Margin']],
+    body: params.subsidiaries.map((s) => [
+      `${s.entityName} (${s.tenantId})`,
+      s.functionalCurrency,
+      `${s.ownershipPct}% / ${s.minorityInterestPct}%`,
+      fmtCcy(s.revenueReporting),
+      fmtCcy(s.netIncomeReporting),
+      fmtCcy(s.assetsReporting),
+      `${s.grossMarginPct.toFixed(1)}%`,
+      `${s.netMarginPct.toFixed(1)}%`,
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+    bodyStyles: { fontSize: 7.8 },
+    columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right', fontStyle: 'bold' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' } },
+  });
+
+  if (params.eliminations.length > 0) {
+    y = (doc.lastAutoTable?.finalY ?? y) + 7;
+    autoTable(doc, {
+      startY: y,
+      head: [['Elimination ID', 'Source Inter-Co TX', 'Debit Account', 'Credit Account', `Eliminated Amount (${params.reportingCurrency})`]],
+      body: params.eliminations.map((e) => [
+        String(e.id),
+        String(e.intercompany_tx_id ?? '-'),
+        String(e.debit_account ?? '701_INTERCO_REVENUE'),
+        String(e.credit_account ?? '601_INTERCO_COGS'),
+        fmtCcy(Number(e.amount_reporting ?? 0)),
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 7.8 },
+      bodyStyles: { fontSize: 7.5 },
+      columnStyles: { 4: { halign: 'right', fontStyle: 'bold' } },
+    });
+  }
+
+  drawSignatureFooter(doc, 'Group Chief Financial Officer (GROUP_CFO)', 'Statutory Group Auditor');
+  doc.save(`opesfuel-consolidated-pack-${params.period}-${params.reportingCurrency.toLowerCase()}.pdf`);
+}
+
+/** 25. 5-Sheet Consolidated Group Excel Workbook (.xlsx) */
+export function exportConsolidatedGroupExcel(params: {
+  groupName: string;
+  period: string;
+  reportingCurrency: string;
+  pnl: Record<string, unknown>;
+  balanceSheet: Record<string, unknown>;
+  subsidiaries: Array<Record<string, unknown>>;
+  intercompanyTransactions: Array<Record<string, unknown>>;
+  eliminations: Array<Record<string, unknown>>;
+}): void {
+  const wb = XLSX.utils.book_new();
+  const pnlRows = Object.entries(params.pnl).map(([metric, val]) => ({
+    Metric: metric,
+    [`Amount (${params.reportingCurrency})`]: val,
+  }));
+  const bsRows = Object.entries(params.balanceSheet).map(([metric, val]) => ({
+    Metric: metric,
+    [`Amount (${params.reportingCurrency})`]: val,
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pnlRows), 'Consolidated P&L');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(bsRows), 'Consolidated Balance Sheet');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.subsidiaries.length ? params.subsidiaries : [{ info: 'No subsidiaries' }]), 'Subsidiaries');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.intercompanyTransactions.length ? params.intercompanyTransactions : [{ info: 'No inter-company transactions' }]), 'Inter-Company Tx');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.eliminations.length ? params.eliminations : [{ info: 'No elimination journals' }]), 'Elimination Journals');
+  XLSX.writeFile(wb, `opesfuel-group-consolidation-${params.period}-${params.reportingCurrency.toLowerCase()}.xlsx`);
+}
+
+/** 26. Inter-Company Elimination & Statutory Consolidation Certificate PDF */
+export function printIntercompanyEliminationCertificatePdf(params: {
+  groupName: string;
+  period: string;
+  reportingCurrency: string;
+  fxXafPerUsd: number;
+  totalEliminatedReporting: number;
+  pendingCount: number;
+  eliminations: Array<{ id: string; intercompany_tx_id?: string; debit_account?: string; credit_account?: string; amount_reporting?: number; created_at?: string }>;
+}): void {
+  const fmtCcy = (v: number) =>
+    params.reportingCurrency === 'USD'
+      ? `$${Math.round(v).toLocaleString('en-US')}`
+      : `${Math.round(v).toLocaleString('en-US').replace(/,/g, ' ')} ${params.reportingCurrency}`;
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  let y = drawDocumentHeader(
+    doc,
+    'INTER-COMPANY ELIMINATION & CONSOLIDATION CERTIFICATE',
+    `${params.groupName} · OHADA / IFRS 10 Compliance Attestation`,
+    `Period: ${params.period} | Reporting CCY: ${params.reportingCurrency} | FX: 1 USD = ${params.fxXafPerUsd} XAF`
+  );
+  autoTable(doc, {
+    startY: y,
+    head: [['Attestation Parameter', 'Verified Consolidation Value']],
+    body: [
+      ['Holding Group Entity', params.groupName],
+      ['Consolidation Accounting Period', params.period],
+      ['Total Inter-Company Revenue / COGS Eliminated', fmtCcy(params.totalEliminatedReporting)],
+      ['Elimination Journal Entries Posted', String(params.eliminations.length)],
+      ['Uneliminated Pending Inter-Company Transactions', params.pendingCount === 0 ? '0 (CLEAN — ZERO DOUBLE-COUNTING)' : `${params.pendingCount} PENDING`],
+      ['Currency Parity & Translation Rule', `XAF/XOF 1:1 CFA Parity · 1 USD = ${params.fxXafPerUsd} XAF`],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 8.5 },
+    columnStyles: { 1: { fontStyle: 'bold', halign: 'right' } },
+  });
+  y = (doc.lastAutoTable?.finalY ?? y) + 8;
+  autoTable(doc, {
+    startY: y,
+    head: [['Entry ID', 'Inter-Co TX Ref', 'Debit Account', 'Credit Account', `Amount (${params.reportingCurrency})`]],
+    body: params.eliminations.length
+      ? params.eliminations.map((e) => [
+          String(e.id),
+          String(e.intercompany_tx_id ?? '-'),
+          String(e.debit_account ?? '701_INTERCO_REVENUE'),
+          String(e.credit_account ?? '601_INTERCO_COGS'),
+          fmtCcy(Number(e.amount_reporting ?? 0)),
+        ])
+      : [['-', 'No elimination entries posted in this period', '-', '-', fmtCcy(0)]],
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+    bodyStyles: { fontSize: 7.8 },
+    columnStyles: { 4: { halign: 'right', fontStyle: 'bold' } },
+  });
+  drawSignatureFooter(doc, 'Group CFO Certification', 'External Statutory Auditor');
+  doc.save(`opesfuel-elimination-certificate-${params.period}.pdf`);
+}
+
+
 

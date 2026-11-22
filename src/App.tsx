@@ -160,6 +160,7 @@ const PUBLIC_SEO: Record<PublicPage, { title: string; description: string }> = {
 
 const CONSOLE_SECTIONS: ConsoleSection[] = [
   'platform-admin',
+  'group-consolidation',
   'overview',
   'forecourt',
   'inventory',
@@ -358,6 +359,8 @@ export default function App() {
             const targetSection =
               resolvedSession.role === 'PLATFORM_ADMIN' && parsedReturn.consoleSection === 'overview'
                 ? 'platform-admin'
+                : resolvedSession.role === 'GROUP_CFO' && parsedReturn.consoleSection === 'overview'
+                ? 'group-consolidation'
                 : parsedReturn.consoleSection;
             setConsoleSection(targetSection);
           }
@@ -395,7 +398,8 @@ export default function App() {
   // Strict RBAC route guard: prevent direct hash navigation to forbidden sections
   useEffect(() => {
     if (mode === 'console' && !canAccessSection(role, consoleSection)) {
-      const fallback: ConsoleSection = role === 'PLATFORM_ADMIN' ? 'platform-admin' : 'overview';
+      const fallback: ConsoleSection =
+        role === 'PLATFORM_ADMIN' ? 'platform-admin' : role === 'GROUP_CFO' ? 'group-consolidation' : 'overview';
       setConsoleSection(fallback);
       setToast({
         type: 'error',
@@ -514,6 +518,8 @@ export default function App() {
     setRole(nextRole);
     if (nextRole === 'PLATFORM_ADMIN') {
       setConsoleSection('platform-admin');
+    } else if (nextRole === 'GROUP_CFO') {
+      setConsoleSection('group-consolidation');
     } else if (!canAccessSection(nextRole, consoleSection)) {
       setConsoleSection('overview');
     }
@@ -684,6 +690,8 @@ export default function App() {
           setActiveStationId(nextStationId);
           if (nextRole === 'PLATFORM_ADMIN') {
             setConsoleSection('platform-admin');
+          } else if (nextRole === 'GROUP_CFO') {
+            setConsoleSection('group-consolidation');
           } else if (!canAccessSection(nextRole, consoleSection)) {
             setConsoleSection('overview');
           }
@@ -886,6 +894,30 @@ export default function App() {
           onChangeTab={setPlatformAdminTab}
           onPostBackend={postOptionalBackend}
           onStartImpersonation={handleStartImpersonation}
+          onNotify={notify}
+        />
+      )}
+      {consoleSection === 'group-consolidation' && canAccessSection(role, 'group-consolidation') && (
+        <HoldingConsolidationPanel
+          engine={engineRef.current}
+          role={role}
+          approvals={entOps.approvals}
+          onDecideApproval={(id, status) => {
+            const target = entOps.approvals.find((a) => a.id === id);
+            if (target && target.requestedBy.toLowerCase() === currentActorEmail.toLowerCase()) {
+              notify('error', 'Maker-Checker rule (T005): you cannot approve your own submission.');
+              return;
+            }
+            setEntOps((prev) => ({
+              ...prev,
+              approvals: prev.approvals.map((a) =>
+                a.id === id ? { ...a, status, decidedBy: currentActorEmail } : a
+              ),
+            }));
+            void postOptionalBackend(`/api/v1/enterprise/approvals/${encodeURIComponent(id)}`, 'PATCH', { status });
+            appendAudit('APPROVAL_DECIDED', 'APPROVAL', id, `Group CFO marked approval ${id} as ${status}`);
+            notify('success', `Group approval request ${status.toLowerCase()}.`);
+          }}
           onNotify={notify}
         />
       )}
@@ -1384,11 +1416,20 @@ export default function App() {
                 }}
               />
               {(role === 'PLATFORM_ADMIN' || role === 'GROUP_CFO' || role === 'OWNER' || role === 'ACCOUNTANT') && (
-                <HoldingConsolidationPanel
-                  role={role}
-                  onPostBackend={postOptionalBackend}
-                  onNotify={notify}
-                />
+                <div className="bg-[#0F172A] text-white rounded-xl p-5 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-amber-400">Multi-Subsidiary Consolidation</div>
+                    <div className="font-display text-sm font-bold text-white">Holding-Company Consolidation Cockpit (XAF / XOF / USD)</div>
+                    <p className="text-xs text-slate-300">Open the dedicated Group Consolidation workspace for inter-company eliminations, NCI equity, and Board Packs.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConsoleSection('group-consolidation')}
+                    className="px-4 py-2 rounded-lg bg-[#D97706] hover:bg-amber-700 text-white text-xs font-semibold"
+                  >
+                    Open Group Consolidation →
+                  </button>
+                </div>
               )}
             </div>
           }

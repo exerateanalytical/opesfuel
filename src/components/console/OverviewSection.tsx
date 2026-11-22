@@ -54,6 +54,7 @@ interface OverviewSectionProps {
   }) => void;
   onJumpTo: (
     section:
+      | 'group-consolidation'
       | 'forecourt'
       | 'inventory'
       | 'fleet'
@@ -267,8 +268,8 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       title: 'Multi-Subsidiary Consolidation (XAF / XOF / USD) & Inter-Company Eliminations',
       summary: 'Review consolidated group P&L, balance sheets, minority interest (NCI), and inter-company elimination journals across subsidiaries.',
       actions: [
-        { label: 'Open Group Consolidation & Ledger', target: 'accounting' as const, primary: true },
-        { label: 'LPG & Wet-Stock Inventory', target: 'inventory' as const, primary: false },
+        { label: 'Open Group Consolidation Cockpit', target: 'group-consolidation' as const, primary: true },
+        { label: 'SYSCOHADA Ledger & Treasury', target: 'accounting' as const, primary: false },
         { label: 'AI Executive Copilot', target: 'ai-assistant' as const, primary: false },
       ],
     },
