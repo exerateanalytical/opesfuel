@@ -170,18 +170,20 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
                 )}
               </button>
             )}
-            <button
-              type="button"
-              disabled={!activeAccountId}
-              onClick={() => void handleLoadStatement()}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" /> View Statement
-            </button>
+            {canManage && (
+              <button
+                type="button"
+                disabled={!activeAccountId}
+                onClick={() => void handleLoadStatement()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" /> View Statement
+              </button>
+            )}
           </div>
         </div>
 
-        {statement && (
+        {statement && canManage && (
           <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-900">

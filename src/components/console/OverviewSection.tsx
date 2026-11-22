@@ -66,6 +66,7 @@ interface OverviewSectionProps {
     title: string;
     amountFcfa: number;
   }) => void;
+  onToggleAttendance?: (employeeId: string) => void;
   onSelectStation?: (stationId: string) => void;
   report: FinancialReportBundle;
   onboardingCompletedCount: number;
@@ -113,6 +114,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   approvals = [],
   onDecideApproval,
   onSubmitApprovalRequest,
+  onToggleAttendance,
   onSelectStation,
   report,
   onboardingCompletedCount,
@@ -823,6 +825,68 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               SUPER {formatFcfa(currentStation?.prices.SUPER ?? 840)} · GASOIL {formatFcfa(currentStation?.prices.GASOIL ?? 828)}
             </div>
             <div className="text-xs text-slate-500 mt-1.5">Official CSPH regulated pump rates</div>
+          </div>
+        </div>
+      )}
+
+      {/* Pump Island Attendant Self Clock-In & Active Shift Quick Desk */}
+      {isAttendant && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="font-mono text-[11px] font-bold uppercase text-amber-700">
+              My Forecourt Duty &amp; Active Island Shift
+            </div>
+            {(() => {
+              const myEmp =
+                employees.find((e) => e.role === 'ATTENDANT' && e.fullName.toLowerCase() === managerName.toLowerCase()) ??
+                employees.find((e) => e.role === 'ATTENDANT');
+              return (
+                <div className="text-sm font-semibold text-slate-950">
+                  {myEmp ? (
+                    <>
+                      {myEmp.fullName} · Shift Window <span className="font-mono">{myEmp.shiftWindow}</span> ·{' '}
+                      <span className={myEmp.clockedIn ? 'text-emerald-700' : 'text-slate-500'}>
+                        {myEmp.clockedIn ? 'Clocked In On Duty' : 'Currently Off Duty'}
+                      </span>
+                    </>
+                  ) : (
+                    'Ready for Forecourt Pump Assignment'
+                  )}
+                </div>
+              );
+            })()}
+            <div className="text-xs text-slate-500">
+              {openShifts.length > 0
+                ? `Active Pump: ${openShifts[0].pumpCode} (${gradeLabel(openShifts[0].grade)}) · Opening Meter ${formatLitres(openShifts[0].openingMeterLitres)}`
+                : 'No pump shift currently open — open an idle nozzle in Forecourt & Shifts to begin dispensing.'}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {(() => {
+              const myEmp =
+                employees.find((e) => e.role === 'ATTENDANT' && e.fullName.toLowerCase() === managerName.toLowerCase()) ??
+                employees.find((e) => e.role === 'ATTENDANT');
+              return myEmp && onToggleAttendance ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleAttendance(myEmp.id)}
+                  className={`px-4 py-2.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    myEmp.clockedIn
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                      : 'bg-[#0F172A] border-[#0F172A] text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {myEmp.clockedIn ? 'Clocked In (Tap to Clock Out)' : 'Clock In for My Shift'}
+                </button>
+              ) : null;
+            })()}
+            <button
+              type="button"
+              onClick={() => onJumpTo('forecourt')}
+              className="px-4 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              {openShifts.length > 0 ? 'Close Shift / Print 80mm Receipt' : 'Open Pump Shift'}
+            </button>
           </div>
         </div>
       )}

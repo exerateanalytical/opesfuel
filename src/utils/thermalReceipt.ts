@@ -294,3 +294,39 @@ export function printThermalReceipt(params: {
   openThermalPrintWindow(`${params.title} ${params.receiptNo}`, body);
 }
 
+export function printCustomerFuelThermalReceipt(params: {
+  stationName: string;
+  pumpCode: string;
+  grade: string;
+  litres: number;
+  unitPriceFcfa: number;
+  paymentMethod: 'CASH' | 'MOBILE_MONEY' | 'CARD';
+  attendantName: string;
+  vehiclePlate?: string;
+}): void {
+  const grossFcfa = Math.round(params.litres * params.unitPriceFcfa);
+  const netExVatFcfa = Math.round(grossFcfa / 1.1925);
+  const vatFcfa = grossFcfa - netExVatFcfa;
+  const ref = `FUEL-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+  const body = `
+    ${buildBrandedThermalHeader(params.stationName, 'RETAIL FUEL TAX RECEIPT (80mm)')}
+    <div class="hr"></div>
+    <div class="row"><span>Receipt #:</span><span class="bold">${ref}</span></div>
+    <div class="row"><span>Date:</span><span>${new Date().toLocaleString()}</span></div>
+    <div class="row"><span>Pump / Grade:</span><span class="bold">${escapeHtml(params.pumpCode)} · ${escapeHtml(params.grade)}</span></div>
+    <div class="row"><span>Attendant:</span><span>${escapeHtml(params.attendantName)}</span></div>
+    ${params.vehiclePlate ? `<div class="row"><span>Vehicle Plate:</span><span class="bold">${escapeHtml(params.vehiclePlate.toUpperCase())}</span></div>` : ''}
+    <div class="hr"></div>
+    <div class="row"><span>Volume Dispensed:</span><span class="bold">${params.litres.toFixed(2)} L</span></div>
+    <div class="row"><span>Unit Tariff:</span><span>${formatFcfa(params.unitPriceFcfa)} / L</span></div>
+    <div class="row"><span>Subtotal (Excl. TVA):</span><span>${formatFcfa(netExVatFcfa)}</span></div>
+    <div class="row"><span>TVA (19.25%):</span><span>${formatFcfa(vatFcfa)}</span></div>
+    <div class="hr"></div>
+    <div class="row bold" style="font-size:13px;"><span>TOTAL PAID:</span><span>${formatFcfa(grossFcfa)}</span></div>
+    <div class="row"><span>Payment Tender:</span><span class="bold">${escapeHtml(params.paymentMethod)}</span></div>
+    <div class="hr"></div>
+    <div class="center" style="font-size:9px;">Thank you for fueling with us · Verify Ref ${ref}</div>
+    ${buildBrandedThermalFooter()}
+  `;
+  openThermalPrintWindow(`Fuel Receipt ${ref}`, body);
+}

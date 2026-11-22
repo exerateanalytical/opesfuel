@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, FileSpreadsheet, Fuel, Plus, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileSpreadsheet, Fuel, Plus, Printer, Smartphone, Trash2 } from 'lucide-react';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { Employee, FuelGrade, FuelTank, Pump, ShiftRecord, UserRole } from '../../domain/types';
 import { exportShiftsExcel } from '../../utils/documentTemplates';
-import { printShiftThermalSlip } from '../../utils/thermalReceipt';
+import { printCustomerFuelThermalReceipt, printShiftThermalSlip } from '../../utils/thermalReceipt';
 import { FormModal } from '../shared/FormModal';
+import { MomoPaymentModal } from './MomoPaymentModal';
 
 interface ForecourtSectionProps {
   role: UserRole;
   stationId: string;
+  stationName?: string;
+  accessToken?: string | null;
   defaultStationId: string;
   pumps: Pump[];
   tanks: FuelTank[];
@@ -35,12 +38,15 @@ interface ForecourtSectionProps {
   }) => void;
   onDeletePump: (pumpId: string) => void;
   onDeleteShift: (shiftId: string) => void;
+  onNotify?: (type: 'success' | 'error', message: string) => void;
   calibrationSlot?: React.ReactNode;
 }
 
 export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
   role,
   stationId,
+  stationName = 'OpesFuel Forecourt Station',
+  accessToken,
   defaultStationId,
   pumps,
   tanks,
@@ -51,6 +57,7 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
   onCreatePump,
   onDeletePump,
   onDeleteShift,
+  onNotify,
   calibrationSlot,
 }) => {
   const canOperate = canPerformAction(role, 'OPEN_CLOSE_SHIFT');
@@ -73,6 +80,15 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
   const [showOpenShift, setShowOpenShift] = useState(false);
   const [selectedPumpId, setSelectedPumpId] = useState('');
   const [selectedAttendantId, setSelectedAttendantId] = useState('');
+
+  // Quick 80mm Customer Fuel Receipt + Live MoMo Collection modals
+  const [showFuelReceiptModal, setShowFuelReceiptModal] = useState(false);
+  const [rcpPumpId, setRcpPumpId] = useState('');
+  const [rcpLitres, setRcpLitres] = useState('35');
+  const [rcpTender, setRcpTender] = useState<'CASH' | 'MOBILE_MONEY' | 'CARD'>('CASH');
+  const [rcpPlate, setRcpPlate] = useState('');
+  const [showMomoModal, setShowMomoModal] = useState(false);
+  const [momoPromptAmount, setMomoPromptAmount] = useState('25000');
 
   // Add pump modal
   const [showAddPump, setShowAddPump] = useState(false);
@@ -453,6 +469,28 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
               >
                 <Fuel className="w-3.5 h-3.5" /> Open Forecourt Shift
               </button>
+            )}
+
+            {canOperate && visiblePumps.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!rcpPumpId && visiblePumps[0]) setRcpPumpId(visiblePumps[0].id);
+                    setShowFuelReceiptModal(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold whitespace-nowrap"
+                >
+                  <Printer className="w-3.5 h-3.5 text-amber-400" /> 80mm Fuel Receipt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowMomoModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-semibold whitespace-nowrap"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-amber-700" /> Collect MoMo / OM
+                </button>
+              </>
             )}
 
             {canManage && (
@@ -912,6 +950,142 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
       </div>
 
       {role !== 'ATTENDANT' && calibrationSlot}
+
+      {/* Popup FormModal: 80mm Retail Customer Fuel Receipt */}
+      <FormModal
+        open={showFuelReceiptModal}
+        onClose={() => setShowFuelReceiptModal(false)}
+        title="Print 80mm Customer Fuel Receipt"
+        subtitle="Generates an instant branded thermal tax receipt (incl. 19.25% TVA) for walk-in drivers."
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const pump = visiblePumps.find((p) => p.id === rcpPumpId) ?? visiblePumps[0];
+            if (!pump) return;
+            const litresNum = Math.max(0.5, Number(rcpLitres) || 0);
+            const activeShiftForPump = visibleShifts.find((s) => s.pumpId === pump.id && s.status === 'OPEN');
+            printCustomerFuelThermalReceipt({
+              stationName,
+              pumpCode: pump.code,
+              grade: gradeLabel(pump.grade),
+              litres: litresNum,
+              unitPriceFcfa: pump.unitPriceFcfa,
+              paymentMethod: rcpTender,
+              attendantName: activeShiftForPump?.attendantName ?? attendants[0]?.fullName ?? 'Forecourt Attendant',
+              vehiclePlate: rcpPlate.trim() || undefined,
+            });
+            onNotify?.('success', `Printed 80mm fuel tax receipt (${litresNum} L on ${pump.code}).`);
+            setShowFuelReceiptModal(false);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Dispenser / Grade</label>
+              <select
+                value={rcpPumpId || visiblePumps[0]?.id || ''}
+                onChange={(e) => setRcpPumpId(e.target.value)}
+                className="opes-input"
+              >
+                {visiblePumps.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} — {gradeLabel(p.grade)} ({formatFcfa(p.unitPriceFcfa)}/L)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Volume Dispensed (Litres)</label>
+              <input
+                type="number"
+                step="0.01"
+                min={0.5}
+                required
+                value={rcpLitres}
+                onChange={(e) => setRcpLitres(e.target.value)}
+                className="opes-input font-mono"
+              />
+            </div>
+            <div>
+              <label className="opes-label">Payment Method</label>
+              <select
+                value={rcpTender}
+                onChange={(e) => setRcpTender(e.target.value as 'CASH' | 'MOBILE_MONEY' | 'CARD')}
+                className="opes-input"
+              >
+                <option value="CASH">Cash (FCFA)</option>
+                <option value="MOBILE_MONEY">MTN MoMo / Orange Money</option>
+                <option value="CARD">Bank Card / POS</option>
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Vehicle Plate (Optional)</label>
+              <input
+                type="text"
+                value={rcpPlate}
+                onChange={(e) => setRcpPlate(e.target.value)}
+                placeholder="e.g. LT-842-CM"
+                className="opes-input font-mono uppercase"
+              />
+            </div>
+          </div>
+          {(() => {
+            const p = visiblePumps.find((x) => x.id === rcpPumpId) ?? visiblePumps[0];
+            const total = p ? Math.round((Number(rcpLitres) || 0) * p.unitPriceFcfa) : 0;
+            return (
+              <div className="p-3 rounded-lg bg-slate-900 text-white flex items-center justify-between text-xs font-mono">
+                <span>Receipt Total (TTC · incl. 19.25% TVA)</span>
+                <span className="text-amber-400 font-bold text-sm">{formatFcfa(total)}</span>
+              </div>
+            );
+          })()}
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <button type="button" onClick={() => setShowFuelReceiptModal(false)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold">
+              Print 80mm Receipt
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Live Cameroon MTN MoMo / Orange Money Customer Checkout Modal */}
+      {showMomoModal && (
+        <div className="space-y-2">
+          <FormModal
+            open={showMomoModal && Number(momoPromptAmount) <= 0}
+            onClose={() => setShowMomoModal(false)}
+            title="Enter Fuel Sale Amount (FCFA)"
+          >
+            <div className="space-y-3">
+              <input
+                type="number"
+                min={100}
+                value={momoPromptAmount}
+                onChange={(e) => setMomoPromptAmount(e.target.value)}
+                className="opes-input font-mono"
+              />
+            </div>
+          </FormModal>
+          <MomoPaymentModal
+            open={showMomoModal && Number(momoPromptAmount) > 0}
+            onClose={() => setShowMomoModal(false)}
+            title={`Forecourt Fuel Sale — ${stationName}`}
+            amountFcfa={Math.max(100, Number(momoPromptAmount) || 25000)}
+            targetType="STATION_SALE"
+            targetId={stationId === 'ALL' ? defaultStationId : stationId}
+            description={`Pump island fuel collection at ${stationName}`}
+            authHeader={accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined}
+            onSettled={() => {
+              onNotify?.('success', 'Customer MTN MoMo / Orange Money fuel payment confirmed!');
+              setShowMomoModal(false);
+            }}
+            onNotify={onNotify}
+          />
+        </div>
+      )}
     </div>
   );
 };

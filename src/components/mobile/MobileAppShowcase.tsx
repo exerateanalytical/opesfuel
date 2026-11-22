@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { INSTITUTIONAL_FUEL_CATALOG } from '../../api/opesfuelClient';
+import { canAccessSection, canPerformAction } from '../../auth/auth0';
 import { formatFcfa, formatLitres, gradeLabel } from '../../domain/formatters';
 import {
   AiSubscriptionState,
@@ -35,6 +36,7 @@ import {
   ShiftRecord,
   ShopItem,
   Station,
+  UserRole,
 } from '../../domain/types';
 
 export type MobileShowcaseTab = 'shifts' | 'inventory' | 'fleet' | 'reports' | 'sync' | 'ai' | 'setup';
@@ -49,6 +51,7 @@ interface OfflineQueueEntry {
 }
 
 interface MobileAppShowcaseProps {
+  role?: UserRole;
   stations: Station[];
   activeStationId?: string;
   tanks: FuelTank[];
@@ -91,6 +94,7 @@ interface MobileAppShowcaseProps {
 }
 
 export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
+  role,
   stations,
   activeStationId,
   tanks,
@@ -111,6 +115,11 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
   onRunInstitutionalSetup,
   onOpenConsole,
 }) => {
+  const canSeeTanks = !role || canAccessSection(role, 'inventory');
+  const canSeeReports = !role || canPerformAction(role, 'VIEW_FINANCIALS');
+  const canSeeAi = !role || canAccessSection(role, 'ai-assistant');
+  const canToggleAiBilling = !role || canPerformAction(role, 'MANAGE_AI_ADDON');
+  const canSeeSetup = !role || role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
   const [selectedStationId, setSelectedStationId] = useState<string>(
     activeStationId && activeStationId !== 'ALL' ? activeStationId : stations[0]?.id ?? ''
   );
@@ -361,55 +370,63 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
                     </button>
                   </div>
 
-                  {/* Station Switcher */}
+                  {/* Station Switcher (Locked when single-station assigned) */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
                       Active Petrol Station
                     </label>
-                    <select
-                      value={currentStation?.id ?? ''}
-                      onChange={(e) => {
-                        setSelectedStationId(e.target.value);
-                        setDetailPumpId(null);
-                        setDetailTankId(null);
-                      }}
-                      className="w-full px-3 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white"
-                    >
-                      {stations.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.city})
-                        </option>
-                      ))}
-                    </select>
+                    {stations.length <= 1 ? (
+                      <div className="w-full px-3 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white font-semibold">
+                        {currentStation ? `${currentStation.name} (${currentStation.city})` : 'Assigned Station'}
+                      </div>
+                    ) : (
+                      <select
+                        value={currentStation?.id ?? ''}
+                        onChange={(e) => {
+                          setSelectedStationId(e.target.value);
+                          setDetailPumpId(null);
+                          setDetailTankId(null);
+                        }}
+                        className="w-full px-3 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white"
+                      >
+                        {stations.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.city})
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
-                  {/* Drawer Navigation Links */}
+                  {/* Drawer Navigation Links (Strictly RBAC Filtered) */}
                   <div className="space-y-1.5 flex-1">
                     {[
-                      { id: 'shifts' as const, label: 'Forecourt & Shifts', icon: Fuel },
-                      { id: 'inventory' as const, label: 'Underground Tanks', icon: Gauge },
-                      { id: 'fleet' as const, label: 'Fleet Credit & Shop POS', icon: CreditCard },
-                      { id: 'reports' as const, label: 'Daily Reports & P&L', icon: TrendingUp },
-                      { id: 'sync' as const, label: `Offline Sync Queue (${offlineQueue.length})`, icon: RefreshCw },
-                      { id: 'setup' as const, label: 'Fuel Grade Setup', icon: Wrench },
-                      { id: 'ai' as const, label: 'AI Station Copilot', icon: Sparkles },
-                    ].map((item) => {
-                      const Icon = item.icon;
-                      const active = tab === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => switchTab(item.id)}
-                          className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
-                            active ? 'bg-amber-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-                          }`}
-                        >
-                          <Icon className="w-4 h-4 shrink-0" />
-                          <span>{item.label}</span>
-                        </button>
-                      );
-                    })}
+                      { id: 'shifts' as const, label: 'Forecourt & Shifts', icon: Fuel, allowed: true },
+                      { id: 'inventory' as const, label: 'Underground Tanks', icon: Gauge, allowed: canSeeTanks },
+                      { id: 'fleet' as const, label: 'Fleet Credit & Shop POS', icon: CreditCard, allowed: true },
+                      { id: 'reports' as const, label: 'Daily Reports & P&L', icon: TrendingUp, allowed: canSeeReports },
+                      { id: 'sync' as const, label: `Offline Sync Queue (${offlineQueue.length})`, icon: RefreshCw, allowed: true },
+                      { id: 'setup' as const, label: 'Fuel Grade Setup', icon: Wrench, allowed: canSeeSetup },
+                      { id: 'ai' as const, label: 'AI Station Copilot', icon: Sparkles, allowed: canSeeAi },
+                    ]
+                      .filter((item) => item.allowed)
+                      .map((item) => {
+                        const Icon = item.icon;
+                        const active = tab === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => switchTab(item.id)}
+                            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+                              active ? 'bg-amber-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                            }`}
+                          >
+                            <Icon className="w-4 h-4 shrink-0" />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
                   </div>
 
                   <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
@@ -1162,7 +1179,7 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
               {/* =================================================================
                   DRAWER SCREEN: AI COPILOT
                  ================================================================= */}
-              {tab === 'ai' && (
+              {tab === 'ai' && canSeeAi && (
                 <div className="space-y-4">
                   <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5">
                     <div className="flex items-center justify-between">
@@ -1174,7 +1191,7 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
                     <p className="text-xs text-slate-600 leading-relaxed">
                       Detects unusual dipstick shrinkage, cash shortfalls, and predicts tank restock dates before run-outs.
                     </p>
-                    {onToggleAiSubscription && (
+                    {onToggleAiSubscription && canToggleAiBilling && (
                       <button
                         type="button"
                         onClick={() => onToggleAiSubscription(!aiSubscription.active)}
@@ -1188,38 +1205,49 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
               )}
             </div>
 
-            {/* Clean 5-Tab Fixed Bottom Navigation Bar */}
-            <div className="h-16 bg-white border-t border-slate-200 grid grid-cols-5 shrink-0">
-              {[
-                { id: 'shifts' as const, label: 'Shifts', icon: Fuel },
-                { id: 'inventory' as const, label: 'Tanks', icon: Gauge },
-                { id: 'fleet' as const, label: 'POS', icon: CreditCard },
-                { id: 'reports' as const, label: 'Reports', icon: TrendingUp },
-                { id: 'sync' as const, label: 'Sync', icon: RefreshCw },
-              ].map((item) => {
-                const Icon = item.icon;
-                const active = tab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => switchTab(item.id)}
-                    className={`relative flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors ${
-                      active ? 'text-amber-700' : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    {active && <span className="absolute top-0 inset-x-3 h-0.5 bg-amber-600 rounded-full" />}
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                    {item.id === 'sync' && offlineQueue.length > 0 && (
-                      <span className="absolute top-1.5 right-3 min-w-[16px] h-4 px-1 rounded-full bg-amber-600 text-white font-mono text-[9px] font-bold flex items-center justify-center">
-                        {offlineQueue.length}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Clean RBAC-Filtered Fixed Bottom Navigation Bar */}
+            {(() => {
+              const bottomTabs = [
+                { id: 'shifts' as const, label: 'Shifts', icon: Fuel, allowed: true },
+                { id: 'inventory' as const, label: 'Tanks', icon: Gauge, allowed: canSeeTanks },
+                { id: 'fleet' as const, label: 'POS', icon: CreditCard, allowed: true },
+                { id: 'reports' as const, label: 'Reports', icon: TrendingUp, allowed: canSeeReports },
+                { id: 'sync' as const, label: 'Sync', icon: RefreshCw, allowed: true },
+              ].filter((item) => item.allowed);
+              const gridCols =
+                bottomTabs.length === 3
+                  ? 'grid-cols-3'
+                  : bottomTabs.length === 4
+                  ? 'grid-cols-4'
+                  : 'grid-cols-5';
+              return (
+                <div className={`h-16 bg-white border-t border-slate-200 grid ${gridCols} shrink-0`}>
+                  {bottomTabs.map((item) => {
+                    const Icon = item.icon;
+                    const active = tab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => switchTab(item.id)}
+                        className={`relative flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors ${
+                          active ? 'text-amber-700' : 'text-slate-500 hover:text-slate-900'
+                        }`}
+                      >
+                        {active && <span className="absolute top-0 inset-x-3 h-0.5 bg-amber-600 rounded-full" />}
+                        <Icon className="w-4 h-4" />
+                        <span>{item.label}</span>
+                        {item.id === 'sync' && offlineQueue.length > 0 && (
+                          <span className="absolute top-1.5 right-3 min-w-[16px] h-4 px-1 rounded-full bg-amber-600 text-white font-mono text-[9px] font-bold flex items-center justify-center">
+                            {offlineQueue.length}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
 

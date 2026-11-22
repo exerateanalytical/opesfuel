@@ -1013,6 +1013,12 @@ export default function App() {
             appendAudit('APPROVAL_DECIDED', 'APPROVAL', id, `${role} marked approval ${id} as ${status}`);
             notify('success', `Executive approval request ${status.toLowerCase()}.`);
           }}
+          onToggleAttendance={(empId) =>
+            runCommand(
+              () => engineRef.current.toggleAttendance(role, empId),
+              'Updated your forecourt shift attendance clock-in status.'
+            )
+          }
           onSelectStation={(stId) => setActiveStationId(stId)}
           report={report}
           onboardingCompletedCount={onboardingCompletedCount}
@@ -1064,7 +1070,10 @@ export default function App() {
         <ForecourtSection
           role={role}
           stationId={effectiveActiveStationId}
+          stationName={scopedStationName}
+          accessToken={authSession?.accessToken ?? null}
           defaultStationId={defaultStationId}
+          onNotify={notify}
           pumps={store.pumps}
           tanks={store.tanks}
           shifts={store.shifts}
@@ -1732,7 +1741,8 @@ export default function App() {
 
       {consoleSection === 'mobile-app' && canAccessSection(role, 'mobile-app') && (
         <MobileAppShowcase
-          stations={store.stations}
+          role={role}
+          stations={authorizedStations}
           activeStationId={effectiveActiveStationId}
           tanks={store.tanks}
           pumps={store.pumps}
