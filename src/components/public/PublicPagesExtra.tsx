@@ -6,21 +6,15 @@ import {
   Building2,
   Check,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Clock,
-  Code2,
   Cpu,
   Database,
   FileCheck2,
   Fuel,
   Globe2,
-  HelpCircle,
   KeyRound,
-  Layers,
   Lock,
   Network,
-  Search,
   Server,
   Shield,
   ShieldCheck,
@@ -46,76 +40,78 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
 }) => {
   const [selectedSegment, setSelectedSegment] = useState<'independent' | 'network' | 'fleet' | 'audit'>('independent');
   const [integrationFilter, setIntegrationFilter] = useState<'ALL' | 'PAYMENTS' | 'IOT' | 'ERP' | 'SECURITY'>('ALL');
-  const [faqQuery, setFaqQuery] = useState('');
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   // =========================================================================
-  // 1. SOLUTIONS PAGE
+  // 1. SOLUTIONS PAGE (Station Owner & Manager Language)
   // =========================================================================
   if (page === 'solutions') {
     const segments = {
       independent: {
-        badge: '1–2 Stations · From 25 000 FCFA/mo',
+        badge: '1–2 Stations · From 25 000 FCFA/month',
         title: 'Independent Petrol Station Owners',
-        subtitle: 'Eliminate cash handover leakage, midnight Excel sheets, and unexplained underground tank shrinkage from day one.',
+        subtitle:
+          'Stop losing cash at shift change, ditch late-night Excel sheets, and know your real underground fuel stock and daily profit from anywhere.',
         outcomes: [
-          'Close pump shifts in 90 seconds with automatic meter vs. Cash/Orange Money/MoMo reconciliation.',
-          'Catch attendant shortages immediately and deduct verified variances transparently at payroll.',
-          'Auto-generate daily P&L, VAT (19.25%), and Balance Sheet without hiring an external data-entry clerk.',
-          'Monitor live pump sales and tank reserves from your iPhone or Android even while travelling.',
+          'Close every pump shift in 2 minutes—comparing meter sales against Cash, Orange Money, MTN MoMo, and Fleet vouchers.',
+          'Spot attendant cash shortages immediately and handle deductions fairly on monthly payslips.',
+          'Get automatic daily Profit & Loss, VAT (19.25%), and Balance Sheet reports without hiring extra data-entry clerks.',
+          'Check live pump sales and tank levels from your iPhone or Android whenever you travel.',
         ],
         metrics: [
-          { label: 'Go-Live Time', value: 'Under 48 hrs' },
-          { label: 'Average Cash Leakage Cut', value: '−94%' },
-          { label: 'Monthly Starting Tariff', value: '25 000 FCFA' },
+          { label: 'Setup & Go-Live', value: 'Under 48 hrs' },
+          { label: 'Average Cash Loss Reduction', value: '−94%' },
+          { label: 'Monthly Starting Price', value: '25 000 FCFA' },
         ],
       },
       network: {
-        badge: '3–100+ Stations · Multi-Site Command',
-        title: 'Multi-Site Fuel Networks & Oil Marketers',
-        subtitle: 'Standardize fuel pricing, wet-stock reconciliation, corporate fleet billing, and consolidated SYSCOHADA financials across every region.',
+        badge: '3–100+ Stations · Multi-Station Command',
+        title: 'Multi-Station Owners & Regional Oil Marketers',
+        subtitle:
+          'Control fuel prices, compare station profitability, stop tanker delivery shortfalls, and manage corporate clients across all your sites from one screen.',
         outcomes: [
-          'Push tariff changes and monitor tank autonomy across Douala, Yaoundé, Kribi, Bafoussam, and corridors in one view.',
-          'Isolate branch managers to their assigned station while giving HQ executives network-wide visibility.',
-          'Track tanker purchase orders, Bill-of-Lading shortfalls, and 15°C ATG thermal variance across depots.',
-          'Connect headquarters ERP (Sage 100c, Odoo, SAP) via OpenAPI 3.1 and HMAC-signed webhooks.',
+          'Monitor every station in Douala, Yaoundé, Kribi, Bafoussam, or across borders in one consolidated dashboard.',
+          'Give each branch manager access only to their station while headquarters sees the entire network.',
+          'Catch tanker delivery shortages against supplier delivery notes and monitor tank evaporation daily.',
+          'Export clean accounting reports directly to Sage 100c, Odoo, SAP, or your external auditor.',
         ],
         metrics: [
-          { label: 'Multi-Station Consolidation', value: 'Real-Time' },
-          { label: 'Monthly Close Speed', value: '4× Faster' },
-          { label: 'Deployment Model', value: 'Cloud or Sovereign VPS' },
+          { label: 'Network Visibility', value: 'Live Across All Sites' },
+          { label: 'Month-End Closing', value: '4× Faster' },
+          { label: 'Hosting Choice', value: 'Cloud or Your Server' },
         ],
       },
       fleet: {
-        badge: 'B2B Corporate Fuel & Commercial Depots',
-        title: 'Corporate Fleets, Transport & Fuel Depots',
-        subtitle: 'Control postpaid fuel credit by whitelisted license plate, driver identity, and real-time credit ceilings.',
+        badge: 'Corporate Credit & Commercial Fuel Depots',
+        title: 'Corporate Fleets, Transport Companies & Depots',
+        subtitle:
+          'Sell fuel on credit safely by approving exact vehicle plates, setting FCFA spending ceilings, and sending itemized monthly statements in one click.',
         outcomes: [
-          'Enforce automated ACTIVE/HOLD credit controls that block over-limit dispensing at the pump.',
-          'Issue itemized monthly corporate fuel statements with plate number, litres, grade, and timestamp.',
-          'Track bulk Gasoil, Super, Kerosene, LPG, and Heavy Fuel (HFO) across depot reservoirs.',
-          'Settle corporate receivables directly against Bank, Mobile Money, or Cash clearing accounts.',
+          'Put overdue corporate accounts on HOLD immediately so attendants cannot dispense extra fuel until payment arrives.',
+          'Send itemized monthly statements showing date, license plate, driver, fuel grade, and exact litres dispensed.',
+          'Manage Super, Gasoil, Kerosene, Bulk LPG, and Heavy Fuel across retail and commercial reservoirs.',
+          'Track bank transfers, cheques, and cash payments against customer balances automatically.',
         ],
         metrics: [
-          { label: 'Unauthorized Fleet Fills', value: '0%' },
-          { label: 'Statement Generation', value: '1-Click PDF' },
-          { label: 'DSO Collection Gain', value: '−14 Days' },
+          { label: 'Unauthorized Credit Fills', value: '0%' },
+          { label: 'Monthly Statements', value: '1-Click PDF' },
+          { label: 'Faster Credit Collection', value: '−14 Days' },
         ],
       },
       audit: {
-        badge: 'SYSCOHADA Rev. 2017 & IFRS Native',
-        title: 'Petroleum Accounting & Audit Firms',
-        subtitle: 'Give your chartered accountants an immutable, balanced double-entry PostgreSQL ledger built specifically for fuel retailing.',
+        badge: 'SYSCOHADA & IFRS Accounting Ready',
+        title: 'Station Accountants & Audit Firms',
+        subtitle:
+          'Give your accountant clean, always-balanced books generated directly from real forecourt sales, tanker purchases, expenses, and bank deposits.',
         outcomes: [
-          'Every closed shift, tanker receipt, AP payment, expense, and payroll run writes balanced integer FCFA journals.',
-          'Zero floating-point rounding drift—every debit equals every credit down to 1 FCFA.',
-          'Close and cryptographically lock monthly/annual fiscal periods so historical entries cannot be altered.',
-          'Export Trial Balance, General Ledger, VAT 19.25% schedules, and Z-Reports in seconds.',
+          'Every shift sale, fuel delivery, expense, and salary run posts balanced FCFA accounting entries automatically.',
+          'Zero rounding discrepancies—every franc collected matches cash safe, mobile money, bank, or credit balances.',
+          'Close and lock finished months so nobody can alter or backdate audited figures.',
+          'Download Daily Z-Reports, Trial Balance, Profit & Loss, Balance Sheet, and VAT 19.25% schedules anytime.',
         ],
         metrics: [
-          { label: 'Arithmetic Precision', value: 'Integer FCFA' },
-          { label: 'Fiscal Controls', value: 'Locked Periods' },
-          { label: 'Dedicated Role', value: 'ACCOUNTANT' },
+          { label: 'Accounting Precision', value: 'Exact FCFA' },
+          { label: 'Period Protection', value: 'Locked Months' },
+          { label: 'Dedicated Access', value: 'Accountant Login' },
         ],
       },
     };
@@ -125,25 +121,24 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         <div className="max-w-3xl space-y-4">
-          <div className="text-sm font-semibold text-amber-700">Industry Solutions</div>
+          <div className="text-sm font-semibold text-amber-700">Who OpesFuel Is Built For</div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-            Built for every fuel retail model—from single forecourts to national networks.
+            Whether you own 1 station or 50, you stay in full control of your fuel and cash.
           </h1>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            Whether you operate one urban service station or a 50-site regional oil marketing brand, OpesFuel
-            adapts cleanly with role-isolated workspaces, integer FCFA accounting, and offline-resilient mobile apps.
+            Choose your operation type below to see how OpesFuel stops daily leakages, speeds up shift
+            handovers, and delivers crystal-clear profit reports in FCFA.
           </p>
         </div>
 
-        {/* Segment Tabs */}
         <div className="space-y-6">
           <div className="flex flex-wrap gap-2">
             {(
               [
                 { id: 'independent', label: 'Independent Stations', icon: Fuel },
-                { id: 'network', label: 'Multi-Site Networks', icon: Building2 },
+                { id: 'network', label: 'Multi-Station Networks', icon: Building2 },
                 { id: 'fleet', label: 'Fleets & Fuel Depots', icon: Truck },
-                { id: 'audit', label: 'Accounting & Audit Firms', icon: FileCheck2 },
+                { id: 'audit', label: 'Accountants & Auditors', icon: FileCheck2 },
               ] as const
             ).map((seg) => {
               const Icon = seg.icon;
@@ -189,14 +184,14 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                   onClick={onOpenConsole}
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors"
                 >
-                  Launch Station Workspace <ArrowRight className="w-4 h-4" />
+                  Open Live Station Workspace <ArrowRight className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => onNavigate('contact')}
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-900 text-sm font-semibold transition-colors"
                 >
-                  Book a Tailored Demo
+                  Book a Personal Demo
                 </button>
               </div>
             </div>
@@ -212,31 +207,31 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
           </div>
         </div>
 
-        {/* Comparison Table */}
+        {/* Plain Comparison Table */}
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-200">
             <h2 className="font-display text-xl font-bold text-slate-900">
-              How OpesFuel Replaces Legacy Spreadsheets &amp; Generic POS Tools
+              Why Station Owners Upgrade From Paper Notebooks &amp; Excel
             </h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-3.5">Capability</th>
-                  <th className="px-6 py-3.5">Excel / Paper Logs</th>
-                  <th className="px-6 py-3.5">Generic Retail POS</th>
+                  <th className="px-6 py-3.5">Daily Station Need</th>
+                  <th className="px-6 py-3.5">Paper Books / Excel</th>
+                  <th className="px-6 py-3.5">Basic Shop POS</th>
                   <th className="px-6 py-3.5 text-amber-800 bg-amber-50/70">OpesFuel Station OS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {[
-                  ['Mechanical & Electronic Totalizer Shifts', 'Manual errors', 'Not supported', 'Automated + Void Reversals'],
-                  ['Underground Tank Dipstick & 15°C ATG', 'Manual formulas', 'Not supported', 'Native ASTM 15°C Reconciliation'],
-                  ['SYSCOHADA Double-Entry FCFA Ledger', 'Separate software', 'Cash-only summaries', 'Real-Time ACID Journals + VAT 19.25%'],
-                  ['Orange Money & MTN MoMo Tender Split', 'Unverified SMS', 'Single tender only', 'Per-Shift Multi-Tender Reconciliation'],
-                  ['Offline Forecourt Mobile App (Android/iOS)', 'None', 'Drops connection', 'Offline Queue + UUID Idempotency'],
-                  ['Multi-Tenant SaaS & OpenAPI 3.1', 'None', 'Closed database', '88 REST Endpoints + HMAC Webhooks'],
+                  ['Pump Meter & Shift Handovers', 'Easy to alter or miscalculate', 'No pump meters', 'Locked meters + instant shortage check'],
+                  ['Underground Tank Dipsticks & Leaks', 'Manual spreadsheets', 'Not supported', 'Automatic book vs. physical comparison'],
+                  ['Daily Profit & Accounting (SYSCOHADA)', 'Wait 3 weeks for accountant', 'Cash total only', 'Real-time Profit, Balance Sheet & VAT'],
+                  ['Cash + Orange Money + MTN MoMo', 'Mixed up at closing', 'Single payment only', 'Separate tracking per payment type'],
+                  ['Works During Internet Outages', 'Paper only', 'Stops working', 'Offline mobile app syncs automatically'],
+                  ['Corporate Fleet Credit Limits', 'Hard to track overdue bills', 'Not supported', 'Approved plates + instant HOLD block'],
                 ].map(([cap, legacy, generic, opes]) => (
                   <tr key={cap} className="hover:bg-slate-50/60">
                     <td className="px-6 py-3.5 font-semibold text-slate-900">{cap}</td>
@@ -254,71 +249,71 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
   }
 
   // =========================================================================
-  // 2. INTEGRATIONS & ECOSYSTEM PAGE
+  // 2. INTEGRATIONS PAGE
   // =========================================================================
   if (page === 'integrations') {
     const items = [
       {
         category: 'PAYMENTS',
         name: 'Orange Money Merchant',
-        status: 'Production Ready',
-        desc: 'Track Orange Money forecourt shift tenders, verify daily mobile wallet settlements, and auto-reconcile SaaS invoices.',
+        status: 'Ready Today',
+        desc: 'Separate Orange Money receipts at every shift close so you can verify your merchant wallet matches forecourt sales down to the franc.',
         icon: Wallet,
       },
       {
         category: 'PAYMENTS',
         name: 'MTN Mobile Money (MoMo)',
-        status: 'Production Ready',
-        desc: 'Separate MTN MoMo clearing accounts in the SYSCOHADA chart of accounts with bank-sweep transfer tracking.',
+        status: 'Ready Today',
+        desc: 'Track MTN MoMo shift collections cleanly in their own account and record transfers from MoMo to your bank account.',
         icon: Smartphone,
       },
       {
         category: 'PAYMENTS',
         name: 'Bank Card POS & Fleet Vouchers',
-        status: 'Production Ready',
-        desc: 'Reconcile GIMAC, Visa, Mastercard POS batch slips and postpaid corporate fleet accounts per shift.',
+        status: 'Ready Today',
+        desc: 'Reconcile Visa, Mastercard, GIMAC card slips and postpaid corporate credit vouchers alongside physical cash.',
         icon: Wallet,
       },
       {
         category: 'IOT',
-        name: 'Veeder-Root TLS & ATG Probes',
-        status: 'REST Ingestion API',
-        desc: 'Ingest automated underground tank level, water level, and temperature probes with ASTM 15°C volume compensation.',
+        name: 'Automatic Tank Gauges (Veeder-Root / ATG)',
+        status: 'Supported',
+        desc: 'Connect automatic underground tank probes to pull live fuel height, water detection, and 15°C temperature-adjusted stock.',
         icon: Cpu,
       },
       {
         category: 'IOT',
-        name: 'Gilbarco / Tokheim Forecourt Controllers',
-        status: 'OpenAPI Bridge',
-        desc: 'Stream electronic nozzle totalizers into shift open/close endpoints using scoped X-API-Key credentials.',
+        name: 'Fuel Dispensers (Gilbarco, Tokheim & Mechanical)',
+        status: 'No Lock-In',
+        desc: 'Start immediately with any mechanical or electronic dispenser totalizer, and bridge electronic forecourt controllers whenever ready.',
         icon: Fuel,
       },
       {
         category: 'ERP',
         name: 'Sage 100c / Saari SYSCOHADA',
-        status: 'CSV & API Export',
-        desc: 'Export balanced SYSCOHADA journal entries, Trial Balance, and VAT 19.25% schedules directly into external accounting offices.',
+        status: '1-Click Export',
+        desc: 'Export balanced SYSCOHADA accounting journals, Trial Balance, and VAT 19.25% reports for your external accounting firm.',
         icon: BookOpen,
       },
       {
         category: 'ERP',
-        name: 'Odoo & SAP Business One',
-        status: 'Webhooks + REST',
-        desc: 'Sync tanker purchase orders, AP vendor payments, and corporate fleet receivables via 88 versioned OpenAPI endpoints.',
+        name: 'Odoo, SAP & Excel Spreadsheets',
+        status: 'API & CSV Ready',
+        desc: 'Download clean CSV/PDF reports anytime or connect headquarters ERP software automatically.',
         icon: Network,
       },
       {
         category: 'SECURITY',
-        name: 'Auth0 OIDC PKCE & SSO',
-        status: 'Native RS256',
-        desc: 'Enterprise single sign-on, MFA enforcement, role-based access control, and 7-day cryptographically signed staff invitations.',
+        name: 'Secure Staff Sign-In & Invitations',
+        status: 'Built-In',
+        desc: 'Invite managers, attendants, and accountants with personal logins and instant access removal if staff leave.',
         icon: KeyRound,
       },
       {
         category: 'SECURITY',
-        name: 'HMAC-SHA256 Transactional Outbox',
-        status: 'AES-256-GCM',
-        desc: 'Deliver guaranteed at-least-once domain events (ShiftClosedEvent, TankerDeliveredEvent, DipstickVarianceFlaggedEvent) to any URL.',
+        name: 'Real-Time Station Alerts & Webhooks',
+        status: 'Built-In',
+        desc: 'Get instant alerts when a tank runs low, a shift has a cash shortage, or a tanker delivery is short on litres.',
         icon: Webhook,
       },
     ] as const;
@@ -331,24 +326,24 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-14">
         <div className="max-w-3xl space-y-4">
-          <div className="text-sm font-semibold text-amber-700">Ecosystem &amp; Integrations</div>
+          <div className="text-sm font-semibold text-amber-700">Payments, Equipment &amp; Accounting</div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-            Connected to your forecourt hardware, mobile money, and ERP stack.
+            Works smoothly with the payments, pumps, and accounting tools you already use.
           </h1>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            OpesFuel is engineered API-first with OpenAPI 3.1, scoped X-API-Keys, and signed webhooks—never
-            locking your station data inside a proprietary box.
+            No need to replace your pumps or change your accountant. OpesFuel fits right into your existing
+            forecourt setup and grows as your station network expands.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {(
             [
-              { id: 'ALL', label: 'All Integrations' },
-              { id: 'PAYMENTS', label: 'Mobile Money & Payments' },
-              { id: 'IOT', label: 'Forecourt Hardware & ATG IoT' },
-              { id: 'ERP', label: 'Accounting & ERPs' },
-              { id: 'SECURITY', label: 'Identity & Webhooks' },
+              { id: 'ALL', label: 'All Connections' },
+              { id: 'PAYMENTS', label: 'Mobile Money & Cards' },
+              { id: 'IOT', label: 'Pumps & Tank Gauges' },
+              { id: 'ERP', label: 'Accounting & Excel' },
+              { id: 'SECURITY', label: 'Access & Alerts' },
             ] as const
           ).map((tab) => (
             <button
@@ -387,13 +382,12 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                   <p className="text-sm text-slate-600 leading-relaxed">{item.desc}</p>
                 </div>
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="font-mono text-slate-400">{item.category}</span>
                   <button
                     type="button"
-                    onClick={() => onNavigate('api')}
+                    onClick={() => onNavigate('docs')}
                     className="font-semibold text-amber-700 hover:text-amber-800"
                   >
-                    View API Spec →
+                    Read Setup Guide →
                   </button>
                 </div>
               </div>
@@ -403,26 +397,26 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
 
         <div className="bg-slate-900 text-white rounded-2xl p-8 sm:p-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <h2 className="font-display text-2xl font-bold">Need a custom dispenser protocol or ERP connector?</h2>
+            <h2 className="font-display text-2xl font-bold">Have specific tank probes or headquarters software?</h2>
             <p className="text-sm text-slate-300">
-              Our engineering team builds dedicated forecourt controller bridges and custom ERP integrations for
-              multi-station networks and enterprise licensees.
+              Tell us what equipment or accounting package your stations use and our onboarding team will show you
+              exactly how OpesFuel connects to it.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
             <button
               type="button"
-              onClick={() => onNavigate('api')}
+              onClick={() => onNavigate('contact')}
               className="px-5 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold"
             >
-              Explore OpenAPI 3.1
+              Ask Our Onboarding Team
             </button>
             <button
               type="button"
-              onClick={() => onNavigate('contact')}
+              onClick={() => onNavigate('api')}
               className="px-5 py-3 rounded-lg border border-slate-700 hover:bg-slate-800 text-white text-sm font-semibold"
             >
-              Talk to Solutions Engineering
+              IT &amp; Developer API Docs
             </button>
           </div>
         </div>
@@ -431,39 +425,39 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
   }
 
   // =========================================================================
-  // 3. SECURITY & COMPLIANCE TRUST CENTER PAGE
+  // 3. SECURITY & ANTI-FRAUD CONTROLS PAGE
   // =========================================================================
   if (page === 'security') {
     const pillars = [
       {
         icon: KeyRound,
-        title: 'Auth0 OIDC PKCE (S256) & RS256 Verification',
-        desc: 'All web and mobile sessions authenticate using Authorization Code Flow with PKCE. Spring Boot validates RS256 signatures against your Auth0 JWKS endpoint on every request.',
+        title: 'Individual Staff Logins — Never Share Passwords',
+        desc: 'Every owner, manager, attendant, and accountant signs in with their own protected account. If an employee leaves, revoke their access in one click.',
       },
       {
         icon: Shield,
-        title: 'Strict Multi-Tenant Isolation',
-        desc: 'Every database row carries an explicit tenant boundary enforced at the service and repository layer. Cross-tenant IDs are rejected with HTTP 403/404 by design.',
-      },
-      {
-        icon: Lock,
-        title: 'AES-256-GCM & SHA-256 Cryptographic Hygiene',
-        desc: 'Webhook signing secrets are encrypted at rest with AES-256-GCM. Tenant X-API-Keys are hashed with SHA-256 and revealed only once upon creation.',
-      },
-      {
-        icon: Database,
-        title: 'PostgreSQL 17 ACID Integer FCFA Ledger',
-        desc: 'All financial balances use 64-bit exact integer FCFA arithmetic with database-level debit=credit invariants, Flyway versioned migrations, and zero floating-point rounding drift.',
+        title: 'Strict Role Permissions',
+        desc: 'Attendants only see shift handovers and POS. Managers run daily forecourt and tank stock. Accountants handle VAT and books. Only Owners change prices or billing.',
       },
       {
         icon: FileCheck2,
-        title: 'SYSCOHADA Rev. 2017 & Immutable Fiscal Locks',
-        desc: 'Once an accountant closes a fiscal period, backdated edits or deletions are blocked at the domain boundary—producing clean, tamper-evident statutory audit trails.',
+        title: 'Tamper-Proof Shift History & Locked Months',
+        desc: 'Nobody can quietly edit or delete yesterday’s closed sales. Corrections require an audited Void Reversal, and finished months can be permanently locked.',
+      },
+      {
+        icon: Database,
+        title: 'Private, Isolated Station Database',
+        desc: 'Your fuel sales, customer lists, supplier prices, and profits are strictly isolated from every other company using OpesFuel—never shared or mixed.',
+      },
+      {
+        icon: Lock,
+        title: 'Bank-Grade Encryption & Automated Backups',
+        desc: 'Every login and financial record travels over encrypted HTTPS connections and is backed up automatically every day so you never lose a single receipt.',
       },
       {
         icon: Server,
-        title: '99.9% Uptime SLA & Sovereign Deployment Option',
-        desc: 'Deploy on OpesFuel managed TLS cloud infrastructure or license the full Docker/VPS stack for private in-country data residency.',
+        title: 'Cloud Convenience or Your Own Private Server',
+        desc: 'Run immediately on our 99.9%-uptime managed cloud, or purchase a Private Server License to host everything inside your own country or headquarters.',
       },
     ];
 
@@ -471,14 +465,14 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-14">
         <div className="max-w-3xl space-y-4">
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">
-            <ShieldCheck className="w-4 h-4" /> Security &amp; Compliance Trust Center
+            <ShieldCheck className="w-4 h-4" /> Anti-Fraud Controls &amp; Data Protection
           </div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-            Bank-grade security engineered for high-volume cash &amp; fuel operations.
+            Built to protect your cash safe, your fuel stock, and your financial privacy.
           </h1>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            Petroleum stations process millions of FCFA daily across shifts, vaults, mobile money wallets, and
-            underground inventory. OpesFuel protects every franc with end-to-end cryptographic and accounting controls.
+            A busy petrol station handles millions of FCFA every week. OpesFuel combines strict internal
+            anti-fraud controls with bank-grade cloud security so you can trust every report you read.
           </p>
         </div>
 
@@ -497,46 +491,44 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
           })}
         </div>
 
-        {/* RBAC Matrix */}
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-bold text-slate-900">
-                5-Role Enterprise RBAC Authorization Matrix
+                Who Can See &amp; Do What Inside Your Station
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Enforced server-side via Spring Security method guards and frontend route policies.
+                Clear separation of duties so every person has exactly the access their job requires.
               </p>
             </div>
             <button
               type="button"
-              onClick={() => onNavigate('status')}
-              className="text-xs font-semibold text-amber-700 hover:text-amber-800"
+              onClick={() => onNavigate('docs')}
+              className="text-xs font-semibold text-amber-700 hover:underline"
             >
-              View Live System Status →
+              Read Staff Permissions Guide →
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-3">Role</th>
-                  <th className="px-6 py-3">Forecourt &amp; POS</th>
-                  <th className="px-6 py-3">Tanks &amp; Pricing</th>
-                  <th className="px-6 py-3">Accounting &amp; Locks</th>
-                  <th className="px-6 py-3">Billing &amp; API Keys</th>
+                  <th className="px-6 py-3">Staff Role</th>
+                  <th className="px-6 py-3">Pumps &amp; Shop POS</th>
+                  <th className="px-6 py-3">Tanks &amp; Fuel Prices</th>
+                  <th className="px-6 py-3">Accounting &amp; Profit</th>
+                  <th className="px-6 py-3">Staff Invites &amp; Settings</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
                 {[
-                  ['ATTENDANT', 'Open/Close Assigned Shifts & POS', 'Read-only tank levels', 'No access', 'No access'],
-                  ['MANAGER', 'Full shift, void & voucher control', 'Tanker receipts, dips & ATG', 'Operating expenses only', 'No access'],
-                  ['ACCOUNTANT', 'Read-only shift audit', 'Read-only valuation', 'Full SYSCOHADA, VAT, AP & Locks', 'Read-only invoices'],
-                  ['OWNER', 'Full network oversight', 'Full pricing & station provisioning', 'Full financial statements', 'Billing, Invites & API Keys'],
-                  ['PLATFORM_ADMIN', 'Multi-tenant SaaS oversight', 'Global tenant provisioning', 'Global MRR & revenue ops', 'Full SaaS Control Plane'],
+                  ['Pump Attendant', 'Open/Close own shifts & Shop POS', 'View stock levels only', 'No access', 'No access'],
+                  ['Station Manager', 'Full shifts, voids & fleet vouchers', 'Tanker deliveries & daily dips', 'Log daily station expenses', 'Attendance logs only'],
+                  ['Station Accountant', 'Audit shift history (read-only)', 'View fuel stock value', 'Full P&L, VAT, supplier bills & locks', 'View subscription bills'],
+                  ['Station Owner', 'Full oversight across all stations', 'Change fuel prices & add pumps', 'Full profit & cash flow reports', 'Add/remove staff & stations'],
                 ].map(([r, f, t, a, b]) => (
                   <tr key={r}>
-                    <td className="px-6 py-3.5 font-mono font-bold text-slate-900">{r}</td>
+                    <td className="px-6 py-3.5 font-semibold text-slate-900">{r}</td>
                     <td className="px-6 py-3.5 text-slate-600">{f}</td>
                     <td className="px-6 py-3.5 text-slate-600">{t}</td>
                     <td className="px-6 py-3.5 text-slate-600">{a}</td>
@@ -552,50 +544,50 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
   }
 
   // =========================================================================
-  // 4. CUSTOMERS & CASE STUDIES PAGE
+  // 4. CUSTOMER STORIES PAGE
   // =========================================================================
   if (page === 'customers') {
     const studies = [
       {
-        region: 'Douala, Cameroon · 1 Urban Forecourt (8 Nozzles)',
+        region: 'Douala, Cameroon · 1 Busy Urban Station (8 Nozzles)',
         company: 'Bonabéri Express Energy',
-        headline: 'Cut unexplained monthly cash & fuel shrinkage from 1.8M FCFA to under 90 000 FCFA in 60 days.',
+        headline: 'Cut unexplained monthly cash & fuel losses from 1.8M FCFA down to under 90 000 FCFA in 60 days.',
         challenge:
-          'Handwritten shift books and delayed Orange Money reconciliations made it impossible to trace which attendant shift caused cash shortfalls or tank evaporation variances.',
+          'Handwritten shift notebooks and unverified Orange Money transfers made it impossible to prove which shift caused cash shortages or missing underground fuel.',
         solution:
-          'Deployed OpesFuel Starter + Android attendant app. Every pump totalizer and mobile money transfer now reconciles automatically before shift handover.',
+          'Switched to OpesFuel Starter with the Android attendant app. Every pump totalizer, cash handover, and mobile money transfer now reconciles in 2 minutes at shift change.',
         stats: [
           { k: 'Monthly Savings', v: '1.7M FCFA' },
-          { k: 'Shift Handover Time', v: '2 mins' },
-          { k: 'ROI Payback', v: '11 Days' },
+          { k: 'Shift Handover', v: '2 Minutes' },
+          { k: 'Paid Back In', v: '11 Days' },
         ],
       },
       {
         region: 'Yaoundé – Kribi Corridor · 8-Station Network',
         company: 'Equatorial Petroleum Distributors',
-        headline: 'Consolidated 8 stations into real-time SYSCOHADA P&L and centralized corporate fleet credit.',
+        headline: 'Replaced weekly Excel reports across 8 stations with real-time daily profit and strict fleet credit control.',
         challenge:
-          'Branch managers sent Excel files every Monday, delaying management accounts by 3 weeks and allowing overdue corporate haulage fleets to keep fueling.',
+          'Station managers emailed spreadsheets every Monday, leaving the owner waiting 3 weeks for true profit numbers while overdue transport companies kept refueling on credit.',
         solution:
-          'Migrated all 8 sites to OpesFuel Multi-Station Cloud with centralized fleet vehicle whitelists, automated ACTIVE/HOLD credit ceilings, and live ATG dipstick tracking.',
+          'Moved all 8 stations onto OpesFuel Multi-Station Cloud with approved license plates, automatic credit HOLD alerts, and centralized daily dipstick tracking.',
         stats: [
-          { k: 'Monthly Close', v: 'Day 2 (vs Day 22)' },
-          { k: 'Fleet Bad Debt', v: '0 FCFA' },
-          { k: 'Sites Managed', v: '8 Stations' },
+          { k: 'Monthly Books Ready', v: 'Day 2 (vs Day 22)' },
+          { k: 'Overdue Fleet Losses', v: '0 FCFA' },
+          { k: 'Stations Controlled', v: '8 Sites' },
         ],
       },
       {
         region: 'Abidjan & San-Pédro · Commercial Fuel & Lubricant Depot',
         company: 'Atlantique Logistics & Fuel',
-        headline: 'Automated 15°C tanker receipt reconciliation and Odoo ERP webhook synchronization.',
+        headline: 'Stopped tanker delivery disputes and automated monthly accounting exports for headquarters.',
         challenge:
-          'High ambient temperatures created recurring 400–900 L disputes with tanker drivers on every 36 000 L Gasoil delivery.',
+          'Hot afternoon deliveries created recurring 400–900 litre arguments with fuel truck drivers on every 36,000 L Gasoil offload.',
         solution:
-          'Activated OpesFuel ASTM 15°C thermal volume compensation and connected the Java 25 OpenAPI 3.1 webhooks directly into headquarters ERP.',
+          'Activated OpesFuel before-and-after dipstick verification with 15°C temperature adjustment and connected monthly journal exports directly to headquarters accounting.',
         stats: [
-          { k: 'BoL Dispute Resolution', v: 'Instant' },
-          { k: 'API Uptime', v: '99.98%' },
-          { k: 'Manual Re-Entry', v: 'Eliminated' },
+          { k: 'Delivery Disputes', v: 'Resolved On-Site' },
+          { k: 'Daily Stock Accuracy', v: '99.8%' },
+          { k: 'Manual Re-Typing', v: 'Eliminated' },
         ],
       },
     ];
@@ -603,23 +595,22 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-14">
         <div className="max-w-3xl space-y-4">
-          <div className="text-sm font-semibold text-amber-700">Customer Outcomes</div>
+          <div className="text-sm font-semibold text-amber-700">Customer Stories</div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-            Proven operational control across independent forecourts and fuel networks.
+            Real results from station owners who took back control of their forecourts.
           </h1>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            See how station owners, operations directors, and petroleum accountants use OpesFuel to recover lost
-            margin and accelerate monthly financial close.
+            See how independent station owners, multi-site oil marketers, and fuel depots recover lost profit
+            and save hours every single day.
           </p>
         </div>
 
-        {/* Proof bar */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Average Shrinkage Reduction', value: '−89%' },
-            { label: 'Faster Shift Handover', value: '6×' },
-            { label: 'Ledger Balancing Accuracy', value: '100%' },
-            { label: 'Platform Uptime SLA', value: '99.9%' },
+            { label: 'Average Cash & Stock Loss Cut', value: '−89%' },
+            { label: 'Faster Shift Handovers', value: '6×' },
+            { label: 'Balanced Accounting Reports', value: '100%' },
+            { label: 'Typical Payback Period', value: '< 2 Weeks' },
           ].map((m) => (
             <div key={m.label} className="bg-white border border-slate-200 rounded-xl p-5">
               <div className="text-xs text-slate-500">{m.label}</div>
@@ -640,11 +631,11 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                 <h2 className="font-display text-2xl font-bold text-slate-900">{s.headline}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-sm">
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
-                    <div className="text-xs font-bold text-slate-900 uppercase tracking-wider">Before OpesFuel</div>
+                    <div className="text-xs font-bold text-slate-900 uppercase tracking-wider">The Problem</div>
                     <p className="text-slate-600 leading-relaxed">{s.challenge}</p>
                   </div>
                   <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-100 space-y-1">
-                    <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider">With OpesFuel</div>
+                    <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider">The Result With OpesFuel</div>
                     <p className="text-slate-700 leading-relaxed">{s.solution}</p>
                   </div>
                 </div>
@@ -663,7 +654,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                   onClick={() => onNavigate('contact')}
                   className="w-full py-3 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-900 text-sm font-semibold text-center"
                 >
-                  Request Similar Deployment
+                  See How This Works For My Station
                 </button>
               </div>
             </div>
@@ -674,20 +665,21 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
   }
 
   // =========================================================================
-  // 5. ABOUT OPESFUEL / COMPANY PAGE
+  // 5. ABOUT PAGE
   // =========================================================================
   if (page === 'about') {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         <div className="max-w-3xl space-y-4">
-          <div className="text-sm font-semibold text-amber-700">About OpesFuel by Opesware</div>
+          <div className="text-sm font-semibold text-amber-700">About OpesFuel</div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-            Engineering industrial-grade financial clarity for Africa’s energy retail backbone.
+            Built to give petrol station owners total clarity over every litre and every franc.
           </h1>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            OpesFuel was built by systems architects and petroleum finance specialists who saw independent
-            station owners and oil marketers losing millions of FCFA to fragmented spreadsheets, unverified pump
-            handovers, and rigid legacy software that never matched CEMAC/WAEMU forecourt reality.
+            Running a petrol station means managing thin margins per litre and massive daily cash volume.
+            We created OpesFuel after watching hardworking station owners lose millions of FCFA to paper shift
+            books, delayed spreadsheets, and generic software that never understood how African forecourts
+            actually work.
           </p>
         </div>
 
@@ -695,18 +687,18 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
           {[
             {
               icon: TrendingUp,
-              title: 'Zero-Drift Financial Engineering',
-              desc: 'We treat fuel retail as a precision financial ledger. Every litre dispensed and every franc collected is stored in integer FCFA with strict double-entry integrity.',
+              title: 'Every Franc Must Balance',
+              desc: 'We treat every pump shift like a bank transaction—matching dispensed litres against Cash, Mobile Money, Card, and Fleet vouchers with zero guesswork.',
             },
             {
-              icon: Layers,
-              title: '15-Module Java 25 Spring Boot Core',
-              desc: 'Built as a verified Spring Modulith on PostgreSQL 17 and OpenAPI 3.1—giving both small stations and national networks rock-solid stability without microservice fragility.',
+              icon: Smartphone,
+              title: 'Made for Real Forecourt Conditions',
+              desc: 'Simple screens for attendants, clear summaries for owners, and built-in offline support so a slow internet connection never stops your pumps.',
             },
             {
               icon: Globe2,
-              title: 'Built for CEMAC & WAEMU Realities',
-              desc: 'Native FCFA (XAF/XOF), SYSCOHADA Rev. 2017 & IFRS statements, VAT 19.25%, Orange Money / MTN MoMo splits, and offline-first mobile syncing for intermittent cellular links.',
+              title: 'Tailored to CEMAC & WAEMU Stations',
+              desc: 'Native FCFA (XAF/XOF) pricing, SYSCOHADA & IFRS financial reports, VAT 19.25% tracking, Orange Money & MTN MoMo support, and multi-station control.',
             },
           ].map((card) => {
             const Icon = card.icon;
@@ -722,18 +714,16 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
           })}
         </div>
 
-        {/* Regional Footprint & Partner Program */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white border border-slate-200 rounded-2xl p-8 space-y-4">
-            <h2 className="font-display text-2xl font-bold text-slate-900">Regional Focus &amp; Support</h2>
+            <h2 className="font-display text-2xl font-bold text-slate-900">Serving Fuel Operators Across Central &amp; West Africa</h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              OpesFuel serves petrol stations, LPG depots, and regional fuel distributors across Central and
-              West Africa—supporting both XAF (CEMAC) and XOF (WAEMU) operations with bilingual English &amp; French
-              accounting alignment.
+              OpesFuel supports independent service stations, LPG depots, and regional petroleum distributors across
+              both XAF and XOF markets—with responsive onboarding and ongoing support.
             </p>
-            <div className="grid grid-cols-2 gap-3 pt-2 text-xs font-mono">
+            <div className="grid grid-cols-2 gap-3 pt-2 text-xs font-medium">
               {['Cameroon (Douala / Yaoundé)', 'Côte d’Ivoire (Abidjan)', 'Senegal (Dakar)', 'Gabon & Congo', 'Chad & CAR', 'Benin & Togo'].map((r) => (
-                <div key={r} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+                <div key={r} className="px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
                   {r}
                 </div>
               ))}
@@ -743,14 +733,14 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
           <div className="bg-slate-900 text-white rounded-2xl p-8 flex flex-col justify-between gap-6">
             <div className="space-y-3">
               <div className="text-xs font-mono uppercase tracking-wider text-amber-400">
-                Channel &amp; Reseller Program
+                Partners &amp; Local Installers
               </div>
               <h2 className="font-display text-2xl font-bold">
-                Partner with Opesware or license OpesFuel for your region.
+                Install pumps, advise station owners, or resell OpesFuel in your region.
               </h2>
               <p className="text-sm text-slate-300 leading-relaxed">
-                Are you a petroleum equipment installer, accounting firm, or regional systems integrator? Join our
-                certified deployment partner network or acquire a white-label enterprise IP license.
+                We partner with forecourt technicians, accounting firms, and regional distributors who help petrol
+                stations modernize their operations.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -766,7 +756,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                 onClick={() => onNavigate('contact')}
                 className="px-5 py-2.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-white text-sm font-semibold"
               >
-                Contact Partnerships
+                Become a Partner
               </button>
             </div>
           </div>
@@ -776,114 +766,79 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
   }
 
   // =========================================================================
-  // 6. RESOURCES, HELP CENTER, FAQ & CHANGELOG PAGE
+  // 6. RESOURCES, CHECKLISTS & WHAT'S NEW PAGE
   // =========================================================================
   if (page === 'resources') {
-    const faqs = [
-      {
-        q: 'How quickly can we onboard our first petrol station onto OpesFuel?',
-        a: 'Most single stations go live in under 48 hours. Simply enter your underground tank capacities, opening dipstick volumes, pump nozzle totalizers, and staff roster inside the guided Setup Wizard—and you can open your first shift immediately.',
-      },
-      {
-        q: 'What happens if the internet goes down at the petrol station?',
-        a: 'Our native Android & iPhone app queues shift closes, dipstick readings, and Shop POS sales locally using UUID idempotency keys. As soon as cellular or Wi-Fi returns, every queued transaction syncs cleanly to PostgreSQL with zero duplicate entries.',
-      },
-      {
-        q: 'Does OpesFuel handle Orange Money, MTN MoMo, and corporate fleet credit in the same shift?',
-        a: 'Yes. Every shift closing screen breaks down expected FCFA across Cash, Orange Money, MTN MoMo, Card POS, and Fleet Credit vouchers, automatically posting balanced SYSCOHADA clearing entries and flagging any variance.',
-      },
-      {
-        q: 'Do we need expensive new fuel dispensers or ATG hardware to start?',
-        a: 'No hardware lock-in is required. You can start immediately using mechanical or electronic pump totalizers and manual dipstick calibration charts—and connect Veeder-Root/Tokheim ATG 15°C probes anytime via our OpenAPI ingestion endpoints.',
-      },
-      {
-        q: 'Can we host OpesFuel on our own private VPS or country server?',
-        a: 'Yes. In addition to our managed cloud SaaS (starting at 25 000 FCFA/month), we offer Perpetual Self-Hosted and Enterprise IP Licensing with full Docker Compose, PostgreSQL 17, and Java 25 Spring Boot deployment packages.',
-      },
-      {
-        q: 'How does OpesFuel prevent attendants or managers from editing closed accounting records?',
-        a: 'Closed shifts cannot be silently edited—only reversed via immutable audited void journals. Furthermore, accountants can close and lock monthly fiscal periods so no historical journal can ever be altered.',
-      },
-    ];
-
-    const filteredFaqs = faqs.filter(
-      (f) =>
-        !faqQuery.trim() ||
-        f.q.toLowerCase().includes(faqQuery.toLowerCase()) ||
-        f.a.toLowerCase().includes(faqQuery.toLowerCase())
-    );
-
     const releases = [
       {
-        version: 'v2.6.0',
-        date: 'Current Production Release',
-        tag: 'UI/UX & Mobile Overhaul',
+        version: 'v2.6',
+        date: 'Latest Release',
+        tag: 'Redesigned Mobile App & Easier Navigation',
         items: [
-          'Redesigned Android/iPhone & Web Mobile Companion with Hamburger Slide-Over Drawer and fixed 5-tab navigation.',
-          'Upgraded platform typography to Manrope, Inter, and IBM Plex Mono for executive dashboard legibility.',
-          'Added role-aware mobile console bars, destructive confirmation guards, and strict Auth0 route protection.',
+          'Launched our redesigned Android & iPhone app with a clean side menu drawer and 5-tab bottom bar.',
+          'Added safety confirmations before critical actions like closing a fiscal month, running payroll, or removing a station.',
+          'Published the complete Station Operations Manual (Documentation) and 16-question Owner FAQ.',
         ],
       },
       {
-        version: 'v2.5.0',
-        date: 'Enterprise Platform Milestone',
-        tag: '15 Spring Boot Modules + SaaS Control Plane',
+        version: 'v2.5',
+        date: 'Recent Update',
+        tag: 'Complete Station Accounting, Payroll & Tank Shrinkage Tools',
         items: [
-          'Completed all 15 Java 25 Spring Boot Modular Monolith modules with Flyway V1–V6 and 88 OpenAPI 3.1 endpoints.',
-          'Launched PLATFORM_ADMIN SaaS Control Plane for multi-tenant MRR tracking, tenant lifecycle, and enterprise leads.',
-          'Added ASTM 15°C ATG telemetry ingestion, shortage-only payroll runs, VAT 19.25% remittance, and fiscal period locks.',
+          'Added 15°C temperature-adjusted tank dipstick reconciliation and supplier delivery shortfall tracking.',
+          'Added shortage-only monthly payroll runs with individual printable staff payslips.',
+          'Added VAT (19.25%) remittance tracking, supplier bill payments, and locked monthly accounting periods.',
         ],
       },
       {
-        version: 'v2.4.0',
-        date: 'Security & API Milestone',
-        tag: 'Auth0 OIDC PKCE & AES-256-GCM Webhooks',
+        version: 'v2.4',
+        date: 'Platform Update',
+        tag: 'Corporate Fleet Vehicle Whitelists & Offline Sync',
         items: [
-          'Rolled out Auth0 OIDC PKCE (S256) authentication across Web and Expo Mobile apps with 7-day staff invitations.',
-          'Introduced SHA-256 hashed scoped X-API-Keys and transactional Outbox HMAC-SHA256 webhook delivery logs.',
+          'Added approved vehicle license plate checks and instant ACTIVE/HOLD fleet credit protection.',
+          'Improved offline shift and dipstick queuing so intermittent cellular coverage never interrupts sales.',
         ],
       },
     ];
 
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-14">
         <div className="max-w-3xl space-y-4">
-          <div className="text-sm font-semibold text-amber-700">Resources, Help Center &amp; Changelog</div>
+          <div className="text-sm font-semibold text-amber-700">Guides, Checklists &amp; Product Updates</div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 [text-wrap:balance]">
-            Everything you need to launch, migrate, and scale your fuel operations.
+            Practical tools to help your station go live smoothly.
           </h1>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            Browse operational playbooks, answers to common station questions, and our latest Java 25 &amp;
-            TypeScript production releases.
+            Jump straight into our step-by-step Station User Manual, read our FAQ, or see what new tools we’ve
+            recently added for station owners.
           </p>
         </div>
 
-        {/* 3 Quick-Start Playbooks */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
-              icon: Fuel,
-              tag: '48-Hour Playbook',
-              title: 'First Station Commissioning Guide',
-              desc: 'Step-by-step checklist for tank calibration, initial nozzle totalizer snapshot, fuel grade tariffs, and attendant shift training.',
-              action: () => onOpenConsole(),
-              cta: 'Open Setup Wizard →',
+              icon: BookOpen,
+              tag: 'Step-by-Step Manual',
+              title: 'Full Station Operations Documentation',
+              desc: '10 clear chapters covering station setup, shift handovers, tanker deliveries, fleet accounts, payroll, and monthly accounting.',
+              action: () => onNavigate('docs'),
+              cta: 'Open Documentation →',
             },
             {
-              icon: Code2,
-              tag: 'Developer Docs',
-              title: 'OpenAPI 3.1 & Webhook Quickstart',
-              desc: 'Generate a scoped X-API-Key, authenticate with Auth0 RS256 Bearer tokens, and verify HMAC-SHA256 signatures on your ERP.',
-              action: () => onNavigate('api'),
-              cta: 'Read API Docs →',
+              icon: Fuel,
+              tag: 'Owner Q&A',
+              title: 'Frequently Asked Questions',
+              desc: 'Plain answers to the 16 most common questions about stopping cash loss, working offline, hardware, and pricing.',
+              action: () => onNavigate('faq'),
+              cta: 'Browse FAQ →',
             },
             {
               icon: ShieldCheck,
-              tag: 'Compliance Guide',
-              title: 'SYSCOHADA & Fiscal Period Closing',
-              desc: 'How to review daily Z-Reports, reconcile Orange Money & bank deposits, remit VAT 19.25%, and lock monthly periods.',
+              tag: 'Anti-Fraud Guide',
+              title: 'Staff Roles & Monthly Period Locks',
+              desc: 'See how OpesFuel separates attendant, manager, accountant, and owner access to keep your cash and books safe.',
               action: () => onNavigate('security'),
-              cta: 'View Controls →',
+              cta: 'View Security Controls →',
             },
           ].map((g) => {
             const Icon = g.icon;
@@ -909,77 +864,17 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
           })}
         </div>
 
-        {/* Interactive FAQ */}
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-2">
-                <HelpCircle className="w-6 h-6 text-amber-600" /> Frequently Asked Questions
-              </h2>
-              <p className="text-sm text-slate-500 mt-1">Answers for owners, accountants, and IT administrators.</p>
-            </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={faqQuery}
-                onChange={(e) => setFaqQuery(e.target.value)}
-                placeholder="Search FAQ (offline, VAT, VPS...)"
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-600"
-              />
-            </div>
-          </div>
-
-          <div className="divide-y divide-slate-200 bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            {filteredFaqs.map((faq, idx) => {
-              const isOpen = openFaqIndex === idx;
-              return (
-                <div key={faq.q}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                    className="w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors"
-                  >
-                    <span className="font-semibold text-slate-900 text-sm sm:text-base">{faq.q}</span>
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-slate-500 shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
-                    )}
-                  </button>
-                  {isOpen && (
-                    <div className="px-6 pb-5 text-sm text-slate-600 leading-relaxed">{faq.a}</div>
-                  )}
-                </div>
-              );
-            })}
-            {filteredFaqs.length === 0 && (
-              <div className="p-8 text-center text-sm text-slate-500">
-                No matching FAQ entries.{' '}
-                <button
-                  type="button"
-                  onClick={() => onNavigate('contact')}
-                  className="text-amber-700 font-semibold hover:underline"
-                >
-                  Ask our onboarding team directly →
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Changelog */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-600" /> Platform Changelog
+              <Sparkles className="w-5 h-5 text-amber-600" /> What’s New in OpesFuel
             </h2>
             <button
               type="button"
               onClick={() => onNavigate('status')}
               className="text-xs font-semibold text-emerald-700 hover:underline"
             >
-              All Systems Operational →
+              All Services Running Normally →
             </button>
           </div>
           <div className="space-y-4">
@@ -1009,15 +904,15 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
   }
 
   // =========================================================================
-  // 7. LIVE SYSTEM STATUS & SLA PAGE
+  // 7. SERVICE STATUS PAGE
   // =========================================================================
   const services = [
-    { name: 'Core Forecourt & Shift API (Java 25 Spring Boot)', uptime: '99.98%', latency: '42 ms' },
-    { name: 'PostgreSQL 17 ACID Accounting & Ledger Cluster', uptime: '99.99%', latency: '8 ms' },
-    { name: 'Auth0 OIDC PKCE & Identity Gateway', uptime: '99.99%', latency: '64 ms' },
-    { name: 'Mobile Offline Sync & Transactional Outbox Relay', uptime: '99.96%', latency: '51 ms' },
-    { name: 'AES-256-GCM HMAC Webhook Delivery Engine', uptime: '99.95%', latency: '112 ms' },
-    { name: 'Gemini AI Operations Copilot', uptime: '99.92%', latency: '480 ms' },
+    { name: 'Web Station Portal & Forecourt Shifts', uptime: '99.98%', speed: 'Fast (42 ms)' },
+    { name: 'Financial Reports & Accounting Ledger', uptime: '99.99%', speed: 'Instant (8 ms)' },
+    { name: 'Staff Sign-In & Account Security', uptime: '99.99%', speed: 'Fast (64 ms)' },
+    { name: 'Android & iPhone App Cloud Sync', uptime: '99.96%', speed: 'Fast (51 ms)' },
+    { name: 'Low-Stock & Shortage Alert Delivery', uptime: '99.95%', speed: 'Real-Time' },
+    { name: 'Smart Business Assistant', uptime: '99.92%', speed: 'Active' },
   ];
 
   return (
@@ -1025,18 +920,18 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            All Systems Operational
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            All Services Running Normally
           </div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-            OpesFuel Platform Status &amp; 99.9% SLA
+            OpesFuel Service Status &amp; Reliability
           </h1>
           <p className="text-sm text-slate-600">
-            Real-time operational health across API gateways, ACID ledgers, mobile sync, and webhooks.
+            Live availability across our station portal, accounting engine, mobile app sync, and alert systems.
           </p>
         </div>
         <div className="p-4 rounded-xl bg-slate-900 text-white text-right shrink-0">
-          <div className="text-[11px] font-mono text-slate-400 uppercase">90-Day Composite Uptime</div>
+          <div className="text-[11px] font-mono text-slate-400 uppercase">90-Day Reliability</div>
           <div className="font-mono text-2xl font-bold text-emerald-400">99.97%</div>
         </div>
       </div>
@@ -1050,7 +945,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                 <span className="font-semibold text-sm text-slate-900">{svc.name}</span>
               </div>
               <div className="flex items-center gap-4 text-xs font-mono">
-                <span className="text-slate-500">Avg {svc.latency}</span>
+                <span className="text-slate-500">{svc.speed}</span>
                 <span className="font-semibold text-emerald-700">{svc.uptime} · Operational</span>
               </div>
             </div>
@@ -1059,7 +954,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                 <div
                   key={i}
                   className="flex-1 rounded-[2px] bg-emerald-500/85 hover:bg-emerald-600 transition-colors"
-                  title={`Day -${30 - i}: 100% operational`}
+                  title={`Day -${30 - i}: 100% available`}
                 />
               ))}
             </div>
@@ -1069,20 +964,20 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
 
       <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
         <h2 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-amber-600" /> Recent Maintenance &amp; Incident History
+          <Clock className="w-5 h-5 text-amber-600" /> Recent Maintenance Log
         </h2>
         <div className="divide-y divide-slate-100 text-sm">
           <div className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <div>
-              <span className="font-semibold text-slate-900">Flyway V6 Multi-Tenant SaaS Control Plane Migration</span>
-              <p className="text-xs text-slate-500">Zero-downtime online schema rollout completed cleanly.</p>
+              <span className="font-semibold text-slate-900">Scheduled Cloud Platform Upgrade</span>
+              <p className="text-xs text-slate-500">Completed cleanly with zero station interruption.</p>
             </div>
-            <span className="font-mono text-xs text-emerald-700 font-semibold shrink-0">Completed · 0 min downtime</span>
+            <span className="font-mono text-xs text-emerald-700 font-semibold shrink-0">0 min downtime</span>
           </div>
           <div className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <div>
               <span className="font-semibold text-slate-900">Past 90 Days Unplanned Outages</span>
-              <p className="text-xs text-slate-500">No severity-1 or severity-2 service interruptions recorded.</p>
+              <p className="text-xs text-slate-500">No service interruptions recorded across any region.</p>
             </div>
             <span className="font-mono text-xs text-slate-500 shrink-0">0 Incidents</span>
           </div>
@@ -1091,15 +986,15 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
 
       <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
         <span className="text-xs text-slate-500">
-          Need dedicated enterprise SLA reporting or private VPS architecture?
+          Need assistance with your station account or private server hosting?
         </span>
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => onNavigate('security')}
+            onClick={() => onNavigate('docs')}
             className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800 hover:bg-slate-50"
           >
-            Security Trust Center
+            Station Documentation
           </button>
           <button
             type="button"

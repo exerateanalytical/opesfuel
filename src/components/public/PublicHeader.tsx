@@ -36,46 +36,40 @@ interface DropdownItem {
 }
 
 interface NavGroup {
-  key: 'product' | 'solutions' | 'resources' | 'company';
+  key: 'features' | 'solutions' | 'company';
   label: string;
   items: DropdownItem[];
 }
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    key: 'product',
-    label: 'Product',
+    key: 'features',
+    label: 'Features',
     items: [
       {
         id: 'platform',
-        label: 'Platform & 15 Modules',
-        desc: 'Forecourt shifts, tanks, SYSCOHADA ledger & payroll',
+        label: 'Station Management Features',
+        desc: 'Pump shifts, underground tanks, fleet credit, payroll & profit reports',
         icon: Fuel,
       },
       {
         id: 'mobile',
         label: 'Android & iPhone App',
-        desc: 'Offline-resilient forecourt & owner mobile app',
+        desc: 'Manage shifts, dips & daily sales from your phone—even offline',
         icon: Smartphone,
-        badge: 'New UI',
+        badge: 'Offline Ready',
       },
       {
         id: 'integrations',
-        label: 'Integrations & ATG IoT',
-        desc: 'Orange Money, MTN MoMo, Veeder-Root, Sage & Odoo',
+        label: 'Payments, Gauges & Accounting',
+        desc: 'Orange Money, MTN MoMo, Card POS, tank probes, Sage & Odoo',
         icon: Cpu,
       },
       {
         id: 'security',
-        label: 'Security & Compliance',
-        desc: 'Auth0 RS256, AES-256-GCM, 5-role RBAC & audit locks',
+        label: 'Anti-Fraud & Data Security',
+        desc: 'Staff permissions, locked closed months & automatic cloud backups',
         icon: ShieldCheck,
-      },
-      {
-        id: 'api',
-        label: 'OpenAPI 3.1 & Webhooks',
-        desc: '88 REST endpoints, scoped API keys & outbox events',
-        icon: Code2,
       },
     ],
   },
@@ -85,46 +79,21 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       {
         id: 'solutions',
-        label: 'By Station Type & Industry',
-        desc: 'Independent sites, multi-station networks & depots',
+        label: 'By Station Type',
+        desc: 'Independent stations, multi-site networks, depots & accountants',
         icon: Building2,
       },
       {
         id: 'customers',
-        label: 'Customer Case Studies',
-        desc: 'Verified ROI and shrinkage reduction outcomes',
+        label: 'Customer Stories',
+        desc: 'How station owners cut cash & fuel losses and close books faster',
         icon: Users,
       },
       {
         id: 'licensing',
-        label: 'Perpetual & Sovereign IP',
-        desc: 'Self-hosted VPS & enterprise source-code licensing',
+        label: 'Private Server & Buyout License',
+        desc: 'Host on your own server with a one-time enterprise license',
         icon: KeyRound,
-      },
-    ],
-  },
-  {
-    key: 'resources',
-    label: 'Resources',
-    items: [
-      {
-        id: 'resources',
-        label: 'Help Center, FAQ & Changelog',
-        desc: '48-hour go-live playbooks, FAQ & release notes',
-        icon: HelpCircle,
-      },
-      {
-        id: 'api',
-        label: 'Developer Documentation',
-        desc: 'Java 25 Spring Boot architecture & API reference',
-        icon: BookOpen,
-      },
-      {
-        id: 'status',
-        label: 'Live System Status',
-        desc: '99.9% uptime SLA monitor across API & ACID cluster',
-        icon: Activity,
-        badge: '99.97%',
       },
     ],
   },
@@ -135,19 +104,38 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: 'about',
         label: 'About OpesFuel',
-        desc: 'Mission, engineering standards & CEMAC/WAEMU reach',
+        desc: 'Our mission to help fuel station owners protect every litre & franc',
         icon: Sparkles,
       },
       {
+        id: 'resources',
+        label: 'Guides & What’s New',
+        desc: '48-hour launch checklists and recent platform improvements',
+        icon: BookOpen,
+      },
+      {
+        id: 'status',
+        label: 'Service Status',
+        desc: 'Live reliability monitor and 99.9% uptime commitment',
+        icon: Activity,
+        badge: '99.97%',
+      },
+      {
+        id: 'api',
+        label: 'IT & Developer API',
+        desc: 'Technical API documentation for ERP & hardware teams',
+        icon: Code2,
+      },
+      {
         id: 'contact',
-        label: 'Contact & Enterprise Demo',
-        desc: 'Schedule live onboarding or talk to engineering',
+        label: 'Contact & Book a Demo',
+        desc: 'Speak with an onboarding advisor for your petrol station',
         icon: Mail,
       },
       {
         id: 'legal',
-        label: 'Legal, Privacy & DPA',
-        desc: 'Terms of service, data residency & SLA policy',
+        label: 'Terms, Privacy & SLA',
+        desc: 'Data ownership guarantees, privacy policy & service terms',
         icon: FileCheck2,
       },
     ],
@@ -192,13 +180,86 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
 
   const isGroupActive = (group: NavGroup) => group.items.some((item) => item.id === activePage);
 
+  const renderDropdownGroup = (group: NavGroup, alignRight = false) => {
+    const expanded = openMenu === group.key;
+    const active = isGroupActive(group);
+    return (
+      <div key={group.key} className="relative">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-haspopup="menu"
+          onClick={() => setOpenMenu((prev) => (prev === group.key ? null : group.key))}
+          className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+            active || expanded
+              ? 'text-slate-950 bg-slate-100 font-semibold'
+              : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+          }`}
+        >
+          <span>{group.label}</span>
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform duration-150 ${
+              expanded ? 'rotate-180 text-amber-600' : 'text-slate-400'
+            }`}
+          />
+        </button>
+
+        {expanded && (
+          <div
+            role="menu"
+            className={`absolute ${
+              alignRight ? 'right-0' : 'left-0'
+            } top-full mt-2 w-[350px] rounded-2xl bg-white border border-slate-200 shadow-xl shadow-slate-900/10 p-2 z-50`}
+          >
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const isCurrent = activePage === item.id;
+              return (
+                <button
+                  key={`${group.key}-${item.id}`}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleNav(item.id)}
+                  className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors ${
+                    isCurrent
+                      ? 'bg-amber-50/90 text-slate-950'
+                      : 'hover:bg-slate-50 text-slate-800'
+                  }`}
+                >
+                  <div
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                      isCurrent ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-900">{item.label}</span>
+                      {item.badge && (
+                        <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5 leading-snug">{item.desc}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <header
       ref={headerRef}
       className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Zone 1: Brand Logo */}
+        {/* Brand Logo */}
         <button
           type="button"
           onClick={() => handleNav('home')}
@@ -207,7 +268,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
           <OpesFuelLogo variant="dark" size="md" />
         </button>
 
-        {/* Zone 2: Enterprise Desktop Navigation with Dropdown Panels */}
+        {/* Desktop Primary Navigation */}
         <nav aria-label="Primary navigation" className="hidden lg:flex items-center gap-1">
           <button
             type="button"
@@ -221,78 +282,8 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
             Home
           </button>
 
-          {NAV_GROUPS.slice(0, 2).map((group) => {
-            const expanded = openMenu === group.key;
-            const active = isGroupActive(group);
-            return (
-              <div key={group.key} className="relative">
-                <button
-                  type="button"
-                  aria-expanded={expanded}
-                  aria-haspopup="menu"
-                  onClick={() => setOpenMenu((prev) => (prev === group.key ? null : group.key))}
-                  className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    active || expanded
-                      ? 'text-slate-950 bg-slate-100 font-semibold'
-                      : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
-                  }`}
-                >
-                  <span>{group.label}</span>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform duration-150 ${
-                      expanded ? 'rotate-180 text-amber-600' : 'text-slate-400'
-                    }`}
-                  />
-                </button>
-
-                {expanded && (
-                  <div
-                    role="menu"
-                    className="absolute left-0 top-full mt-2 w-[340px] rounded-2xl bg-white border border-slate-200 shadow-xl shadow-slate-900/10 p-2 z-50"
-                  >
-                    {group.items.map((item) => {
-                      const Icon = item.icon;
-                      const isCurrent = activePage === item.id;
-                      return (
-                        <button
-                          key={`${group.key}-${item.id}`}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => handleNav(item.id)}
-                          className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors ${
-                            isCurrent
-                              ? 'bg-amber-50/90 text-slate-950'
-                              : 'hover:bg-slate-50 text-slate-800'
-                          }`}
-                        >
-                          <div
-                            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                              isCurrent
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-slate-900">{item.label}</span>
-                              {item.badge && (
-                                <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  {item.badge}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-slate-500 mt-0.5 leading-snug">{item.desc}</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {renderDropdownGroup(NAV_GROUPS[0], false)}
+          {renderDropdownGroup(NAV_GROUPS[1], false)}
 
           <button
             type="button"
@@ -306,81 +297,34 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
             Pricing
           </button>
 
-          {NAV_GROUPS.slice(2).map((group) => {
-            const expanded = openMenu === group.key;
-            const active = isGroupActive(group);
-            return (
-              <div key={group.key} className="relative">
-                <button
-                  type="button"
-                  aria-expanded={expanded}
-                  aria-haspopup="menu"
-                  onClick={() => setOpenMenu((prev) => (prev === group.key ? null : group.key))}
-                  className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    active || expanded
-                      ? 'text-slate-950 bg-slate-100 font-semibold'
-                      : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
-                  }`}
-                >
-                  <span>{group.label}</span>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform duration-150 ${
-                      expanded ? 'rotate-180 text-amber-600' : 'text-slate-400'
-                    }`}
-                  />
-                </button>
+          <button
+            type="button"
+            onClick={() => handleNav('docs')}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              activePage === 'docs'
+                ? 'text-slate-950 bg-slate-100 font-semibold'
+                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+            }`}
+          >
+            Documentation
+          </button>
 
-                {expanded && (
-                  <div
-                    role="menu"
-                    className="absolute right-0 top-full mt-2 w-[330px] rounded-2xl bg-white border border-slate-200 shadow-xl shadow-slate-900/10 p-2 z-50"
-                  >
-                    {group.items.map((item) => {
-                      const Icon = item.icon;
-                      const isCurrent = activePage === item.id;
-                      return (
-                        <button
-                          key={`${group.key}-${item.id}`}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => handleNav(item.id)}
-                          className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors ${
-                            isCurrent
-                              ? 'bg-amber-50/90 text-slate-950'
-                              : 'hover:bg-slate-50 text-slate-800'
-                          }`}
-                        >
-                          <div
-                            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                              isCurrent
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-slate-900">{item.label}</span>
-                              {item.badge && (
-                                <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  {item.badge}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-slate-500 mt-0.5 leading-snug">{item.desc}</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          <button
+            type="button"
+            onClick={() => handleNav('faq')}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              activePage === 'faq'
+                ? 'text-slate-950 bg-slate-100 font-semibold'
+                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+            }`}
+          >
+            FAQ
+          </button>
+
+          {renderDropdownGroup(NAV_GROUPS[2], true)}
         </nav>
 
-        {/* Zone 3: Dual Enterprise CTAs + Mobile Hamburger Trigger */}
+        {/* Right Actions + Mobile Trigger */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
@@ -409,7 +353,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
         </div>
       </div>
 
-      {/* Mobile Full Categorized Navigation Drawer */}
+      {/* Mobile Full Categorized Drawer */}
       {mobileOpen && (
         <div
           role="dialog"
@@ -418,28 +362,27 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
           className="lg:hidden bg-white border-b border-slate-200 max-h-[calc(100vh-4rem)] overflow-y-auto px-4 py-5 space-y-5 shadow-xl"
         >
           <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleNav('home')}
-              className={`px-3.5 py-2.5 rounded-lg text-sm font-semibold text-left border ${
-                activePage === 'home'
-                  ? 'bg-amber-50 border-amber-200 text-amber-900'
-                  : 'bg-slate-50 border-slate-200 text-slate-800'
-              }`}
-            >
-              Home
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNav('pricing')}
-              className={`px-3.5 py-2.5 rounded-lg text-sm font-semibold text-left border ${
-                activePage === 'pricing'
-                  ? 'bg-amber-50 border-amber-200 text-amber-900'
-                  : 'bg-slate-50 border-slate-200 text-slate-800'
-              }`}
-            >
-              Pricing (FCFA)
-            </button>
+            {(
+              [
+                ['home', 'Home'],
+                ['pricing', 'Pricing (FCFA)'],
+                ['docs', 'Documentation'],
+                ['faq', 'FAQ'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => handleNav(id)}
+                className={`px-3.5 py-2.5 rounded-lg text-sm font-semibold text-left border ${
+                  activePage === id
+                    ? 'bg-amber-50 border-amber-200 text-amber-900'
+                    : 'bg-slate-50 border-slate-200 text-slate-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {NAV_GROUPS.map((group) => (

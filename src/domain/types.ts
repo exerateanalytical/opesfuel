@@ -10,6 +10,8 @@ export type PublicPage =
   | 'pricing'
   | 'licensing'
   | 'mobile'
+  | 'docs'
+  | 'faq'
   | 'api'
   | 'security'
   | 'customers'

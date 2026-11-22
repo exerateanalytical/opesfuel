@@ -19,8 +19,8 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate, onOpenCo
         <div className="sm:col-span-2 lg:col-span-1 space-y-4">
           <OpesFuelLogo variant="light" size="md" showSubline />
           <p className="text-sm text-slate-400 leading-relaxed">
-            API-first petrol station management, forecourt reconciliation, and automated SYSCOHADA FCFA
-            accounting for independent sites and regional fuel networks.
+            Simple, reliable petrol station management for pump shifts, underground tanks, mobile money,
+            corporate fleets, staff payroll, and daily FCFA accounting.
           </p>
           <button
             type="button"
@@ -28,16 +28,16 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate, onOpenCo
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-xs font-medium text-emerald-400 transition-colors"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            All Systems Operational
+            All Services Running Normally
           </button>
         </div>
 
         <div>
-          <h3 className="text-xs font-mono uppercase tracking-wider font-semibold text-white mb-4">Product</h3>
+          <h3 className="text-xs font-mono uppercase tracking-wider font-semibold text-white mb-4">Features</h3>
           <ul className="space-y-2.5 text-sm">
             <li>
               <button type="button" onClick={() => go('platform')} className="hover:text-white transition-colors">
-                Platform &amp; 15 Modules
+                Station Management Features
               </button>
             </li>
             <li>
@@ -47,7 +47,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate, onOpenCo
             </li>
             <li>
               <button type="button" onClick={() => go('integrations')} className="hover:text-white transition-colors">
-                Integrations &amp; ATG IoT
+                Payments &amp; Tank Gauges
               </button>
             </li>
             <li>
@@ -68,48 +68,53 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate, onOpenCo
           <ul className="space-y-2.5 text-sm">
             <li>
               <button type="button" onClick={() => go('solutions')} className="hover:text-white transition-colors">
-                Industry Solutions
+                By Station Type
               </button>
             </li>
             <li>
               <button type="button" onClick={() => go('customers')} className="hover:text-white transition-colors">
-                Customer Case Studies
+                Customer Stories
               </button>
             </li>
             <li>
               <button type="button" onClick={() => go('licensing')} className="hover:text-white transition-colors">
-                Perpetual &amp; IP Licensing
+                Private Server License
               </button>
             </li>
             <li>
               <button type="button" onClick={() => go('security')} className="hover:text-white transition-colors">
-                Security &amp; Compliance
+                Anti-Fraud &amp; Data Security
               </button>
             </li>
           </ul>
         </div>
 
         <div>
-          <h3 className="text-xs font-mono uppercase tracking-wider font-semibold text-white mb-4">Resources</h3>
+          <h3 className="text-xs font-mono uppercase tracking-wider font-semibold text-white mb-4">Help &amp; Docs</h3>
           <ul className="space-y-2.5 text-sm">
             <li>
+              <button type="button" onClick={() => go('docs')} className="hover:text-white transition-colors">
+                Station User Manual (Docs)
+              </button>
+            </li>
+            <li>
+              <button type="button" onClick={() => go('faq')} className="hover:text-white transition-colors">
+                Frequently Asked Questions
+              </button>
+            </li>
+            <li>
               <button type="button" onClick={() => go('resources')} className="hover:text-white transition-colors">
-                Help Center &amp; FAQ
+                Launch Checklists &amp; Updates
               </button>
             </li>
             <li>
               <button type="button" onClick={() => go('api')} className="hover:text-white transition-colors">
-                OpenAPI 3.1 Docs
-              </button>
-            </li>
-            <li>
-              <button type="button" onClick={() => go('resources')} className="hover:text-white transition-colors">
-                Platform Changelog
+                IT &amp; Developer API
               </button>
             </li>
             <li>
               <button type="button" onClick={() => go('status')} className="hover:text-white transition-colors">
-                Live System Status
+                Service Status
               </button>
             </li>
           </ul>
@@ -130,7 +135,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate, onOpenCo
             </li>
             <li>
               <button type="button" onClick={() => go('legal')} className="hover:text-white transition-colors">
-                Terms, Privacy &amp; DPA
+                Terms, Privacy &amp; SLA
               </button>
             </li>
             <li className="text-slate-400 font-mono text-xs pt-1">info@opesware.com</li>
@@ -141,7 +146,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate, onOpenCo
       <div className="border-t border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
           <span>© 2026 OpesFuel by Opesware. All rights reserved.</span>
-          <span>99.9% Uptime SLA · SYSCOHADA &amp; IFRS Ready · Java 25 Spring Boot · PostgreSQL 17 ACID</span>
+          <span>99.9% Uptime Guarantee · SYSCOHADA &amp; IFRS Ready · Built for Petrol Stations in FCFA</span>
         </div>
       </div>
     </footer>

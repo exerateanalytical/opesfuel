@@ -43,6 +43,8 @@ const PUBLIC_PAGES: PublicPage[] = [
   'pricing',
   'licensing',
   'mobile',
+  'docs',
+  'faq',
   'api',
   'security',
   'customers',
