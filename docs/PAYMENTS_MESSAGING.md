@@ -1,5 +1,7 @@
 # Cameroon Mobile Money (MTN MoMo & Orange Money) + Real Messaging Production Guide
 
+> **Admin Panel UI Provision (Recommended)**: You can connect and live-test MTN MoMo Cameroon, Orange Money Cameroon WebPay, SMTP/Resend Email, Africa's Talking/Twilio SMS, Meta WhatsApp Cloud API, and Gemini AI directly inside **SaaS Control Plane → API & Payment Gateways** (Global) or **Admin & Billing → 4. API & Payment Gateways** (Company). Credentials are encrypted at rest with **AES-256-GCM** (`V23`), hydrated automatically on boot, and hot-reloaded live with zero downtime. Environment variables below remain supported as defaults.
+
 ## 1. MTN MoMo Cameroon (Collections & Disbursements)
 
 Configure the following environment variables in `.env` on your production VPS:

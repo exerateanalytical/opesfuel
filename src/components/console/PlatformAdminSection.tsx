@@ -33,6 +33,7 @@ import {
 } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 import { PlatformGovernanceControlsPanel } from './PlatformGovernanceControlsPanel';
+import { ApiIntegrationsHubPanel } from './ApiIntegrationsHubPanel';
 
 interface PlatformAdminSectionProps {
   engine: OpesFuelApiEngine;
@@ -41,7 +42,7 @@ interface PlatformAdminSectionProps {
   onNotify: (type: 'success' | 'error', message: string) => void;
 }
 
-type AdminTab = 'overview' | 'tenants' | 'leads' | 'plans' | 'invoices' | 'licenses' | 'broadcasts' | 'governance';
+type AdminTab = 'overview' | 'tenants' | 'leads' | 'plans' | 'invoices' | 'licenses' | 'broadcasts' | 'governance' | 'integrations';
 const LEAD_STATUSES = ['RECEIVED', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'ARCHIVED'] as const;
 
 interface GlobalInvoiceRow {
@@ -476,6 +477,7 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({
           { id: 'licenses' as const, label: `Enterprise Licenses (${licenses.length})`, icon: KeyRound },
           { id: 'broadcasts' as const, label: 'Broadcasts & Health', icon: Megaphone },
           { id: 'governance' as const, label: 'Governance, FX & Feature Flags', icon: ShieldCheck },
+          { id: 'integrations' as const, label: 'API & Payment Gateways', icon: Server },
         ].map((t) => {
           const Icon = t.icon;
           const active = activeTab === t.id;
@@ -1101,6 +1103,10 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'integrations' && (
+        <ApiIntegrationsHubPanel role="PLATFORM_ADMIN" scope="GLOBAL" onNotify={onNotify} />
       )}
 
       {/* =====================================================================

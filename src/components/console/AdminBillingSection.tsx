@@ -6,6 +6,7 @@ import { ALL_FUEL_GRADES, formatFcfa, formatLitres, gradeLabel } from '../../dom
 import { Employee, FuelTank, Pump, Station, TenantWorkspace, UserRole } from '../../domain/types';
 import { FormModal } from '../shared/FormModal';
 import { BillingAndInvitesPanel } from './BillingAndInvitesPanel';
+import { ApiIntegrationsHubPanel } from './ApiIntegrationsHubPanel';
 
 interface AdminBillingSectionProps {
   engine: OpesFuelApiEngine;
@@ -52,7 +53,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   brandingSlot,
   auditAndProfileSlot,
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'branding' | 'stations' | 'billing' | 'governance'>('branding');
+  const [activeAdminTab, setActiveAdminTab] = useState<'branding' | 'stations' | 'billing' | 'integrations' | 'governance'>('branding');
   const [selectedStationId, setSelectedStationId] = useState(stations[0]?.id ?? '');
   const [detailStationId, setDetailStationId] = useState<string | null>(null);
   const [showAddStationModal, setShowAddStationModal] = useState(false);
@@ -293,18 +294,19 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
         </div>
       </div>
 
-      {/* Clean 4-Tab Fuel Owner Administration Navigation */}
+      {/* Clean 5-Tab Fuel Owner Administration Navigation */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
         {[
           { id: 'branding', label: '1. Company Logo & Letterhead' },
           { id: 'stations', label: `2. Stations & Plans (${stations.length})` },
           { id: 'billing', label: '3. Billing, Invoices & Staff Invites' },
-          { id: 'governance', label: '4. Data Import, IAM & Audit' },
+          { id: 'integrations', label: '4. API & Payment Gateways' },
+          { id: 'governance', label: '5. Data Import, IAM & Audit' },
         ].map((tabItem) => (
           <button
             key={tabItem.id}
             type="button"
-            onClick={() => setActiveAdminTab(tabItem.id as 'branding' | 'stations' | 'billing' | 'governance')}
+            onClick={() => setActiveAdminTab(tabItem.id as 'branding' | 'stations' | 'billing' | 'integrations' | 'governance')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-colors ${
               activeAdminTab === tabItem.id
                 ? 'bg-[#0F172A] text-white border-[#0F172A]'
@@ -317,6 +319,14 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
       </div>
 
       {activeAdminTab === 'branding' && brandingSlot}
+
+      {activeAdminTab === 'integrations' && (
+        <ApiIntegrationsHubPanel
+          role={role}
+          scope={role === 'PLATFORM_ADMIN' ? 'GLOBAL' : 'TENANT'}
+          onNotify={onNotify}
+        />
+      )}
 
       {/* Multi-Station Admin Directory & Billing Summary */}
       {activeAdminTab === 'stations' && (

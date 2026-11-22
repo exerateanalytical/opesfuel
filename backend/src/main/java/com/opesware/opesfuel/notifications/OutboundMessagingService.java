@@ -110,6 +110,39 @@ public class OutboundMessagingService {
         this.restClient = restClient;
     }
 
+    public synchronized void applyEmailConfig(Map<String, String> cfg) {
+        if (cfg == null) return;
+        if (cfg.containsKey("provider")) this.mailProvider = cfg.getOrDefault("provider", "LOG_ONLY");
+        if (cfg.containsKey("from")) this.mailFrom = cfg.getOrDefault("from", "noreply@opesfuel.com");
+        if (cfg.containsKey("apiKey")) this.mailApiKey = cfg.getOrDefault("apiKey", "");
+        if (cfg.containsKey("smtpHost")) this.smtpHost = cfg.getOrDefault("smtpHost", "");
+        if (cfg.containsKey("smtpPort")) {
+            try { this.smtpPort = Integer.parseInt(cfg.get("smtpPort")); } catch (Exception ignored) {}
+        }
+        if (cfg.containsKey("smtpUsername")) this.smtpUsername = cfg.getOrDefault("smtpUsername", "");
+        if (cfg.containsKey("smtpPassword")) this.smtpPassword = cfg.getOrDefault("smtpPassword", "");
+        if (cfg.containsKey("smtpStartTls")) this.smtpStartTls = Boolean.parseBoolean(cfg.get("smtpStartTls"));
+        if (cfg.containsKey("smtpSsl")) this.smtpSsl = Boolean.parseBoolean(cfg.get("smtpSsl"));
+    }
+
+    public synchronized void applySmsConfig(Map<String, String> cfg) {
+        if (cfg == null) return;
+        if (cfg.containsKey("provider")) this.smsProvider = cfg.getOrDefault("provider", "LOG_ONLY");
+        if (cfg.containsKey("atUsername")) this.atUsername = cfg.getOrDefault("atUsername", "");
+        if (cfg.containsKey("atApiKey")) this.atApiKey = cfg.getOrDefault("atApiKey", "");
+        if (cfg.containsKey("atFrom")) this.atFrom = cfg.getOrDefault("atFrom", "OPESFUEL");
+        if (cfg.containsKey("twilioAccountSid")) this.twilioSid = cfg.getOrDefault("twilioAccountSid", "");
+        if (cfg.containsKey("twilioAuthToken")) this.twilioToken = cfg.getOrDefault("twilioAuthToken", "");
+        if (cfg.containsKey("twilioFrom")) this.twilioFrom = cfg.getOrDefault("twilioFrom", "");
+    }
+
+    public synchronized void applyWhatsappConfig(Map<String, String> cfg) {
+        if (cfg == null) return;
+        if (cfg.containsKey("provider")) this.whatsappProvider = cfg.getOrDefault("provider", "LOG_ONLY");
+        if (cfg.containsKey("phoneNumberId")) this.metaPhoneNumberId = cfg.getOrDefault("phoneNumberId", "");
+        if (cfg.containsKey("accessToken")) this.metaAccessToken = cfg.getOrDefault("accessToken", "");
+    }
+
     public Map<String, Object> providerStatus() {
         return Map.of(
             "email", Map.of(

@@ -1,6 +1,7 @@
 package com.opesware.opesfuel.billing.momo;
 
 import com.opesware.opesfuel.billing.MomoPaymentApi;
+import com.opesware.opesfuel.billing.MomoRuntimeConfigApi;
 import com.opesware.opesfuel.shared.audit.AuditTrailRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-public class MomoGatewayService implements MomoPaymentApi {
+public class MomoGatewayService implements MomoPaymentApi, MomoRuntimeConfigApi {
 
     private static final Logger log = LoggerFactory.getLogger(MomoGatewayService.class);
 
@@ -57,6 +58,48 @@ public class MomoGatewayService implements MomoPaymentApi {
                 "currency", props.getOrange().resolveCurrency()
             )
         );
+    }
+
+    @Override
+    public synchronized void applyMtnConfig(Map<String, String> cfg) {
+        if (cfg == null) return;
+        MomoProperties.Mtn m = props.getMtn();
+        if (cfg.containsKey("baseUrl")) m.setBaseUrl(cfg.getOrDefault("baseUrl", ""));
+        if (cfg.containsKey("targetEnvironment")) m.setTargetEnvironment(cfg.getOrDefault("targetEnvironment", "sandbox"));
+        if (cfg.containsKey("apiUser")) m.setApiUser(cfg.getOrDefault("apiUser", ""));
+        if (cfg.containsKey("apiKey")) m.setApiKey(cfg.getOrDefault("apiKey", ""));
+        if (cfg.containsKey("collectionSubscriptionKey")) m.setCollectionSubscriptionKey(cfg.getOrDefault("collectionSubscriptionKey", ""));
+        if (cfg.containsKey("disbursementSubscriptionKey")) m.setDisbursementSubscriptionKey(cfg.getOrDefault("disbursementSubscriptionKey", ""));
+        if (cfg.containsKey("callbackUrl")) m.setCallbackUrl(cfg.getOrDefault("callbackUrl", ""));
+        mtnClient.clearTokenCache();
+    }
+
+    @Override
+    public synchronized void applyOrangeConfig(Map<String, String> cfg) {
+        if (cfg == null) return;
+        MomoProperties.Orange o = props.getOrange();
+        if (cfg.containsKey("baseUrl")) o.setBaseUrl(cfg.getOrDefault("baseUrl", "https://api.orange.com"));
+        if (cfg.containsKey("environment")) o.setEnvironment(cfg.getOrDefault("environment", "dev"));
+        if (cfg.containsKey("clientId")) o.setClientId(cfg.getOrDefault("clientId", ""));
+        if (cfg.containsKey("clientSecret")) o.setClientSecret(cfg.getOrDefault("clientSecret", ""));
+        if (cfg.containsKey("merchantKey")) o.setMerchantKey(cfg.getOrDefault("merchantKey", ""));
+        if (cfg.containsKey("returnUrl")) o.setReturnUrl(cfg.getOrDefault("returnUrl", ""));
+        if (cfg.containsKey("cancelUrl")) o.setCancelUrl(cfg.getOrDefault("cancelUrl", ""));
+        if (cfg.containsKey("notifUrl")) o.setNotifUrl(cfg.getOrDefault("notifUrl", ""));
+        if (cfg.containsKey("lang")) o.setLang(cfg.getOrDefault("lang", "fr"));
+        orangeClient.clearTokenCache();
+    }
+
+    @Override
+    public Map<String, Object> testMtnConnection() {
+        String msg = mtnClient.verifyCollectionAuth();
+        return Map.of("ok", true, "message", msg);
+    }
+
+    @Override
+    public Map<String, Object> testOrangeConnection() {
+        String msg = orangeClient.verifyOAuthHandshake();
+        return Map.of("ok", true, "message", msg);
     }
 
     @Transactional

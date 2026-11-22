@@ -97,6 +97,12 @@ public class OrangeMoneyClient {
         }
     }
 
+    public String verifyOAuthHandshake() {
+        clearTokenCache();
+        getAccessToken();
+        return "Authenticated with Orange Money Cameroon (" + props.getOrange().getEnvironment() + " · " + props.getOrange().resolveCurrency() + ").";
+    }
+
     public OrangeInitResponse initiateWebPayment(String orderId, long amountFcfa, String referenceLabel) {
         String token = getAccessToken();
         MomoProperties.Orange om = props.getOrange();

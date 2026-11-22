@@ -50,7 +50,8 @@ class MomoAndMessagingTests {
         for (String mig : new String[]{
             "db/migration/V7__prelaunch_modules_hr_audit_safe_calibration.sql",
             "db/migration/V14__cameroon_momo_payments.sql",
-            "db/migration/V15__messaging_delivery_and_otps.sql"
+            "db/migration/V15__messaging_delivery_and_otps.sql",
+            "db/migration/V23__api_integration_connectors.sql"
         }) {
             var stream = getClass().getClassLoader().getResourceAsStream(mig);
             if (stream != null) {
@@ -237,5 +238,69 @@ class MomoAndMessagingTests {
                 .content("{\"identifier\":\"owner@opesfuel.cm\",\"channel\":\"EMAIL\"}"))
             .andExpect(status().isOk())
             .andExpect(MockMvcResultMatchers.jsonPath("$.otpId").isNotEmpty());
+    }
+
+    @Test
+    void adminPanelIntegrationConnectorsEncryptMaskPreserveSecretsAndEnforceRbac() throws Exception {
+        // OWNER cannot write GLOBAL SaaS connectors (403 Forbidden)
+        mockMvc.perform(put("/api/v1/integrations/connectors/MTN_MOMO")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"scope\":\"GLOBAL\",\"enabled\":true,\"config\":{\"apiUser\":\"u1\",\"apiKey\":\"secret-9999\"}}"))
+            .andExpect(status().isForbidden());
+
+        // PLATFORM_ADMIN saves GLOBAL MTN MoMo Cameroon connector -> encrypted at rest & hot-reloaded
+        mockMvc.perform(put("/api/v1/integrations/connectors/MTN_MOMO")
+                .with(user("admin_01").roles("PLATFORM_ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"scope":"GLOBAL","enabled":true,"config":{
+                      "targetEnvironment":"mtncameroon",
+                      "baseUrl":"https://proxy.momoapi.mtn.com",
+                      "apiUser":"uuid-cameroon-01",
+                      "apiKey":"super-secret-key-8842",
+                      "collectionSubscriptionKey":"sub-key-primary-7731"
+                    }}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.encryptedAtRest").value(true))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.hotReloaded").value(true));
+
+        // Verify stored DB payload is AES-256-GCM ciphertext (enc:v1:...) and contains NO plaintext secret
+        String rawStored = jdbcTemplate.queryForObject(
+            "SELECT config_json_encrypted FROM integration_connectors WHERE id = 'GLOBAL:GLOBAL:MTN_MOMO'",
+            String.class
+        );
+        assertNotNull(rawStored);
+        assertTrue(rawStored.startsWith("enc:v1:"));
+        assertFalse(rawStored.contains("super-secret-key-8842"));
+
+        // GET returns masked secrets only (••••8842), never plaintext
+        mockMvc.perform(get("/api/v1/integrations/connectors?scope=GLOBAL")
+                .with(user("admin_01").roles("PLATFORM_ADMIN")))
+            .andExpect(status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$[0].providerKey").value("MTN_MOMO"))
+            .andExpect(MockMvcResultMatchers.jsonPath("$[0].config.apiKey").value("••••8842"))
+            .andExpect(MockMvcResultMatchers.jsonPath("$[0].secretPresent.apiKey").value(true));
+
+        // Partial update leaving apiKey blank preserves existing encrypted secret
+        mockMvc.perform(put("/api/v1/integrations/connectors/MTN_MOMO")
+                .with(user("admin_01").roles("PLATFORM_ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"scope\":\"GLOBAL\",\"enabled\":true,\"config\":{\"apiUser\":\"uuid-cameroon-02\",\"apiKey\":\"\"}}"))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/integrations/connectors?scope=GLOBAL")
+                .with(user("admin_01").roles("PLATFORM_ADMIN")))
+            .andExpect(status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$[0].config.apiUser").value("uuid-cameroon-02"))
+            .andExpect(MockMvcResultMatchers.jsonPath("$[0].config.apiKey").value("••••8842"));
+
+        // Clean up runtime hot-reloaded credentials so subsequent tests stay isolated
+        mockMvc.perform(put("/api/v1/integrations/connectors/MTN_MOMO")
+                .with(user("admin_01").roles("PLATFORM_ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"scope\":\"GLOBAL\",\"enabled\":false,\"config\":{\"apiUser\":\"\",\"apiKey\":\"\",\"collectionSubscriptionKey\":\"\"}}"))
+            .andExpect(status().isOk());
     }
 }

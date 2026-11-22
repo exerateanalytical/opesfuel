@@ -96,6 +96,12 @@ public class MtnMomoClient {
         }
     }
 
+    public String verifyCollectionAuth() {
+        clearTokenCache();
+        getCollectionAccessToken();
+        return "Authenticated with MTN MoMo (" + props.getMtn().getTargetEnvironment() + " · " + props.getMtn().resolveCurrency() + ").";
+    }
+
     private synchronized String getDisbursementAccessToken() {
         if (!props.getMtn().isDisbursementConfigured()) {
             throw new ResponseStatusException(
