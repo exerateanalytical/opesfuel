@@ -39,6 +39,7 @@ import {
   printDailyZReportPdf,
   printManagerDailyHandoverPdf,
   printOwnerNetworkExecutivePdf,
+  printStatutoryVatTaxPackPdf,
 } from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 
@@ -437,7 +438,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       </div>
 
       {/* Pending Executive Maker-Checker Approvals Quick Action Bar */}
-      {(role === 'OWNER' || role === 'GROUP_CFO' || role === 'PLATFORM_ADMIN') && pendingApprovals.length > 0 && (
+      {(role === 'OWNER' || role === 'GROUP_CFO' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN') && pendingApprovals.length > 0 && (
         <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
@@ -1413,6 +1414,26 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                     <FileText className="w-3.5 h-3.5 text-amber-400" /> Daily Z-Report PDF
                   </span>
                   <span className="font-mono text-[10px] text-amber-300">A4</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    printStatutoryVatTaxPackPdf({
+                      organizationName,
+                      stationLabel: activeStationId === 'ALL' ? 'Network Consolidated' : currentStation?.name ?? activeStationId,
+                      periodLabel: new Date().toISOString().slice(0, 7),
+                      report,
+                      journalsCount: events.length,
+                      expensesTotalFcfa: report.operatingExpensesFcfa,
+                      depositsTotalFcfa: report.bankBalanceFcfa,
+                    })
+                  }
+                  className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-700" /> Statutory VAT (19.25%) Tax Pack
+                  </span>
+                  <span className="font-mono text-[10px] text-slate-500">DGI PDF</span>
                 </button>
               </>
             )}

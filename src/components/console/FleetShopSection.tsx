@@ -709,8 +709,8 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
         </form>
       </FormModal>
 
-      {/* Lubricants, LPG & Forecourt Shop POS (Hidden from Holding Group CFO executive view) */}
-      {role !== 'GROUP_CFO' && (
+      {/* Lubricants, LPG & Forecourt Shop POS (Hidden from Holding Group CFO & Chief Accountant executive/AR views) */}
+      {role !== 'GROUP_CFO' && role !== 'ACCOUNTANT' && (
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -880,7 +880,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
       </div>
       )}
 
-      {role !== 'GROUP_CFO' && (
+      {role !== 'GROUP_CFO' && role !== 'ACCOUNTANT' && (
         <ShopCartAndFefoPanel
           role={role}
           shopItems={visibleItems}

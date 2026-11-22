@@ -1433,10 +1433,10 @@ export default function App() {
               <CashVaultPanel
                 stationId={scopedStationId}
                 stationName={scopedStationName}
-                entries={extOps.vaultEntries}
+                entries={scopedVaultEntries}
                 canRecord={role === 'OWNER' || role === 'ACCOUNTANT' || role === 'GROUP_CFO' || role === 'PLATFORM_ADMIN'}
                 onRecordEntry={(entry) => {
-                  const prevBal = extOps.vaultEntries[0]?.runningBalanceFcfa ?? 0;
+                  const prevBal = scopedVaultEntries[0]?.runningBalanceFcfa ?? 0;
                   const delta =
                     entry.entryType === 'SHIFT_DROP'
                       ? entry.amountFcfa
@@ -1459,9 +1459,9 @@ export default function App() {
                 role={role}
                 stationId={scopedStationId}
                 stationName={scopedStationName}
-                assets={entOps.fixedAssets}
-                budgets={entOps.budgets}
-                approvals={entOps.approvals}
+                assets={entOps.fixedAssets.filter((a) => matchesStationScope(a.stationId))}
+                budgets={entOps.budgets.filter((b) => matchesStationScope(b.stationId))}
+                approvals={entOps.approvals.filter((ap) => matchesStationScope(ap.stationId))}
                 onCreateAsset={(assetInput) => {
                   const rec = { ...assetInput, id: `ast_${Date.now().toString(36)}`, status: 'ACTIVE' as const };
                   setEntOps((prev) => ({ ...prev, fixedAssets: [rec, ...prev.fixedAssets] }));

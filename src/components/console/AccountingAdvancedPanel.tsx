@@ -42,12 +42,13 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
   const [vatAmount, setVatAmount] = useState('150000');
   const [vatSource, setVatSource] = useState<'CASH_SAFE' | 'BANK'>('BANK');
 
-  // Manual journal
+  // Multi-line compound manual journal
   const [mjRef, setMjRef] = useState(`MJ-${Date.now().toString().slice(-5)}`);
-  const [mjDesc, setMjDesc] = useState('Month-end accrual adjustment');
-  const [mjDebitAcc, setMjDebitAcc] = useState('6300');
-  const [mjCreditAcc, setMjCreditAcc] = useState('1030');
-  const [mjAmount, setMjAmount] = useState('25000');
+  const [mjDesc, setMjDesc] = useState('Month-end accrual & tax adjustment');
+  const [mjLines, setMjLines] = useState<Array<{ accountCode: string; debitFcfa: string; creditFcfa: string }>>([
+    { accountCode: '6010', debitFcfa: '50000', creditFcfa: '0' },
+    { accountCode: '1030', debitFcfa: '0', creditFcfa: '50000' },
+  ]);
 
   // Fiscal periods
   const [periods, setPeriods] = useState<Array<Record<string, unknown>>>([]);
@@ -104,11 +105,21 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
     }
   };
 
+  const mjTotalDebit = mjLines.reduce((sum, l) => sum + (Number(l.debitFcfa) || 0), 0);
+  const mjTotalCredit = mjLines.reduce((sum, l) => sum + (Number(l.creditFcfa) || 0), 0);
+  const mjBalanced = mjTotalDebit > 0 && mjTotalDebit === mjTotalCredit;
+
   const handleManualJournal = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amt = Number(mjAmount) || 0;
-    if (amt <= 0 || mjDebitAcc === mjCreditAcc) {
-      onNotify('error', 'Choose distinct debit/credit accounts and a positive FCFA amount.');
+    const cleaned = mjLines
+      .map((l) => ({
+        accountCode: l.accountCode,
+        debitFcfa: Math.max(0, Number(l.debitFcfa) || 0),
+        creditFcfa: Math.max(0, Number(l.creditFcfa) || 0),
+      }))
+      .filter((l) => l.debitFcfa > 0 || l.creditFcfa > 0);
+    if (cleaned.length < 2 || !mjBalanced) {
+      onNotify('error', `Journal is unbalanced (DR ${formatFcfa(mjTotalDebit)} vs CR ${formatFcfa(mjTotalCredit)}). Total Debits must equal Total Credits.`);
       return;
     }
     try {
@@ -116,12 +127,10 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
         stationId: effectiveStationId,
         reference: mjRef.trim(),
         description: mjDesc.trim(),
-        lines: [
-          { accountCode: mjDebitAcc, debitFcfa: amt, creditFcfa: 0 },
-          { accountCode: mjCreditAcc, debitFcfa: 0, creditFcfa: amt },
-        ],
+        lines: cleaned,
       });
-      onNotify('success', `Posted balanced manual journal ${mjRef.trim()} (${formatFcfa(amt)}).`);
+      onNotify('success', `Posted balanced ${cleaned.length}-line SYSCOHADA journal ${mjRef.trim()} (${formatFcfa(mjTotalDebit)}).`);
+      setMjRef(`MJ-${Date.now().toString().slice(-5)}`);
       setModal(null);
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to post manual journal.');
@@ -326,8 +335,13 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
         </form>
       </FormModal>
 
-      {/* Popup FormModal: Manual Balanced Journal */}
-      <FormModal open={modal === 'manual'} onClose={() => setModal(null)} title="Post Balanced Manual SYSCOHADA Journal" subtitle="Enforces strict Debit = Credit balance on double-entry posting.">
+      {/* Popup FormModal: Multi-Line Balanced Manual SYSCOHADA Journal */}
+      <FormModal
+        open={modal === 'manual'}
+        onClose={() => setModal(null)}
+        title="Post Compound Manual SYSCOHADA Journal"
+        subtitle="Add 2 or more debit/credit lines — enforces strict Total Debit = Total Credit balance."
+      >
         <form onSubmit={(e) => void handleManualJournal(e)} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -335,35 +349,113 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
               <input type="text" required value={mjRef} onChange={(e) => setMjRef(e.target.value)} className="opes-input font-mono" />
             </div>
             <div>
-              <label className="opes-label">Amount (FCFA)</label>
-              <input type="number" min={1} required value={mjAmount} onChange={(e) => setMjAmount(e.target.value)} className="opes-input font-mono" />
+              <label className="opes-label">Narration / Description</label>
+              <input type="text" required value={mjDesc} onChange={(e) => setMjDesc(e.target.value)} className="opes-input" />
             </div>
           </div>
-          <div>
-            <label className="opes-label">Narration / Description</label>
-            <input type="text" required value={mjDesc} onChange={(e) => setMjDesc(e.target.value)} className="opes-input" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="opes-label">Debit Account (DR)</label>
-              <select value={mjDebitAcc} onChange={(e) => setMjDebitAcc(e.target.value)} className="opes-input">
-                {CHART_OF_ACCOUNTS.map((a) => (
-                  <option key={a.code} value={a.code}>DR {a.code} {a.name}</option>
-                ))}
-              </select>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="opes-label mb-0">Double-Entry Lines ({mjLines.length})</label>
+              <button
+                type="button"
+                onClick={() =>
+                  setMjLines((prev) => [...prev, { accountCode: '6010', debitFcfa: '0', creditFcfa: '0' }])
+                }
+                className="text-xs font-semibold text-amber-700 hover:underline"
+              >
+                + Add Journal Line
+              </button>
             </div>
-            <div>
-              <label className="opes-label">Credit Account (CR)</label>
-              <select value={mjCreditAcc} onChange={(e) => setMjCreditAcc(e.target.value)} className="opes-input">
-                {CHART_OF_ACCOUNTS.map((a) => (
-                  <option key={a.code} value={a.code}>CR {a.code} {a.name}</option>
-                ))}
-              </select>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {mjLines.map((line, idx) => (
+                <div key={`mj-line-${idx}`} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-6">
+                    <select
+                      value={line.accountCode}
+                      onChange={(e) =>
+                        setMjLines((prev) =>
+                          prev.map((l, i) => (i === idx ? { ...l, accountCode: e.target.value } : l))
+                        )
+                      }
+                      className="opes-input text-xs"
+                    >
+                      {CHART_OF_ACCOUNTS.map((a) => (
+                        <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-3">
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="DR"
+                      value={line.debitFcfa}
+                      onChange={(e) =>
+                        setMjLines((prev) =>
+                          prev.map((l, i) =>
+                            i === idx ? { ...l, debitFcfa: e.target.value, creditFcfa: Number(e.target.value) > 0 ? '0' : l.creditFcfa } : l
+                          )
+                        )
+                      }
+                      className="opes-input font-mono text-xs text-right"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="CR"
+                      value={line.creditFcfa}
+                      onChange={(e) =>
+                        setMjLines((prev) =>
+                          prev.map((l, i) =>
+                            i === idx ? { ...l, creditFcfa: e.target.value, debitFcfa: Number(e.target.value) > 0 ? '0' : l.debitFcfa } : l
+                          )
+                        )
+                      }
+                      className="opes-input font-mono text-xs text-right"
+                    />
+                  </div>
+                  <div className="col-span-1 text-right">
+                    {mjLines.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setMjLines((prev) => prev.filter((_, i) => i !== idx))}
+                        className="text-xs font-bold text-red-600 hover:text-red-800 px-1"
+                        title="Remove line"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div
+              className={`p-2.5 rounded-lg border text-xs flex flex-wrap items-center justify-between gap-2 font-mono ${
+                mjBalanced
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-amber-50 border-amber-300 text-amber-950'
+              }`}
+            >
+              <span>Total DR: <strong>{formatFcfa(mjTotalDebit)}</strong></span>
+              <span>Total CR: <strong>{formatFcfa(mjTotalCredit)}</strong></span>
+              <span className="font-bold">
+                {mjBalanced ? 'BALANCED ✓' : `DIFF: ${formatFcfa(Math.abs(mjTotalDebit - mjTotalCredit))}`}
+              </span>
             </div>
           </div>
+
           <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
             <button type="button" onClick={() => setModal(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
-            <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Post Journal Entry</button>
+            <button
+              type="submit"
+              disabled={!mjBalanced}
+              className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
+            >
+              Post Balanced Journal
+            </button>
           </div>
         </form>
       </FormModal>

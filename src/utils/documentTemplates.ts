@@ -1593,3 +1593,185 @@ export function exportManagerDailyOpsExcel(params: {
   const slug = params.stationName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   XLSX.writeFile(wb, `opesfuel-station-ops-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
+
+/** 31. Branded SYSCOHADA Double-Entry Journal Voucher PDF */
+export function printJournalVoucherPdf(params: {
+  stationName: string;
+  journal: {
+    id: string;
+    reference: string;
+    sourceEvent: string;
+    description: string;
+    postedAt: string;
+    lines: Array<{ accountCode: string; accountName: string; debitFcfa: number; creditFcfa: number }>;
+  };
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const debitSum = params.journal.lines.reduce((s, l) => s + l.debitFcfa, 0);
+  const creditSum = params.journal.lines.reduce((s, l) => s + l.creditFcfa, 0);
+
+  const y = drawDocumentHeader(
+    doc,
+    'SYSCOHADA DOUBLE-ENTRY JOURNAL VOUCHER',
+    `${params.stationName} · Voucher ${params.journal.reference} (${params.journal.sourceEvent})`,
+    `Voucher ID: ${params.journal.id} | Posted: ${params.journal.postedAt.slice(0, 10)} | Status: ${debitSum === creditSum ? 'BALANCED (DR = CR)' : 'UNBALANCED'}`
+  );
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Account Code', 'SYSCOHADA / IFRS Account Title', 'Debit (FCFA)', 'Credit (FCFA)']],
+    body: [
+      ...params.journal.lines.map((l) => [
+        l.accountCode,
+        l.accountName,
+        l.debitFcfa > 0 ? pdfMoney(l.debitFcfa) : '—',
+        l.creditFcfa > 0 ? pdfMoney(l.creditFcfa) : '—',
+      ]),
+      ['TOTAL', params.journal.description, pdfMoney(debitSum), pdfMoney(creditSum)],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 8.5 },
+    columnStyles: { 2: { halign: 'right', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  drawSignatureFooter(doc, 'Prepared By (Chief Accountant)', 'Verified / Audited By (Owner / External Auditor)');
+  doc.save(`opesfuel-journal-voucher-${params.journal.reference.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
+}
+
+/** 32. Statutory 19.25% VAT (TVA) / DGI Tax Declaration & Reconciliation Pack PDF */
+export function printStatutoryVatTaxPackPdf(params: {
+  organizationName: string;
+  stationLabel: string;
+  periodLabel: string;
+  report: FinancialReportBundle;
+  journalsCount: number;
+  expensesTotalFcfa: number;
+  depositsTotalFcfa: number;
+}): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  const fuelRevenueExVat = Math.max(0, params.report.totalRevenueFcfa - params.report.nonFuelRevenueFcfa);
+  const statutoryVatRate = 19.25;
+  const computedOutputVat = Math.round(params.report.totalRevenueFcfa * (statutoryVatRate / 100));
+
+  let y = drawDocumentHeader(
+    doc,
+    'STATUTORY VAT (TVA 19.25%) & SYSCOHADA TAX DECLARATION PACK',
+    `${params.organizationName} · Scope: ${params.stationLabel} · Fiscal Period ${params.periodLabel}`,
+    `Generated: ${new Date().toISOString().slice(0, 10)} | Ledger Integrity: ${params.report.trialBalanceBalanced ? 'BALANCED (DR = CR)' : 'CHECK REQUIRED'} | Journals: ${params.journalsCount}`
+  );
+
+  autoTable(doc, {
+    startY: y,
+    head: [['DGI / OHADA Tax & VAT Declaration Line', 'Taxable Base / Reference', 'Amount (FCFA)']],
+    body: [
+      ['1. Regulated Fuel Sales Revenue (Excl. VAT · Account 4010)', 'Fuel Forecourt Shifts', pdfMoney(fuelRevenueExVat)],
+      ['2. Non-Fuel Shop, Lubricants & Bay Sales (Excl. VAT · Account 4020)', 'POS & Service Bay', pdfMoney(params.report.nonFuelRevenueFcfa)],
+      ['3. Total Taxable Revenue Base (Excl. VAT)', '1 + 2', pdfMoney(params.report.totalRevenueFcfa)],
+      ['4. Theoretical Statutory Output VAT (19.25% CEMAC/CM)', '19.25% of Line 3', pdfMoney(computedOutputVat)],
+      ['5. Ledger Output VAT Payable Balance (Account 2200)', 'Net of Remittances', pdfMoney(params.report.vatPayableFcfa)],
+      ['6. Posted Operating Expenses (Class 6 · Account 6010)', 'Deductible OpEx', pdfMoney(params.expensesTotalFcfa)],
+      ['7. Bank & Treasury Cash Sweeps Cleared (Account 1030)', 'Bank Deposit Slips', pdfMoney(params.depositsTotalFcfa)],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.3 },
+    bodyStyles: { fontSize: 8.3 },
+    columnStyles: { 2: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  y = (doc.lastAutoTable?.finalY ?? y) + 7;
+  autoTable(doc, {
+    startY: y,
+    head: [['SYSCOHADA Balance Sheet & Working Capital Control', 'Account', 'Balance (FCFA)']],
+    body: [
+      ['Cash Safe & Forecourt On Hand', '1010', pdfMoney(params.report.cashOnHandFcfa)],
+      ['Mobile Money Clearing (Orange Money / MTN MoMo)', '1020', pdfMoney(params.report.mobileMoneyClearingFcfa)],
+      ['Bank Operating Account', '1030', pdfMoney(params.report.bankBalanceFcfa)],
+      ['Corporate Fleet Accounts Receivable (AR)', '1100', pdfMoney(params.report.fleetReceivablesFcfa)],
+      ['Fuel & Shop Inventory Asset Valuation', '1200', pdfMoney(params.report.inventoryAssetFcfa)],
+      ['Supplier Accounts Payable (SCDP / Depots)', '2010', pdfMoney(params.report.accountsPayableFcfa)],
+      ['Net Profit Before Income Tax (IS)', 'Result', pdfMoney(params.report.netIncomeFcfa)],
+    ],
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.2 },
+    bodyStyles: { fontSize: 8.2 },
+    columnStyles: { 2: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  drawSignatureFooter(doc, 'Chief Accountant (Expert-Comptable / DAF)', 'Managing Director / Owner Tax Sign-Off');
+  doc.save(`opesfuel-vat-tax-pack-${params.periodLabel}.pdf`);
+}
+
+/** 33. Chief Accountant 5-Sheet SYSCOHADA Audit & Grand Livre Workbook (.xlsx) */
+export function exportAccountantAuditWorkbookExcel(params: {
+  stationLabel: string;
+  report: FinancialReportBundle;
+  journals: Array<{
+    id: string;
+    stationId: string;
+    reference: string;
+    sourceEvent: string;
+    description: string;
+    postedAt: string;
+    lines: Array<{ accountCode: string; accountName: string; debitFcfa: number; creditFcfa: number }>;
+  }>;
+  expenses: Array<{ id: string; stationId: string; category: string; description: string; amountFcfa: number; paymentSource: string; createdAt: string }>;
+  deposits: Array<{ id: string; stationId: string; bankName: string; slipReference: string; sourceAccount: string; amountFcfa: number; depositedAt: string }>;
+}): void {
+  const wb = XLSX.utils.book_new();
+  const pnlRows = [
+    { Line: 'Total Revenue (Excl. VAT)', AmountFcfa: params.report.totalRevenueFcfa },
+    { Line: 'Non-Fuel Revenue (4020)', AmountFcfa: params.report.nonFuelRevenueFcfa },
+    { Line: 'Cost of Goods Sold (COGS)', AmountFcfa: -params.report.cogsFcfa },
+    { Line: 'Gross Operating Profit', AmountFcfa: params.report.grossProfitFcfa },
+    { Line: 'Operating Expenses', AmountFcfa: -params.report.operatingExpensesFcfa },
+    { Line: 'Shift Cash Variance', AmountFcfa: -params.report.cashVarianceFcfa },
+    { Line: 'Net Income Before Tax', AmountFcfa: params.report.netIncomeFcfa },
+  ];
+  const tbRows = params.report.trialBalance.map((r) => ({
+    AccountCode: r.accountCode,
+    AccountName: r.accountName,
+    Type: r.accountType,
+    DebitFcfa: r.debitTotalFcfa,
+    CreditFcfa: r.creditTotalFcfa,
+    NetBalanceFcfa: r.netBalanceFcfa,
+  }));
+  const grandLivreRows = params.journals.flatMap((j) =>
+    j.lines.map((l) => ({
+      PostedAt: j.postedAt,
+      StationId: j.stationId,
+      VoucherRef: j.reference,
+      SourceEvent: j.sourceEvent,
+      AccountCode: l.accountCode,
+      AccountName: l.accountName,
+      Description: j.description,
+      DebitFcfa: l.debitFcfa,
+      CreditFcfa: l.creditFcfa,
+    }))
+  );
+  const expenseRows = params.expenses.map((e) => ({
+    Date: e.createdAt,
+    StationId: e.stationId,
+    Category: e.category,
+    Description: e.description,
+    Source: e.paymentSource,
+    AmountFcfa: e.amountFcfa,
+  }));
+  const depositRows = params.deposits.map((d) => ({
+    Date: d.depositedAt,
+    StationId: d.stationId,
+    BankName: d.bankName,
+    SlipReference: d.slipReference,
+    SourceAccount: d.sourceAccount,
+    AmountFcfa: d.amountFcfa,
+  }));
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pnlRows), 'P&L Summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tbRows.length ? tbRows : [{ info: 'No balances' }]), 'Trial Balance');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(grandLivreRows.length ? grandLivreRows : [{ info: 'No journal lines' }]), 'Grand Livre (GL)');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenseRows.length ? expenseRows : [{ info: 'No expenses' }]), 'Operating Expenses');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(depositRows.length ? depositRows : [{ info: 'No deposits' }]), 'Treasury Deposits');
+  const slug = params.stationLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  XLSX.writeFile(wb, `opesfuel-syscohada-audit-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+

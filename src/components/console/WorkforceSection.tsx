@@ -202,17 +202,29 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onToggleAttendance(activeDetailEmp.id)}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                  activeDetailEmp.clockedIn
-                    ? 'bg-white border-emerald-200 text-emerald-800'
-                    : 'bg-slate-900 border-slate-900 text-white'
-                }`}
-              >
-                {activeDetailEmp.clockedIn ? 'Currently Clocked In (Tap to Clock Out)' : 'Clock In for Shift'}
-              </button>
+              {canPerformAction(role, 'OPEN_CLOSE_SHIFT') ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleAttendance(activeDetailEmp.id)}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                    activeDetailEmp.clockedIn
+                      ? 'bg-white border-emerald-200 text-emerald-800'
+                      : 'bg-slate-900 border-slate-900 text-white'
+                  }`}
+                >
+                  {activeDetailEmp.clockedIn ? 'Currently Clocked In (Tap to Clock Out)' : 'Clock In for Shift'}
+                </button>
+              ) : (
+                <span
+                  className={`px-3.5 py-2 rounded-lg text-xs font-semibold border ${
+                    activeDetailEmp.clockedIn
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-slate-50 border-slate-200 text-slate-600'
+                  }`}
+                >
+                  {activeDetailEmp.clockedIn ? 'Currently Clocked In (Read-Only)' : 'Off Shift (Read-Only)'}
+                </span>
+              )}
             </div>
           </div>
 
@@ -355,17 +367,29 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                       </td>
                     )}
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => onToggleAttendance(emp.id)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
-                          emp.clockedIn
-                            ? 'bg-white border-emerald-400 text-emerald-800 hover:bg-slate-50'
-                            : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {emp.clockedIn ? 'Clocked In' : 'Clock In'}
-                      </button>
+                      {canPerformAction(role, 'OPEN_CLOSE_SHIFT') ? (
+                        <button
+                          type="button"
+                          onClick={() => onToggleAttendance(emp.id)}
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                            emp.clockedIn
+                              ? 'bg-white border-emerald-400 text-emerald-800 hover:bg-slate-50'
+                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {emp.clockedIn ? 'Clocked In' : 'Clock In'}
+                        </button>
+                      ) : (
+                        <span
+                          className={`inline-block px-2.5 py-1 rounded text-xs font-semibold border ${
+                            emp.clockedIn
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                              : 'bg-slate-50 border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {emp.clockedIn ? 'Clocked In' : 'Off Shift'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-1.5">

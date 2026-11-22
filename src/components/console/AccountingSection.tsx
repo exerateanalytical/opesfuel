@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, Download, FileSpreadsheet, FileText, Plus, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, FileSpreadsheet, FileText, Plus, Printer, Search, Trash2 } from 'lucide-react';
 import { CHART_OF_ACCOUNTS, OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { formatFcfa, formatShortDate } from '../../domain/formatters';
@@ -11,7 +11,12 @@ import {
   TreasuryDeposit,
   UserRole,
 } from '../../domain/types';
-import { printDailyZReportPdf } from '../../utils/documentTemplates';
+import {
+  exportAccountantAuditWorkbookExcel,
+  printDailyZReportPdf,
+  printJournalVoucherPdf,
+  printStatutoryVatTaxPackPdf,
+} from '../../utils/documentTemplates';
 import { exportAccountingExcel, exportAccountingPdf } from '../../utils/exportReports';
 import { FormModal } from '../shared/FormModal';
 import { AccountingAdvancedPanel } from './AccountingAdvancedPanel';
@@ -68,6 +73,9 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
 
   const [reportTab, setReportTab] = useState<'pnl' | 'balance' | 'trial' | 'cashflow' | 'journals' | 'accounts'>('pnl');
   const [selectedJournalId, setSelectedJournalId] = useState<string | null>(null);
+  const [drillAccountCode, setDrillAccountCode] = useState<string | null>(null);
+  const [journalSearch, setJournalSearch] = useState('');
+  const [journalEventFilter, setJournalEventFilter] = useState<string>('ALL');
   const [acctModal, setAcctModal] = useState<'expense' | 'deposit' | null>(null);
 
   const [expCat, setExpCat] = useState<StationExpense['category']>('MAINTENANCE');
@@ -81,6 +89,17 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
   const [depAmount, setDepAmount] = useState('250000');
 
   const visibleJournals = journals.filter((j) => stationId === 'ALL' || j.stationId === stationId);
+  const filteredJournals = visibleJournals.filter((j) => {
+    const q = journalSearch.trim().toLowerCase();
+    const matchesEvent = journalEventFilter === 'ALL' || j.sourceEvent.toUpperCase().includes(journalEventFilter);
+    const matchesText =
+      !q ||
+      j.reference.toLowerCase().includes(q) ||
+      j.description.toLowerCase().includes(q) ||
+      j.sourceEvent.toLowerCase().includes(q) ||
+      j.lines.some((l) => l.accountCode.toLowerCase().includes(q) || l.accountName.toLowerCase().includes(q));
+    return matchesEvent && matchesText;
+  });
   const visibleExpenses = expenses.filter((ex) => stationId === 'ALL' || ex.stationId === stationId);
   const visibleDeposits = deposits.filter((dep) => stationId === 'ALL' || dep.stationId === stationId);
   const visibleShifts = shifts.filter((s) => stationId === 'ALL' || s.stationId === stationId);
@@ -151,10 +170,15 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={() =>
+              printJournalVoucherPdf({
+                stationName: stationId === 'ALL' ? 'Network Consolidated' : stationId,
+                journal: activeDetailJournal,
+              })
+            }
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800"
           >
-            <Printer className="w-3.5 h-3.5" /> Print Voucher
+            <Printer className="w-3.5 h-3.5 text-amber-400" /> Download Voucher PDF
           </button>
         </div>
 
@@ -259,6 +283,38 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap shrink-0"
             >
               <FileText className="w-3.5 h-3.5" /> Statements PDF
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                printStatutoryVatTaxPackPdf({
+                  organizationName: 'OpesFuel Station Network',
+                  stationLabel: stationId === 'ALL' ? 'Network Consolidated' : stationId,
+                  periodLabel: new Date().toISOString().slice(0, 7),
+                  report,
+                  journalsCount: visibleJournals.length,
+                  expensesTotalFcfa: visibleExpenses.reduce((s, e) => s + e.amountFcfa, 0),
+                  depositsTotalFcfa: visibleDeposits.reduce((s, d) => s + d.amountFcfa, 0),
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-semibold whitespace-nowrap shrink-0"
+            >
+              <FileText className="w-3.5 h-3.5 text-amber-700" /> VAT (19.25%) Tax Pack PDF
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                exportAccountantAuditWorkbookExcel({
+                  stationLabel: stationId === 'ALL' ? 'Network Consolidated' : stationId,
+                  report,
+                  journals: visibleJournals,
+                  expenses: visibleExpenses,
+                  deposits: visibleDeposits,
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold whitespace-nowrap shrink-0"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Grand Livre Audit (.xlsx)
             </button>
             <button
               type="button"
@@ -403,31 +459,44 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
         )}
 
         {reportTab === 'trial' && (
-          <div className="overflow-x-auto border border-slate-200 rounded-lg">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
-                <tr>
-                  <th className="px-4 py-3">Code</th>
-                  <th className="px-4 py-3">Account</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3 text-right">Debit (FCFA)</th>
-                  <th className="px-4 py-3 text-right">Credit (FCFA)</th>
-                  <th className="px-4 py-3 text-right">Net Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {report.trialBalance.map((row) => (
-                  <tr key={row.accountCode}>
-                    <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{row.accountCode}</td>
-                    <td className="px-4 py-2.5 font-medium text-slate-900">{row.accountName}</td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{row.accountType}</td>
-                    <td className="px-4 py-2.5 text-right font-mono tabular-nums">{formatFcfa(row.debitTotalFcfa)}</td>
-                    <td className="px-4 py-2.5 text-right font-mono tabular-nums">{formatFcfa(row.creditTotalFcfa)}</td>
-                    <td className="px-4 py-2.5 text-right font-mono tabular-nums font-semibold">{formatFcfa(row.netBalanceFcfa)}</td>
+          <div className="space-y-2">
+            <p className="text-[11px] text-slate-500">
+              Click any account row to open its <strong className="text-slate-800">Grand Livre (General Ledger)</strong> posting history and running balance.
+            </p>
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3">Code</th>
+                    <th className="px-4 py-3">Account</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3 text-right">Debit (FCFA)</th>
+                    <th className="px-4 py-3 text-right">Credit (FCFA)</th>
+                    <th className="px-4 py-3 text-right">Net Balance</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {report.trialBalance.map((row) => (
+                    <tr
+                      key={row.accountCode}
+                      onClick={() => setDrillAccountCode(row.accountCode)}
+                      className="cursor-pointer hover:bg-amber-50/40 transition-colors"
+                    >
+                      <td className="px-4 py-2.5 font-mono text-xs font-bold text-amber-800">{row.accountCode}</td>
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        <span className="inline-flex items-center gap-1">
+                          {row.accountName} <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-slate-500">{row.accountType}</td>
+                      <td className="px-4 py-2.5 text-right font-mono tabular-nums">{formatFcfa(row.debitTotalFcfa)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono tabular-nums">{formatFcfa(row.creditTotalFcfa)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono tabular-nums font-semibold">{formatFcfa(row.netBalanceFcfa)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -479,7 +548,38 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
 
         {reportTab === 'journals' && (
           <div className="space-y-3">
-            {visibleJournals.map((je) => (
+            <div className="flex flex-wrap items-center gap-2.5 pb-1">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={journalSearch}
+                  onChange={(e) => setJournalSearch(e.target.value)}
+                  placeholder="Search reference, account code (e.g. 2200), or narration..."
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs"
+                />
+              </div>
+              <select
+                aria-label="Filter journals by source event"
+                value={journalEventFilter}
+                onChange={(e) => setJournalEventFilter(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-800"
+              >
+                <option value="ALL">All Source Events ({visibleJournals.length})</option>
+                <option value="SHIFT">Forecourt Shifts</option>
+                <option value="DELIVERY">Tanker Deliveries</option>
+                <option value="EXPENSE">Operating Expenses</option>
+                <option value="DEPOSIT">Treasury Deposits</option>
+                <option value="FLEET">Fleet AR / Settlements</option>
+                <option value="PAYROLL">Payroll Runs</option>
+                <option value="MANUAL">Manual Journals</option>
+                <option value="VAT">VAT Remittances</option>
+              </select>
+              <span className="font-mono text-[11px] text-slate-500">
+                Showing {filteredJournals.length} / {visibleJournals.length}
+              </span>
+            </div>
+            {filteredJournals.map((je) => (
               <div key={je.id} className="border border-slate-200 rounded-lg overflow-hidden">
                 <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2 text-xs">
                   <div>
@@ -501,9 +601,13 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
                 <div className="divide-y divide-slate-100 text-xs">
                   {je.lines.map((line, idx) => (
                     <div key={`${je.id}-${idx}`} className="px-4 py-2 flex justify-between gap-4">
-                      <span className="text-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setDrillAccountCode(line.accountCode)}
+                        className="text-left text-slate-700 hover:text-amber-800"
+                      >
                         <span className="font-mono text-slate-500">{line.accountCode}</span> {line.accountName}
-                      </span>
+                      </button>
                       <div className="flex gap-6 font-mono tabular-nums">
                         <span className="w-28 text-right">{line.debitFcfa > 0 ? `DR ${formatFcfa(line.debitFcfa)}` : ''}</span>
                         <span className="w-28 text-right">{line.creditFcfa > 0 ? `CR ${formatFcfa(line.creditFcfa)}` : ''}</span>
@@ -513,41 +617,54 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
                 </div>
               </div>
             ))}
-            {visibleJournals.length === 0 && (
+            {filteredJournals.length === 0 && (
               <div className="p-6 text-center text-xs text-slate-500 border border-slate-200 rounded-lg">
-                No double-entry journal vouchers posted yet for this station scope.
+                No double-entry journal vouchers match your search / event filter.
               </div>
             )}
           </div>
         )}
 
         {reportTab === 'accounts' && (
-          <div className="overflow-x-auto border border-slate-200 rounded-lg">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
-                <tr>
-                  <th className="px-4 py-3">Account Code</th>
-                  <th className="px-4 py-3">SYSCOHADA / IFRS Account Title</th>
-                  <th className="px-4 py-3">Classification</th>
-                  <th className="px-4 py-3 text-right">Current Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {CHART_OF_ACCOUNTS.map((acc) => {
-                  const row = report.trialBalance.find((r) => r.accountCode === acc.code);
-                  return (
-                    <tr key={acc.code} className="hover:bg-slate-50/70">
-                      <td className="px-4 py-2.5 font-mono text-xs font-semibold text-slate-900">{acc.code}</td>
-                      <td className="px-4 py-2.5 font-medium text-slate-800">{acc.name}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{acc.accountType}</td>
-                      <td className="px-4 py-2.5 text-right font-mono tabular-nums font-semibold text-slate-900">
-                        {formatFcfa(row?.netBalanceFcfa ?? 0)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            <p className="text-[11px] text-slate-500">
+              Click any SYSCOHADA account to inspect its complete <strong className="text-slate-800">Grand Livre</strong> movement history.
+            </p>
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3">Account Code</th>
+                    <th className="px-4 py-3">SYSCOHADA / IFRS Account Title</th>
+                    <th className="px-4 py-3">Classification</th>
+                    <th className="px-4 py-3 text-right">Current Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {CHART_OF_ACCOUNTS.map((acc) => {
+                    const row = report.trialBalance.find((r) => r.accountCode === acc.code);
+                    return (
+                      <tr
+                        key={acc.code}
+                        onClick={() => setDrillAccountCode(acc.code)}
+                        className="cursor-pointer hover:bg-amber-50/40 transition-colors"
+                      >
+                        <td className="px-4 py-2.5 font-mono text-xs font-bold text-amber-800">{acc.code}</td>
+                        <td className="px-4 py-2.5 font-medium text-slate-800">
+                          <span className="inline-flex items-center gap-1">
+                            {acc.name} <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{acc.accountType}</td>
+                        <td className="px-4 py-2.5 text-right font-mono tabular-nums font-semibold text-slate-900">
+                          {formatFcfa(row?.netBalanceFcfa ?? 0)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -765,7 +882,11 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
-                          onClick={() => onDeleteExpense(ex.id)}
+                          onClick={() => {
+                            if (window.confirm(`Reverse & delete posted expense "${ex.description}" (${formatFcfa(ex.amountFcfa)})?`)) {
+                              onDeleteExpense(ex.id);
+                            }
+                          }}
                           aria-label={`Delete expense ${ex.id}`}
                           className="p-1 text-slate-400 hover:text-red-600"
                         >
@@ -821,7 +942,11 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
-                          onClick={() => onDeleteDeposit(dep.id)}
+                          onClick={() => {
+                            if (window.confirm(`Reverse & delete treasury deposit "${dep.slipReference}" (${formatFcfa(dep.amountFcfa)})?`)) {
+                              onDeleteDeposit(dep.id);
+                            }
+                          }}
                           aria-label={`Delete deposit ${dep.id}`}
                           className="p-1 text-slate-400 hover:text-red-600"
                         >
@@ -853,6 +978,96 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
         journals={visibleJournals}
         onNotify={onNotify}
       />
+
+      {/* Interactive Grand Livre (General Ledger Account Drill-Down) Modal */}
+      {(() => {
+        const accountMeta = drillAccountCode
+          ? CHART_OF_ACCOUNTS.find((a) => a.code === drillAccountCode)
+          : null;
+        const postings = drillAccountCode
+          ? visibleJournals.flatMap((j) =>
+              j.lines
+                .filter((l) => l.accountCode === drillAccountCode)
+                .map((l) => ({
+                  journalId: j.id,
+                  postedAt: j.postedAt,
+                  reference: j.reference,
+                  sourceEvent: j.sourceEvent,
+                  description: j.description,
+                  debitFcfa: l.debitFcfa,
+                  creditFcfa: l.creditFcfa,
+                }))
+            )
+          : [];
+        const totalDr = postings.reduce((s, p) => s + p.debitFcfa, 0);
+        const totalCr = postings.reduce((s, p) => s + p.creditFcfa, 0);
+        return (
+          <FormModal
+            open={Boolean(drillAccountCode)}
+            onClose={() => setDrillAccountCode(null)}
+            title={
+              accountMeta
+                ? `Grand Livre — ${accountMeta.code} ${accountMeta.name}`
+                : `Grand Livre — Account ${drillAccountCode ?? ''}`
+            }
+            subtitle={`SYSCOHADA Ledger Movements (${postings.length} postings) · Total DR ${formatFcfa(totalDr)} · Total CR ${formatFcfa(totalCr)}`}
+          >
+            <div className="space-y-4">
+              <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-80 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#0F172A] text-white sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2">Date</th>
+                      <th className="px-3 py-2">Voucher</th>
+                      <th className="px-3 py-2">Description</th>
+                      <th className="px-3 py-2 text-right">Debit</th>
+                      <th className="px-3 py-2 text-right">Credit</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {postings.map((p, idx) => (
+                      <tr key={`${p.journalId}-${idx}`} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 font-mono text-slate-500 whitespace-nowrap">{formatShortDate(p.postedAt)}</td>
+                        <td className="px-3 py-2 font-mono font-bold">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDrillAccountCode(null);
+                              setSelectedJournalId(p.journalId);
+                            }}
+                            className="text-amber-800 hover:underline"
+                          >
+                            {p.reference}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-slate-700">{p.description}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">{p.debitFcfa > 0 ? formatFcfa(p.debitFcfa) : '—'}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">{p.creditFcfa > 0 ? formatFcfa(p.creditFcfa) : '—'}</td>
+                      </tr>
+                    ))}
+                    {postings.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                          No journal postings recorded on account {drillAccountCode} in this station scope yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDrillAccountCode(null)}
+                  className="px-4 py-2 rounded-lg bg-[#0F172A] text-white text-xs font-semibold"
+                >
+                  Close Account Ledger
+                </button>
+              </div>
+            </div>
+          </FormModal>
+        );
+      })()}
     </div>
   );
 };
