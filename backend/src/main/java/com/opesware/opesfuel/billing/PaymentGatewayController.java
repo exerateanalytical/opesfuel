@@ -57,6 +57,37 @@ public class PaymentGatewayController {
         this.auditRecorder = auditRecorder;
     }
 
+    @GetMapping("/api/v1/billing/subscription-status")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER','ACCOUNTANT','ATTENDANT') or hasAuthority('SCOPE_billing:read')")
+    public Map<String, Object> subscriptionStatus() {
+        String tenantId = accessGuard.currentTenantId();
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+            "SELECT status, created_at FROM tenants WHERE id = ?", tenantId
+        );
+        String tenantStatus = rows.isEmpty() ? "ACTIVE" : String.valueOf(rows.get(0).getOrDefault("status", "ACTIVE"));
+        Instant createdAt = Instant.now();
+        if (!rows.isEmpty() && rows.get(0).get("created_at") instanceof Timestamp ts) {
+            createdAt = ts.toInstant();
+        }
+        Instant trialEndsAt = createdAt.plusSeconds(14L * 86400L);
+        long daysRemaining = Math.max(0L, (trialEndsAt.getEpochSecond() - Instant.now().getEpochSecond()) / 86400L);
+        Integer overdueCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM billing_invoices WHERE tenant_id = ? AND status IN ('ISSUED', 'OVERDUE') AND due_at < ?",
+            Integer.class, tenantId, Timestamp.from(Instant.now().minusSeconds(7L * 86400L))
+        );
+        int overdue = overdueCount != null ? overdueCount : 0;
+        boolean graceLocked = "SUSPENDED".equalsIgnoreCase(tenantStatus) || overdue >= 2;
+        return Map.of(
+            "tenantId", tenantId,
+            "tenantStatus", tenantStatus,
+            "trialActive", daysRemaining > 0,
+            "trialEndsAt", trialEndsAt.toString(),
+            "trialDaysRemaining", daysRemaining,
+            "overdueInvoicesCount", overdue,
+            "gracePeriodLocked", graceLocked
+        );
+    }
+
     @GetMapping("/api/v1/billing/payments")
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','ACCOUNTANT') or hasAuthority('SCOPE_billing:read')")
     public List<Map<String, Object>> listPayments() {

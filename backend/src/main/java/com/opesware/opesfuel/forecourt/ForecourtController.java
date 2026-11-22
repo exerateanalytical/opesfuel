@@ -227,6 +227,7 @@ class ShiftCommandHandler implements ForecourtQueryApi {
     private final InventoryQueryApi inventoryQueryApi;
     private final WorkforceQueryApi workforceQueryApi;
     private final ApplicationEventPublisher eventPublisher;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     ShiftCommandHandler(
         PumpRepository pumpRepository,
@@ -234,7 +235,8 @@ class ShiftCommandHandler implements ForecourtQueryApi {
         StationCatalogApi stationCatalogApi,
         InventoryQueryApi inventoryQueryApi,
         WorkforceQueryApi workforceQueryApi,
-        ApplicationEventPublisher eventPublisher
+        ApplicationEventPublisher eventPublisher,
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate
     ) {
         this.pumpRepository = pumpRepository;
         this.shiftRepository = shiftRepository;
@@ -242,6 +244,7 @@ class ShiftCommandHandler implements ForecourtQueryApi {
         this.inventoryQueryApi = inventoryQueryApi;
         this.workforceQueryApi = workforceQueryApi;
         this.eventPublisher = eventPublisher;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -330,6 +333,20 @@ class ShiftCommandHandler implements ForecourtQueryApi {
         }
         if (pumpRepository.existsByStationIdAndCodeIgnoreCase(cmd.stationId(), cmd.code().trim())) {
             throw new IllegalStateException("Pump code already exists at this station: " + cmd.code().trim().toUpperCase());
+        }
+        List<Map<String, Object>> stRows = jdbcTemplate.queryForList(
+            "SELECT plan_name, monthly_fee_fcfa FROM stations WHERE id = ?", cmd.stationId()
+        );
+        if (!stRows.isEmpty()) {
+            String planName = String.valueOf(stRows.get(0).getOrDefault("plan_name", ""));
+            long fee = stRows.get(0).get("monthly_fee_fcfa") instanceof Number n ? n.longValue() : 25_000L;
+            boolean isStarter = planName.toLowerCase().contains("starter") || fee <= 25_000L;
+            long currentPumps = pumpRepository.countByStationIdIn(List.of(cmd.stationId()));
+            if (isStarter && currentPumps >= 6) {
+                throw new IllegalStateException(
+                    "Starter Station plan is limited to 6 dispensers per station. Upgrade to Growth Station or Enterprise Network in Admin & Billing to provision additional pumps."
+                );
+            }
         }
         return pumpRepository.save(PumpEntity.create(
             cmd.stationId(), cmd.tankId(), cmd.code(), validatedGrade.name(), cmd.totalizerLitres(), cmd.unitPriceFcfa()

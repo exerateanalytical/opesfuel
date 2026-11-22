@@ -1,0 +1,9 @@
+# Production Spring Profile (activated automatically by docker-compose.prod.yml)
+# Ensures fresh VPS deployments never expose fake demo stations/shifts to paying customers
+# unless OPESFUEL_CLEAN_DEMO_IN_PROD=false is explicitly configured for a staging/demo server.
+
+opesfuel:
+  demo:
+    clean-on-first-prod-boot: ${OPESFUEL_CLEAN_DEMO_IN_PROD:true}
+  security:
+    require-https-webhooks: true

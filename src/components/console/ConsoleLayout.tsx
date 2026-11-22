@@ -20,6 +20,7 @@ import {
   Smartphone,
   Sparkles,
   Truck,
+  UserCircle2,
   Users,
   X,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import { formatShortDate } from '../../domain/formatters';
 import { ConsoleSection, Station, TenantWorkspace, UserRole } from '../../domain/types';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
+import { FormModal } from '../shared/FormModal';
 
 export interface NotificationItem {
   id: string;
@@ -70,18 +72,18 @@ interface ConsoleLayoutProps {
   children: React.ReactNode;
 }
 
-const NAV_ITEMS: { id: ConsoleSection; label: string; shortLabel: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'platform-admin', label: 'SaaS Control Plane', shortLabel: 'SaaS', icon: Crown },
-  { id: 'overview', label: 'Station Overview', shortLabel: 'Overview', icon: LayoutDashboard },
-  { id: 'forecourt', label: 'Forecourt & Shifts', shortLabel: 'Shifts', icon: Fuel },
-  { id: 'inventory', label: 'Tanks & Deliveries', shortLabel: 'Tanks', icon: Truck },
-  { id: 'fleet', label: 'Fleet Credit & POS', shortLabel: 'POS', icon: CreditCard },
-  { id: 'workforce', label: 'Staff, HR & Payroll', shortLabel: 'HR', icon: Users },
-  { id: 'accounting', label: 'Accounting & Reports', shortLabel: 'Ledger', icon: BookOpen },
-  { id: 'ai-assistant', label: 'AI Copilot', shortLabel: 'AI', icon: Sparkles },
-  { id: 'mobile-app', label: 'Mobile App', shortLabel: 'Mobile', icon: Smartphone },
-  { id: 'api-platform', label: 'API & Events', shortLabel: 'API', icon: Code2 },
-  { id: 'admin', label: 'Admin & Billing', shortLabel: 'Admin', icon: Building2 },
+const NAV_ITEMS: { id: ConsoleSection; label: string; labelFr: string; shortLabel: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'platform-admin', label: 'SaaS Control Plane', labelFr: 'Contrôle SaaS', shortLabel: 'SaaS', icon: Crown },
+  { id: 'overview', label: 'Station Overview', labelFr: 'Vue Station', shortLabel: 'Overview', icon: LayoutDashboard },
+  { id: 'forecourt', label: 'Forecourt & Shifts', labelFr: 'Piste & Quarts', shortLabel: 'Shifts', icon: Fuel },
+  { id: 'inventory', label: 'Tanks & Deliveries', labelFr: 'Cuves & Livraisons', shortLabel: 'Tanks', icon: Truck },
+  { id: 'fleet', label: 'Fleet Credit & POS', labelFr: 'Flotte & Boutique', shortLabel: 'POS', icon: CreditCard },
+  { id: 'workforce', label: 'Staff, HR & Payroll', labelFr: 'Personnel, RH & Paie', shortLabel: 'HR', icon: Users },
+  { id: 'accounting', label: 'Accounting & Reports', labelFr: 'Comptabilité & Rapports', shortLabel: 'Ledger', icon: BookOpen },
+  { id: 'ai-assistant', label: 'AI Copilot', labelFr: 'Assistant IA', shortLabel: 'AI', icon: Sparkles },
+  { id: 'mobile-app', label: 'Mobile App', labelFr: 'App Mobile', shortLabel: 'Mobile', icon: Smartphone },
+  { id: 'api-platform', label: 'API & Events', labelFr: 'API & Webhooks', shortLabel: 'API', icon: Code2 },
+  { id: 'admin', label: 'Admin & Billing', labelFr: 'Admin & Facturation', shortLabel: 'Admin', icon: Building2 },
 ];
 
 export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
@@ -107,11 +109,16 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
   onDismissToast,
   children,
 }) => {
-  const { lang, setLang } = useLanguage();
+  const { lang, setLang, t } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const profile = ROLE_PROFILES[role];
-  const displayName = authSession?.mode === 'AUTH0_OIDC' ? authSession.userName : profile.name;
+  const [profileName, setProfileName] = useState(authSession?.mode === 'AUTH0_OIDC' ? authSession.userName : profile.name);
+  const [profilePhone, setProfilePhone] = useState('+237 699 112 233');
+  const [profileAlerts, setProfileAlerts] = useState(true);
+  const [profileSavedNotice, setProfileSavedNotice] = useState(false);
+  const displayName = profileName || (authSession?.mode === 'AUTH0_OIDC' ? authSession.userName : profile.name);
   const displaySubtitle = authSession?.mode === 'AUTH0_OIDC' ? authSession.email : profile.title;
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -177,7 +184,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
             >
               <span className="flex items-center gap-3">
                 <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
+                <span>{lang === 'fr' ? item.labelFr : item.label}</span>
               </span>
               {item.id === 'ai-assistant' && (
                 <span className="font-mono text-[10px] uppercase tracking-wider text-amber-300">
@@ -363,7 +370,10 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
                   : 'OpenAPI 3.1 SaaS Live'}
               </div>
               <div className="font-display text-sm sm:text-base font-bold text-slate-900 truncate">
-                {NAV_ITEMS.find((n) => n.id === activeSection)?.label}
+                {(() => {
+                  const activeItem = NAV_ITEMS.find((n) => n.id === activeSection);
+                  return activeItem ? (lang === 'fr' ? activeItem.labelFr : activeItem.label) : '';
+                })()}
               </div>
             </div>
           </div>
@@ -377,6 +387,19 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
             >
               <Globe className="w-3.5 h-3.5 text-slate-700" />
               <span>{lang.toUpperCase()}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setProfileSavedNotice(false);
+                setProfileOpen(true);
+              }}
+              aria-label="My Profile & Settings"
+              className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 min-h-[38px]"
+            >
+              <UserCircle2 className="w-4 h-4 text-slate-700" />
+              <span className="hidden sm:inline">{t('Profile', 'Profil')}</span>
             </button>
 
             <button
@@ -402,7 +425,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 min-h-[38px]"
             >
               <Database className="w-3.5 h-3.5 text-slate-700" />
-              <span>Setup Guide ({onboardingCompletedCount}/5)</span>
+              <span>{t('Setup Guide', 'Guide Config')} ({onboardingCompletedCount}/5)</span>
             </button>
 
             <div className="flex items-center gap-1.5">
@@ -481,6 +504,96 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
 
           {children}
         </main>
+
+        {/* Universal My Profile & Account Settings Modal (Accessible to All 5 User Roles) */}
+        <FormModal
+          open={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          title={t('My Profile & Account Settings', 'Mon Profil & Préférences')}
+          subtitle={`${role} · ${tenant.organizationName}`}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setProfileSavedNotice(true);
+              window.setTimeout(() => setProfileOpen(false), 650);
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">{t('Full Name', 'Nom complet')}</label>
+                <input
+                  type="text"
+                  required
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="opes-input"
+                />
+              </div>
+              <div>
+                <label className="opes-label">{t('Phone / WhatsApp', 'Téléphone / WhatsApp')}</label>
+                <input
+                  type="text"
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  className="opes-input font-mono"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">{t('Preferred Language', 'Langue préférée')}</label>
+                <select
+                  value={lang}
+                  onChange={(e) => setLang(e.target.value as 'en' | 'fr')}
+                  className="opes-input"
+                >
+                  <option value="en">English (EN)</option>
+                  <option value="fr">Français (FR)</option>
+                </select>
+              </div>
+              <div>
+                <label className="opes-label">{t('Active Role & Scope', 'Rôle & Périmètre')}</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={`${role} · ${activeStationId === 'ALL' ? `${stations.length} Stations` : stations.find((s) => s.id === activeStationId)?.name ?? activeStationId}`}
+                  className="opes-input font-mono text-slate-600"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2.5 text-xs text-slate-700">
+              <input
+                type="checkbox"
+                checked={profileAlerts}
+                onChange={(e) => setProfileAlerts(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              <span>{t('Receive instant Email / WhatsApp alerts for low tanks and shift variances', 'Recevoir les alertes Email / WhatsApp pour cuves basses et écarts de caisse')}</span>
+            </label>
+            {profileSavedNotice && (
+              <div className="text-xs font-semibold text-emerald-700">
+                {t('Profile preferences saved.', 'Préférences du profil enregistrées.')}
+              </div>
+            )}
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setProfileOpen(false)}
+                className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+              >
+                {t('Cancel', 'Annuler')}
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+              >
+                {t('Save Profile', 'Enregistrer le profil')}
+              </button>
+            </div>
+          </form>
+        </FormModal>
 
         {/* Compact Mobile Bottom Navigation Bar */}
         <nav

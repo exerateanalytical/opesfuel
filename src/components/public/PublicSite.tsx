@@ -33,6 +33,7 @@ import { FaqPage } from './FaqPage';
 import { LicensingView } from './LicensingView';
 import { PublicPagesExtra } from './PublicPagesExtra';
 import { MobileAppShowcase } from '../mobile/MobileAppShowcase';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface PublicSiteProps {
   page: PublicPage;
@@ -107,6 +108,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   onOpenConsole,
   onLeadSubmitted,
 }) => {
+  const { t } = useLanguage();
   // Interactive home page controls
   const [simLitres, setSimLitres] = useState(4200);
   const [activeRoleTab, setActiveRoleTab] = useState<'OWNER' | 'MANAGER' | 'ATTENDANT' | 'ACCOUNTANT'>('OWNER');
@@ -872,14 +874,16 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
         <div className="absolute inset-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex flex-col justify-between">
           <div className="max-w-xl space-y-5 my-auto">
             <div className="text-xs font-mono uppercase tracking-[0.16em] text-slate-300 font-semibold">
-              Petrol Station Management · From 25 000 FCFA / Month
+              {t('Petrol Station Management · From 25 000 FCFA / Month', 'Gestion de Station-Service · Dès 25 000 FCFA / Mois')}
             </div>
             <h1 className="font-display text-3xl sm:text-5xl font-extrabold leading-[1.06] tracking-tight text-white">
-              Every litre metered. Every franc accounted for.
+              {t('Every litre metered. Every franc accounted for.', 'Chaque litre mesuré. Chaque franc justifié.')}
             </h1>
             <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
-              Know your real cash, underground fuel stock, corporate fleet balances, staff payroll, and daily
-              profit—across one station or fifty, even when internet drops.
+              {t(
+                'Know your real cash, underground fuel stock, corporate fleet balances, staff payroll, and daily profit—across one station or fifty, even when internet drops.',
+                'Suivez votre caisse réelle, vos cuves enterrées, vos clients flottes, la paie et votre bénéfice quotidien — sur une ou cinquante stations, même sans connexion internet.'
+              )}
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
@@ -887,24 +891,24 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 onClick={onOpenConsole}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
               >
-                Try Live Demo Station <ArrowRight className="w-4 h-4" />
+                {t('Try Live Demo Station', 'Tester la Station Démo')} <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={() => onNavigate('contact')}
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-lg glass-dark hover:bg-slate-900 text-white text-sm font-semibold transition-colors whitespace-nowrap"
               >
-                Book a Free Demo
+                {t('Book a Free Demo', 'Réserver une Démo Gratuite')}
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/15 rounded-xl overflow-hidden border border-white/15">
             {[
-              ['Starting Plan', '25 000 FCFA / mo'],
-              ['Payments Verified', 'Cash · Orange · MoMo'],
-              ['Stock Control', 'Dipsticks & 15°C Gauges'],
-              ['Accounting & Mobile', 'SYSCOHADA · Offline App'],
+              [t('Starting Plan', 'Offre Départ'), t('25 000 FCFA / mo', '25 000 FCFA / mois')],
+              [t('Payments Verified', 'Paiements Vérifiés'), 'Cash · Orange · MoMo'],
+              [t('Stock Control', 'Contrôle Cuves'), t('Dipsticks & 15°C Gauges', 'Jaugeage & Sondes 15°C')],
+              [t('Accounting & Mobile', 'Compta & Mobile'), t('SYSCOHADA · Offline App', 'SYSCOHADA · App Hors-Ligne')],
             ].map(([k, v]) => (
               <div key={k} className="bg-[#0F172A]/85 backdrop-blur-md px-4 py-3">
                 <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">{k}</div>
@@ -920,10 +924,10 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-xl space-y-1.5">
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-950">
-              Built for the four things that protect your margin.
+              {t('Built for the four things that protect your margin.', 'Conçu pour les quatre piliers qui protègent votre marge.')}
             </h2>
             <p className="text-sm text-slate-600">
-              Simple daily control for owners, managers, attendants, and accountants.
+              {t('Simple daily control for owners, managers, attendants, and accountants.', 'Un contrôle quotidien simple pour promoteurs, gérants, pompistes et comptables.')}
             </p>
           </div>
           <button
@@ -931,7 +935,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
             onClick={() => onNavigate('platform')}
             className="text-sm font-semibold text-slate-950 hover:text-amber-700"
           >
-            Explore all features →
+            {t('Explore all features →', 'Découvrir toutes les fonctions →')}
           </button>
         </div>
 
