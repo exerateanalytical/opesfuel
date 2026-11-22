@@ -4970,7 +4970,110 @@ export class OpesFuelApiEngine {
       { token }
     );
   }
+
+  // --- Tenant Support Helpdesk & Authenticated Billing/MoMo Helpers ---
+
+  listMyTenantSupportTickets(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const tid = this.state.tenant.tenantId;
+      return Promise.resolve(this.previewPlatformTickets.filter((t) => String(t.tenantId) === tid));
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/support/tickets', { token });
+  }
+
+  submitMyTenantSupportTicket(
+    payload: { stationId?: string; requesterEmail?: string; subject: string; description: string; category: string; priority: string },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      return this.createPlatformSupportTicket({
+        tenantId: this.state.tenant.tenantId,
+        tenantName: this.state.tenant.organizationName,
+        requesterEmail: payload.requesterEmail || this.state.tenant.ownerEmail,
+        subject: payload.subject,
+        description: payload.description,
+        category: payload.category,
+        priority: payload.priority,
+      });
+    }
+    return this.requestBackendJson<Record<string, unknown>>('/support/tickets', {
+      method: 'POST',
+      body: payload,
+      token,
+    });
+  }
+
+  listMyTenantTicketMessages(ticketId: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      return Promise.resolve(
+        (this.previewTicketMessages[ticketId] ?? []).filter((m) => !Boolean(m.internalNote))
+      );
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>(
+      `/support/tickets/${encodeURIComponent(ticketId)}/messages`,
+      { token }
+    );
+  }
+
+  postMyTenantTicketReply(ticketId: string, body: string, token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const msg = {
+        id: `tmsg_${Date.now().toString(36)}`,
+        ticketId,
+        senderEmail: this.state.tenant.ownerEmail,
+        senderRole: 'OWNER',
+        internalNote: false,
+        body,
+        createdAt: new Date().toISOString(),
+      };
+      this.previewTicketMessages[ticketId] = [...(this.previewTicketMessages[ticketId] ?? []), msg];
+      const t = this.previewPlatformTickets.find((item) => item.id === ticketId);
+      if (t) {
+        t.messageCount = Number(t.messageCount ?? 0) + 1;
+        t.updatedAt = msg.createdAt;
+      }
+      return Promise.resolve(msg);
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/support/tickets/${encodeURIComponent(ticketId)}/messages`,
+      { method: 'POST', body: { body }, token }
+    );
+  }
+
+  listTenantMomoTransactions(token?: string | null) {
+    if (!this.springBootBaseUrl) {
+      const tid = this.state.tenant.tenantId;
+      return Promise.resolve(this.previewMomoSettlements.filter((m) => String(m.tenantId) === tid));
+    }
+    return this.requestBackendJson<Array<Record<string, unknown>>>('/payments/momo', { token });
+  }
+
+  initiateBillingInvoiceCheckout(
+    invoiceId: string,
+    payload: { provider: string; payerPhone: string; amountFcfa: number },
+    token?: string | null
+  ) {
+    if (!this.springBootBaseUrl) {
+      const mappedChannel =
+        payload.provider === 'MTN_MOMO'
+          ? 'MTN_MOMO'
+          : payload.provider === 'STRIPE' || payload.provider === 'CINETPAY'
+          ? 'CARD'
+          : 'ORANGE_MONEY';
+      const ref = `${payload.provider}-${Date.now().toString().slice(-6)}`;
+      return this.payBillingInvoice(invoiceId, {
+        amountFcfa: payload.amountFcfa,
+        paymentChannel: mappedChannel,
+        providerReference: ref,
+      }).then(() => ({ checkoutReference: ref, status: 'SETTLED' }));
+    }
+    return this.requestBackendJson<Record<string, unknown>>(
+      `/billing/invoices/${encodeURIComponent(invoiceId)}/checkout`,
+      { method: 'POST', body: payload, token }
+    );
+  }
 }
+
 
 
 

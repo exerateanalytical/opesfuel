@@ -591,6 +591,66 @@ class PlatformAdminService {
         }).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> listTenantTicketMessages(String tenantId, String ticketId) {
+        List<Map<String, Object>> owned = jdbcTemplate.queryForList(
+            "SELECT id FROM platform_support_tickets WHERE id = ? AND tenant_id = ?",
+            ticketId, tenantId
+        );
+        if (owned.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Support ticket not found for tenant.");
+        }
+        return jdbcTemplate.queryForList("""
+            SELECT id, ticket_id, sender_email, sender_role, internal_note, body, created_at
+            FROM platform_support_messages
+            WHERE ticket_id = ? AND internal_note = FALSE
+            ORDER BY created_at ASC
+            """, ticketId).stream().map(r -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", r.get("id"));
+            m.put("ticketId", r.get("ticket_id"));
+            m.put("senderEmail", r.get("sender_email"));
+            m.put("senderRole", r.get("sender_role"));
+            m.put("internalNote", false);
+            m.put("body", r.get("body"));
+            m.put("createdAt", formatTs(r.get("created_at")));
+            return m;
+        }).toList();
+    }
+
+    @Transactional
+    public Map<String, Object> postTenantTicketReply(String tenantId, String ticketId, String body) {
+        List<Map<String, Object>> owned = jdbcTemplate.queryForList(
+            "SELECT id, status FROM platform_support_tickets WHERE id = ? AND tenant_id = ?",
+            ticketId, tenantId
+        );
+        if (owned.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Support ticket not found for tenant.");
+        }
+        String msgId = "tmsg_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        Timestamp now = Timestamp.from(Instant.now());
+        jdbcTemplate.update("""
+            INSERT INTO platform_support_messages (id, ticket_id, sender_email, sender_role, internal_note, body, created_at)
+            VALUES (?, ?, ?, ?, FALSE, ?, ?)
+            """, msgId, ticketId, actorEmail(), actorRole(), body.trim(), now);
+        // If ticket was waiting on tenant, transition back to OPEN for support attention
+        String curStatus = String.valueOf(owned.get(0).get("status"));
+        if ("WAITING_TENANT".equalsIgnoreCase(curStatus)) {
+            jdbcTemplate.update("UPDATE platform_support_tickets SET status = 'OPEN', updated_at = ? WHERE id = ?", now, ticketId);
+        } else {
+            jdbcTemplate.update("UPDATE platform_support_tickets SET updated_at = ? WHERE id = ?", now, ticketId);
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", msgId);
+        m.put("ticketId", ticketId);
+        m.put("senderEmail", actorEmail());
+        m.put("senderRole", actorRole());
+        m.put("internalNote", false);
+        m.put("body", body.trim());
+        m.put("createdAt", now.toInstant().toString());
+        return m;
+    }
+
     @Transactional
     public Map<String, Object> postTicketMessage(String ticketId, PostSupportMessageCmd cmd) {
         List<Map<String, Object>> tickets = jdbcTemplate.queryForList("SELECT * FROM platform_support_tickets WHERE id = ?", ticketId);
@@ -1546,4 +1606,21 @@ class TenantSupportTicketController {
         );
         return service.createSupportTicket(scoped, tenantId);
     }
+
+    @GetMapping("/{ticketId}/messages")
+    public List<Map<String, Object>> listMyTicketMessages(@PathVariable String ticketId) {
+        return service.listTenantTicketMessages(accessGuard.currentTenantId(), ticketId);
+    }
+
+    @PostMapping("/{ticketId}/messages")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, Object> replyToMyTicket(
+        @PathVariable String ticketId,
+        @Valid @RequestBody TenantTicketReplyCmd cmd
+    ) {
+        return service.postTenantTicketReply(accessGuard.currentTenantId(), ticketId, cmd.body());
+    }
 }
+
+record TenantTicketReplyCmd(@NotBlank String body) {}
+

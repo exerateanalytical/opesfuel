@@ -17,6 +17,8 @@ import {
   Trophy,
 } from 'lucide-react';
 import { PriceHistoryItem } from '../../api/demoDataset1000';
+import { MakerCheckerApprovalItem } from '../../api/enterpriseModulesData';
+import { SUBSCRIPTION_PLANS } from '../../api/opesfuelClient';
 import { canAccessSection, canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import {
@@ -29,11 +31,17 @@ import {
   Station,
   UserRole,
 } from '../../domain/types';
-import { exportShiftsExcel, printDailyZReportPdf } from '../../utils/documentTemplates';
+import {
+  exportOwnerNetworkExcel,
+  exportShiftsExcel,
+  printDailyZReportPdf,
+  printOwnerNetworkExecutivePdf,
+} from '../../utils/documentTemplates';
 import { FormModal } from '../shared/FormModal';
 
 interface OverviewSectionProps {
   role: UserRole;
+  organizationName?: string;
   activeStationId: string;
   stations: Station[];
   tanks: FuelTank[];
@@ -41,6 +49,9 @@ interface OverviewSectionProps {
   shifts: ShiftRecord[];
   events: DomainEventLog[];
   priceHistory?: PriceHistoryItem[];
+  approvals?: MakerCheckerApprovalItem[];
+  onDecideApproval?: (id: string, status: 'APPROVED' | 'REJECTED') => void;
+  onSelectStation?: (stationId: string) => void;
   report: FinancialReportBundle;
   onboardingCompletedCount: number;
   onOpenOnboardingGuide: (tab?: 'guide' | 'institutional') => void;
@@ -70,6 +81,7 @@ interface OverviewSectionProps {
 
 export const OverviewSection: React.FC<OverviewSectionProps> = ({
   role,
+  organizationName = 'OpesFuel Station Network',
   activeStationId,
   stations,
   tanks,
@@ -77,6 +89,9 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   shifts,
   events,
   priceHistory = [],
+  approvals = [],
+  onDecideApproval,
+  onSelectStation,
   report,
   onboardingCompletedCount,
   onOpenOnboardingGuide,
@@ -101,7 +116,30 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const [priceReason, setPriceReason] = useState('CSPH regulatory tariff update');
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [showNewStation, setShowNewStation] = useState(false);
-  const [stationForm, setStationForm] = useState({ code: '', name: '', city: '' });
+  const [stationForm, setStationForm] = useState({ code: '', name: '', city: '', planId: 'growth' });
+
+  const pendingApprovals = approvals.filter((a) => a.status === 'PENDING');
+  const stationScorecard = stations.map((st) => {
+    const stShifts = shifts.filter((s) => s.stationId === st.id);
+    const stClosed = stShifts.filter((s) => s.status === 'CLOSED');
+    const stOpen = stShifts.filter((s) => s.status === 'OPEN').length;
+    const stTanks = tanks.filter((t) => t.stationId === st.id);
+    const cap = stTanks.reduce((sum, t) => sum + t.capacityLitres, 0);
+    const book = stTanks.reduce((sum, t) => sum + t.bookVolumeLitres, 0);
+    return {
+      id: st.id,
+      code: st.code,
+      name: st.name,
+      city: st.city,
+      planName: st.planName,
+      litresSold: stClosed.reduce((sum, s) => sum + s.litresSold, 0),
+      revenueFcfa: stClosed.reduce((sum, s) => sum + s.expectedRevenueFcfa, 0),
+      varianceFcfa: stClosed.reduce((sum, s) => sum + s.varianceFcfa, 0),
+      openShifts: stOpen,
+      closedShifts: stClosed.length,
+      tankFillPct: cap > 0 ? Math.min(100, Math.round((book / cap) * 100)) : 0,
+    };
+  });
 
   useEffect(() => {
     const livePrice = currentStation?.prices[priceGrade];
@@ -241,14 +279,15 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const handleStationSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!stationForm.code.trim() || !stationForm.name.trim() || !stationForm.city.trim()) return;
+    const plan = SUBSCRIPTION_PLANS.find((p) => p.id === stationForm.planId) ?? SUBSCRIPTION_PLANS[0];
     onCreateStation({
       code: stationForm.code,
       name: stationForm.name,
       city: stationForm.city,
-      planName: 'Starter Station',
-      monthlyFeeFcfa: 25000,
+      planName: plan.name,
+      monthlyFeeFcfa: plan.monthlyPriceFcfa,
     });
-    setStationForm({ code: '', name: '', city: '' });
+    setStationForm({ code: '', name: '', city: '', planId: 'growth' });
     setShowNewStation(false);
   };
 
@@ -345,6 +384,56 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Pending Executive Maker-Checker Approvals Quick Action Bar */}
+      {(role === 'OWNER' || role === 'GROUP_CFO' || role === 'PLATFORM_ADMIN') && pendingApprovals.length > 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>{pendingApprovals.length} Executive Maker-Checker Approval{pendingApprovals.length === 1 ? '' : 's'} Awaiting Sign-Off</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onJumpTo('accounting')}
+              className="text-xs font-semibold text-amber-900 underline"
+            >
+              Open Full Approval Inbox →
+            </button>
+          </div>
+          <div className="divide-y divide-amber-200/70">
+            {pendingApprovals.slice(0, 3).map((ap) => (
+              <div key={ap.id} className="py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div>
+                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-white border border-amber-200 text-amber-900 mr-2">
+                    {ap.requestType}
+                  </span>
+                  <span className="font-semibold text-slate-950">{ap.title}</span>
+                  <span className="text-slate-600 ml-2 font-mono">({formatFcfa(ap.amountFcfa)}) · by {ap.requestedBy}</span>
+                </div>
+                {onDecideApproval && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onDecideApproval(ap.id, 'APPROVED')}
+                      className="px-2.5 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDecideApproval(ap.id, 'REJECTED')}
+                      className="px-2.5 py-1 rounded border border-red-300 bg-white hover:bg-red-50 text-red-700 text-[11px] font-semibold"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Onboarding & Institutional Fuel Tick-Wizard Banner */}
       {canRunSetup && (
@@ -682,6 +771,102 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               SUPER {formatFcfa(currentStation?.prices.SUPER ?? 840)} · GASOIL {formatFcfa(currentStation?.prices.GASOIL ?? 828)}
             </div>
             <div className="text-xs text-slate-500 mt-1.5">Official CSPH regulated pump rates</div>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-Station Branch Performance Comparison Scorecard (For Network Owners & Finance Executives) */}
+      {canViewFinancials && stationScorecard.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-base font-bold text-slate-950">
+                Multi-Station Network Performance Scorecard ({stationScorecard.length} Branch{stationScorecard.length === 1 ? '' : 'es'})
+              </h2>
+              <p className="text-xs text-slate-500">
+                Side-by-side comparison of branch revenue, metered volume, cash reconciliation variance, and tank reserves.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {activeStationId !== 'ALL' && onSelectStation && stationScorecard.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onSelectStation('ALL')}
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900"
+                >
+                  View All Stations Combined
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  printOwnerNetworkExecutivePdf({
+                    organizationName,
+                    report,
+                    stationScorecard,
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+              >
+                <FileText className="w-3.5 h-3.5 text-amber-400" /> Network Report PDF
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-[#0F172A] text-white">
+                <tr>
+                  <th className="px-4 py-2.5 text-left">Station Branch</th>
+                  <th className="px-4 py-2.5 text-left">Plan</th>
+                  <th className="px-4 py-2.5 text-right">Shifts (Closed / Open)</th>
+                  <th className="px-4 py-2.5 text-right">Litres Sold</th>
+                  <th className="px-4 py-2.5 text-right">Branch Revenue</th>
+                  <th className="px-4 py-2.5 text-right">Cash Variance</th>
+                  <th className="px-4 py-2.5 text-right">Tank Fill</th>
+                  <th className="px-4 py-2.5 text-right">Focus</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {stationScorecard.map((st) => {
+                  const isFocused = activeStationId === st.id;
+                  return (
+                    <tr key={st.id} className={isFocused ? 'bg-amber-50/50' : 'hover:bg-slate-50'}>
+                      <td className="px-4 py-2.5">
+                        <div className="font-bold text-slate-950">{st.name}</div>
+                        <div className="font-mono text-[11px] text-slate-500">{st.code} · {st.city}</div>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-700">{st.planName}</td>
+                      <td className="px-4 py-2.5 text-right font-mono">{st.closedShifts} / {st.openShifts}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">{formatLitres(st.litresSold)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-950">{formatFcfa(st.revenueFcfa)}</td>
+                      <td className={`px-4 py-2.5 text-right font-mono font-semibold ${st.varianceFcfa < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                        {formatFcfa(st.varianceFcfa)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${st.tankFillPct < 25 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-800'}`}>
+                          {st.tankFillPct}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {onSelectStation && (
+                          <button
+                            type="button"
+                            onClick={() => onSelectStation(isFocused ? 'ALL' : st.id)}
+                            className={`px-2.5 py-1 rounded text-[11px] font-semibold ${
+                              isFocused
+                                ? 'bg-[#D97706] text-white'
+                                : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-900'
+                            }`}
+                          >
+                            {isFocused ? 'Focused' : 'Inspect'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -1032,23 +1217,76 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {canViewFinancials && (
-              <button
-                type="button"
-                onClick={() =>
-                  printDailyZReportPdf({
-                    stationName: currentStation?.name ?? 'OpesFuel Station Network',
-                    dateLabel: new Date().toISOString().slice(0, 10),
-                    shifts: filteredShifts,
-                    report,
-                  })
-                }
-                className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-amber-400" /> Daily Z-Report PDF
-                </span>
-                <span className="font-mono text-[10px] text-amber-300">A4</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    printOwnerNetworkExecutivePdf({
+                      organizationName,
+                      report,
+                      stationScorecard,
+                    })
+                  }
+                  className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg bg-[#D97706] hover:bg-amber-700 text-white text-xs font-semibold"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" /> Owner Network Executive PDF
+                  </span>
+                  <span className="font-mono text-[10px]">A4</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportOwnerNetworkExcel({
+                      organizationName,
+                      summaryRows: [
+                        { Metric: 'Total Revenue (FCFA)', ValueFcfa: report.totalRevenueFcfa },
+                        { Metric: 'Gross Profit (FCFA)', ValueFcfa: report.grossProfitFcfa },
+                        { Metric: 'Net Income (FCFA)', ValueFcfa: report.netIncomeFcfa },
+                        { Metric: 'Cash On Hand (FCFA)', ValueFcfa: report.cashOnHandFcfa },
+                        { Metric: 'MoMo Clearing (FCFA)', ValueFcfa: report.mobileMoneyClearingFcfa },
+                        { Metric: 'Bank Balance (FCFA)', ValueFcfa: report.bankBalanceFcfa },
+                        { Metric: 'Fleet AR (FCFA)', ValueFcfa: report.fleetReceivablesFcfa },
+                        { Metric: 'VAT Payable (FCFA)', ValueFcfa: report.vatPayableFcfa },
+                      ],
+                      stationScorecard: stationScorecard as unknown as Array<Record<string, unknown>>,
+                      priceHistory: priceHistory as unknown as Array<Record<string, unknown>>,
+                      tankReserves: tanks.map((t) => ({
+                        StationId: t.stationId,
+                        TankName: t.name,
+                        Grade: t.grade,
+                        BookLitres: t.bookVolumeLitres,
+                        CapacityLitres: t.capacityLitres,
+                        VarianceLitres: t.varianceLitres,
+                        Status: t.status,
+                      })),
+                    })
+                  }
+                  className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Network Executive Excel
+                  </span>
+                  <span className="font-mono text-[10px] text-slate-500">4-Sheet</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    printDailyZReportPdf({
+                      stationName: currentStation?.name ?? organizationName,
+                      dateLabel: new Date().toISOString().slice(0, 10),
+                      shifts: filteredShifts,
+                      report,
+                    })
+                  }
+                  className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-400" /> Daily Z-Report PDF
+                  </span>
+                  <span className="font-mono text-[10px] text-amber-300">A4</span>
+                </button>
+              </>
             )}
             {!isAttendant && (
               <button
@@ -1319,7 +1557,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
         open={showNewStation}
         onClose={() => setShowNewStation(false)}
         title="Onboard New Petrol Station"
-        subtitle="Adds a new branch to your station network on the Starter plan (25,000 FCFA/mo)."
+        subtitle="Adds a new branch to your station network with your selected subscription tier."
       >
         <form onSubmit={handleStationSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1356,6 +1594,20 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               onChange={(e) => setStationForm({ ...stationForm, name: e.target.value })}
               className="opes-input"
             />
+          </div>
+          <div>
+            <label className="opes-label">Station SaaS Plan Tier</label>
+            <select
+              value={stationForm.planId}
+              onChange={(e) => setStationForm({ ...stationForm, planId: e.target.value })}
+              className="opes-input"
+            >
+              {SUBSCRIPTION_PLANS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} — {formatFcfa(p.monthlyPriceFcfa)}/mo ({p.pumpLimit})
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
             <button

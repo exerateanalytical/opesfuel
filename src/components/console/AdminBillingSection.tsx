@@ -3,10 +3,11 @@ import { ArrowLeft, Building2, Check, ChevronRight, Plus, RotateCcw, ShieldCheck
 import { OpesFuelApiEngine, SUBSCRIPTION_PLANS } from '../../api/opesfuelClient';
 import { canPerformAction, isAuth0Configured, ROLE_PROFILES } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, gradeLabel } from '../../domain/formatters';
-import { Employee, FuelTank, Pump, Station, TenantWorkspace, UserRole } from '../../domain/types';
+import { Employee, FuelTank, Pump, ShiftRecord, Station, TenantWorkspace, UserRole } from '../../domain/types';
 import { FormModal } from '../shared/FormModal';
 import { BillingAndInvitesPanel } from './BillingAndInvitesPanel';
 import { ApiIntegrationsHubPanel } from './ApiIntegrationsHubPanel';
+import { TenantSupportHelpdeskPanel } from './TenantSupportHelpdeskPanel';
 
 interface AdminBillingSectionProps {
   engine: OpesFuelApiEngine;
@@ -16,6 +17,7 @@ interface AdminBillingSectionProps {
   pumps: Pump[];
   tanks: FuelTank[];
   employees: Employee[];
+  shifts?: ShiftRecord[];
   onCreateStation: (input: {
     code: string;
     name: string;
@@ -42,6 +44,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   pumps,
   tanks,
   employees,
+  shifts = [],
   onCreateStation,
   onUpdateStation,
   onDeleteStation,
@@ -53,7 +56,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   brandingSlot,
   auditAndProfileSlot,
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'branding' | 'stations' | 'billing' | 'integrations' | 'governance'>('branding');
+  const [activeAdminTab, setActiveAdminTab] = useState<'branding' | 'stations' | 'billing' | 'integrations' | 'governance' | 'support'>('branding');
   const [selectedStationId, setSelectedStationId] = useState(stations[0]?.id ?? '');
   const [detailStationId, setDetailStationId] = useState<string | null>(null);
   const [showAddStationModal, setShowAddStationModal] = useState(false);
@@ -91,6 +94,15 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
     const stationPumps = pumps.filter((p) => p.stationId === activeDetailStation.id);
     const stationTanks = tanks.filter((t) => t.stationId === activeDetailStation.id);
     const stationEmployees = employees.filter((e) => e.stationId === activeDetailStation.id);
+    const stationShifts = shifts.filter((s) => s.stationId === activeDetailStation.id);
+    const closedStationShifts = stationShifts.filter((s) => s.status === 'CLOSED');
+    const openStationShifts = stationShifts.filter((s) => s.status === 'OPEN').length;
+    const stationRevenue = closedStationShifts.reduce((sum, s) => sum + s.expectedRevenueFcfa, 0);
+    const stationLitres = closedStationShifts.reduce((sum, s) => sum + s.litresSold, 0);
+    const stationVariance = closedStationShifts.reduce((sum, s) => sum + s.varianceFcfa, 0);
+    const totalCap = stationTanks.reduce((sum, t) => sum + t.capacityLitres, 0);
+    const totalBook = stationTanks.reduce((sum, t) => sum + t.bookVolumeLitres, 0);
+    const stationFillPct = totalCap > 0 ? Math.min(100, Math.round((totalBook / totalCap) * 100)) : 0;
 
     return (
       <div className="space-y-6">
@@ -209,6 +221,31 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
             </form>
           )}
 
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Closed-Shift Revenue</div>
+              <div className="font-mono text-lg font-bold text-slate-950 mt-0.5">{formatFcfa(stationRevenue)}</div>
+              <div className="text-[11px] text-slate-500">{closedStationShifts.length} closed · {openStationShifts} open</div>
+            </div>
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Metered Fuel Sold</div>
+              <div className="font-mono text-lg font-bold text-slate-950 mt-0.5">{formatLitres(stationLitres)}</div>
+              <div className="text-[11px] text-slate-500">{stationPumps.length} active dispenser(s)</div>
+            </div>
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Shift Cash Variance</div>
+              <div className={`font-mono text-lg font-bold mt-0.5 ${stationVariance < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                {formatFcfa(stationVariance)}
+              </div>
+              <div className="text-[11px] text-slate-500">Reconciled forecourt net</div>
+            </div>
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Tank Reserve Fill</div>
+              <div className="font-mono text-lg font-bold text-slate-950 mt-0.5">{stationFillPct}%</div>
+              <div className="text-[11px] text-slate-500">{formatLitres(totalBook)} / {formatLitres(totalCap)}</div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             {ALL_FUEL_GRADES.map((g) => (
               <div key={g} className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex justify-between items-center">
@@ -294,7 +331,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
         </div>
       </div>
 
-      {/* Clean 5-Tab Fuel Owner Administration Navigation */}
+      {/* Clean 6-Tab Fuel Owner Administration Navigation */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
         {[
           { id: 'branding', label: '1. Company Logo & Letterhead' },
@@ -302,11 +339,12 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
           { id: 'billing', label: '3. Billing, Invoices & Staff Invites' },
           { id: 'integrations', label: '4. API & Payment Gateways' },
           { id: 'governance', label: '5. Data Import, IAM & Audit' },
+          { id: 'support', label: '6. Support & Helpdesk' },
         ].map((tabItem) => (
           <button
             key={tabItem.id}
             type="button"
-            onClick={() => setActiveAdminTab(tabItem.id as 'branding' | 'stations' | 'billing' | 'integrations' | 'governance')}
+            onClick={() => setActiveAdminTab(tabItem.id as 'branding' | 'stations' | 'billing' | 'integrations' | 'governance' | 'support')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-colors ${
               activeAdminTab === tabItem.id
                 ? 'bg-[#0F172A] text-white border-[#0F172A]'
@@ -319,6 +357,16 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
       </div>
 
       {activeAdminTab === 'branding' && brandingSlot}
+
+      {activeAdminTab === 'support' && (
+        <TenantSupportHelpdeskPanel
+          engine={engine}
+          organizationName={tenant.organizationName}
+          ownerEmail={tenant.ownerEmail}
+          stations={stations}
+          onNotify={onNotify}
+        />
+      )}
 
       {activeAdminTab === 'integrations' && (
         <ApiIntegrationsHubPanel

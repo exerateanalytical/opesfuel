@@ -58,17 +58,12 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').replace(/\/+$/, '');
       const [sumRes, invRes, staffInvRes, meRes, momoRes] = await Promise.all([
         engine.fetchBillingSummary().catch(() => null),
         engine.listBillingInvoices().catch(() => []),
         engine.listStaffInvites().catch(() => []),
         engine.fetchAuthenticatedProfile().catch(() => null),
-        apiBase
-          ? fetch(`${apiBase}/api/v1/payments/momo`)
-              .then((r) => (r.ok ? r.json() : []))
-              .catch(() => [])
-          : Promise.resolve([]),
+        engine.listTenantMomoTransactions().catch(() => []),
       ]);
       setSummary(sumRes);
       setInvoices(Array.isArray(invRes) ? invRes : []);
@@ -134,41 +129,15 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
     const remaining = Math.max(1, total - paid);
     setCheckoutSubmitting(true);
     try {
-      const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
-      if (apiBase) {
-        const res = await fetch(`${apiBase}/api/v1/billing/invoices/${encodeURIComponent(invoiceId)}/checkout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: gatewayProvider,
-            payerPhone: payerPhone.trim(),
-            amountFcfa: remaining,
-          }),
-        });
-        if (!res.ok) throw new Error(`Checkout initiation failed (${res.status})`);
-        const data = (await res.json()) as Record<string, unknown>;
-        onNotify(
-          'success',
-          `Initiated ${gatewayProvider} checkout (${String(data.checkoutReference ?? 'REF')}). Auto-settlement webhook ready.`
-        );
-      } else {
-        const mappedChannel =
-          gatewayProvider === 'MTN_MOMO'
-            ? 'MTN_MOMO'
-            : gatewayProvider === 'STRIPE' || gatewayProvider === 'CINETPAY'
-            ? 'CARD'
-            : 'ORANGE_MONEY';
-        const ref = `${gatewayProvider}-${Date.now().toString().slice(-6)}`;
-        await engine.payBillingInvoice(invoiceId, {
-          amountFcfa: remaining,
-          paymentChannel: mappedChannel,
-          providerReference: ref,
-        });
-        onNotify(
-          'success',
-          `Online ${gatewayProvider} checkout settled ${formatFcfa(remaining)} (${ref}) via HMAC webhook.`
-        );
-      }
+      const data = await engine.initiateBillingInvoiceCheckout(invoiceId, {
+        provider: gatewayProvider,
+        payerPhone: payerPhone.trim(),
+        amountFcfa: remaining,
+      });
+      onNotify(
+        'success',
+        `Initiated authenticated ${gatewayProvider} checkout (${String(data.checkoutReference ?? 'REF')}) for ${formatFcfa(remaining)}.`
+      );
       setCheckoutInvoice(null);
       await loadAll();
     } catch (err) {

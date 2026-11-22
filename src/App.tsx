@@ -247,7 +247,12 @@ export default function App() {
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => getStoredAuthSession());
   const [authError, setAuthError] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>(() => getStoredAuthSession()?.role ?? 'OWNER');
-  const [activeStationId, setActiveStationId] = useState<string>(() => store.stations[0]?.id ?? 'ALL');
+  const [activeStationId, setActiveStationId] = useState<string>(() => {
+    const initialRole = getStoredAuthSession()?.role ?? 'OWNER';
+    const isNetworkRole =
+      initialRole === 'OWNER' || initialRole === 'GROUP_CFO' || initialRole === 'ACCOUNTANT' || initialRole === 'PLATFORM_ADMIN';
+    return isNetworkRole && store.stations.length > 1 ? 'ALL' : store.stations[0]?.id ?? 'ALL';
+  });
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingTab, setOnboardingTab] = useState<'guide' | 'institutional'>('guide');
@@ -520,8 +525,16 @@ export default function App() {
       setConsoleSection('platform-admin');
     } else if (nextRole === 'GROUP_CFO') {
       setConsoleSection('group-consolidation');
-    } else if (!canAccessSection(nextRole, consoleSection)) {
-      setConsoleSection('overview');
+      if (store.stations.length > 1) {
+        setActiveStationId('ALL');
+      }
+    } else {
+      if (nextRole === 'OWNER' && store.stations.length > 1) {
+        setActiveStationId('ALL');
+      }
+      if (!canAccessSection(nextRole, consoleSection)) {
+        setConsoleSection('overview');
+      }
     }
     setToast({
       type: 'success',
@@ -924,6 +937,7 @@ export default function App() {
       {consoleSection === 'overview' && (
         <OverviewSection
           role={role}
+          organizationName={store.tenant.organizationName}
           activeStationId={effectiveActiveStationId}
           stations={store.stations}
           tanks={store.tanks}
@@ -931,6 +945,24 @@ export default function App() {
           shifts={store.shifts}
           events={store.events}
           priceHistory={extOps.priceHistory}
+          approvals={entOps.approvals}
+          onDecideApproval={(id, status) => {
+            const target = entOps.approvals.find((a) => a.id === id);
+            if (target && target.requestedBy.toLowerCase() === currentActorEmail.toLowerCase()) {
+              notify('error', 'Maker-Checker rule (T005): you cannot approve your own submission.');
+              return;
+            }
+            setEntOps((prev) => ({
+              ...prev,
+              approvals: prev.approvals.map((a) =>
+                a.id === id ? { ...a, status, decidedBy: currentActorEmail } : a
+              ),
+            }));
+            void postOptionalBackend(`/api/v1/enterprise/approvals/${encodeURIComponent(id)}`, 'PATCH', { status });
+            appendAudit('APPROVAL_DECIDED', 'APPROVAL', id, `${role} marked approval ${id} as ${status}`);
+            notify('success', `Executive approval request ${status.toLowerCase()}.`);
+          }}
+          onSelectStation={(stId) => setActiveStationId(stId)}
           report={report}
           onboardingCompletedCount={onboardingCompletedCount}
           onOpenOnboardingGuide={openOnboardingGuide}
@@ -967,7 +999,7 @@ export default function App() {
           onCreateStation={(input) =>
             runCommand(
               () => engineRef.current.createStation(role, input),
-              `Onboarded station ${input.name} on Starter plan (25 000 FCFA/mo).`
+              `Onboarded station ${input.name} on ${input.planName} plan (${input.monthlyFeeFcfa.toLocaleString('fr-FR')} FCFA/mo).`
             )
           }
           onJumpTo={(sec) => {
@@ -1763,6 +1795,7 @@ export default function App() {
           stations={store.stations}
           pumps={store.pumps}
           tanks={store.tanks}
+          shifts={store.shifts}
           employees={store.employees}
           onCreateStation={(input) =>
             runCommand(

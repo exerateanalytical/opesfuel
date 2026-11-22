@@ -161,13 +161,33 @@ class PlatformAdminControlPlaneTests {
 
         String ticketId = objectMapper.readTree(tktRes.getResponse().getContentAsString()).get("id").asText();
 
-        // Super-Admin posts reply and transitions to IN_PROGRESS
+        // Super-Admin posts both a public reply and a private internal note
         mvc.perform(post("/api/v1/platform-admin/support/tickets/{id}/messages", ticketId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"body\": \"Investigating Edge Agent heartbeat logs now.\", \"internalNote\": false, \"notifyRequester\": true}")
                 .with(user("superadmin@opesware.com").roles("PLATFORM_ADMIN")))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.senderRole").value("PLATFORM_ADMIN"));
+
+        mvc.perform(post("/api/v1/platform-admin/support/tickets/{id}/messages", ticketId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"body\": \"INTERNAL ONLY: rotate TLS cert on edge host.\", \"internalNote\": true, \"notifyRequester\": false}")
+                .with(user("superadmin@opesware.com").roles("PLATFORM_ADMIN")))
+            .andExpect(status().isCreated());
+
+        // Tenant OWNER must ONLY see non-internal messages (2 = original description + public reply), NEVER the internal note
+        mvc.perform(get("/api/v1/support/tickets/{id}/messages", ticketId)
+                .with(user("owner@opesfuel.cm").roles("OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(2));
+
+        // Tenant OWNER posts a follow-up reply
+        mvc.perform(post("/api/v1/support/tickets/{id}/messages", ticketId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"body\": \"Thank you, router power has been restored on Island B.\"}")
+                .with(user("owner@opesfuel.cm").roles("OWNER")))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.internalNote").value(false));
 
         mvc.perform(patch("/api/v1/platform-admin/support/tickets/{id}", ticketId)
                 .contentType(MediaType.APPLICATION_JSON)

@@ -1342,5 +1342,98 @@ export function printIntercompanyEliminationCertificatePdf(params: {
   doc.save(`opesfuel-elimination-certificate-${params.period}.pdf`);
 }
 
+/** 27. Owner Multi-Station Executive Network Performance Report PDF (OWNER) */
+export function printOwnerNetworkExecutivePdf(params: {
+  organizationName: string;
+  report: {
+    totalRevenueFcfa: number;
+    grossProfitFcfa: number;
+    netIncomeFcfa: number;
+    cashOnHandFcfa: number;
+    mobileMoneyClearingFcfa: number;
+    bankBalanceFcfa: number;
+    fleetReceivablesFcfa: number;
+    vatPayableFcfa: number;
+    cashVarianceFcfa: number;
+    trialBalanceBalanced: boolean;
+  };
+  stationScorecard: Array<{
+    code: string;
+    name: string;
+    city: string;
+    planName: string;
+    litresSold: number;
+    revenueFcfa: number;
+    varianceFcfa: number;
+    openShifts: number;
+    closedShifts: number;
+    tankFillPct: number;
+  }>;
+}): void {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }) as JsPdfAuto;
+  let y = drawDocumentHeader(
+    doc,
+    'OWNER MULTI-STATION NETWORK EXECUTIVE PERFORMANCE REPORT',
+    `${params.organizationName} · Network Financial & Forecourt Scorecard`,
+    `Generated: ${new Date().toISOString().slice(0, 10)} | Stations: ${params.stationScorecard.length} | Trial Balance: ${params.report.trialBalanceBalanced ? 'BALANCED' : 'ATTENTION'}`
+  );
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Network Financial Metric', 'Amount (FCFA)', 'Treasury & Tax Position', 'Amount (FCFA)']],
+    body: [
+      ['Total Network Fuel & Shop Revenue', pdfMoney(params.report.totalRevenueFcfa), 'Cash Safe & Forecourt On Hand', pdfMoney(params.report.cashOnHandFcfa)],
+      ['Network Gross Profit', pdfMoney(params.report.grossProfitFcfa), 'Mobile Money Clearing (MTN + Orange)', pdfMoney(params.report.mobileMoneyClearingFcfa)],
+      ['Network Net Income', pdfMoney(params.report.netIncomeFcfa), 'Bank Balance', pdfMoney(params.report.bankBalanceFcfa)],
+      ['Cumulative Shift Cash Variance', pdfMoney(-params.report.cashVarianceFcfa), 'Corporate Fleet AR / VAT Payable', `${pdfMoney(params.report.fleetReceivablesFcfa)} / ${pdfMoney(params.report.vatPayableFcfa)}`],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8.2 },
+    bodyStyles: { fontSize: 8.2 },
+    columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } },
+  });
+
+  y = (doc.lastAutoTable?.finalY ?? y) + 7;
+  autoTable(doc, {
+    startY: y,
+    head: [['Code', 'Petrol Station', 'City', 'Plan', 'Closed / Open Shifts', 'Litres Sold', 'Station Revenue (FCFA)', 'Cash Variance', 'Tank Fill %']],
+    body: params.stationScorecard.map((s) => [
+      s.code,
+      s.name,
+      s.city,
+      s.planName,
+      `${s.closedShifts} / ${s.openShifts}`,
+      `${Math.round(s.litresSold).toLocaleString('en-US')} L`,
+      pdfMoney(s.revenueFcfa),
+      pdfMoney(s.varianceFcfa),
+      `${s.tankFillPct}%`,
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+    bodyStyles: { fontSize: 8 },
+    columnStyles: { 5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' }, 7: { halign: 'right' }, 8: { halign: 'right' } },
+  });
+
+  drawSignatureFooter(doc, 'Station Network Owner / CEO', 'Chief Accountant / Auditor');
+  doc.save(`opesfuel-owner-network-executive-${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/** 28. Multi-Station Network Executive Workbook (.xlsx, 4 sheets) */
+export function exportOwnerNetworkExcel(params: {
+  organizationName: string;
+  summaryRows: Array<{ Metric: string; ValueFcfa: number | string }>;
+  stationScorecard: Array<Record<string, unknown>>;
+  priceHistory: Array<Record<string, unknown>>;
+  tankReserves: Array<Record<string, unknown>>;
+}): void {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.summaryRows), 'Network Summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.stationScorecard.length ? params.stationScorecard : [{ info: 'No stations' }]), 'Station Scorecard');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.priceHistory.length ? params.priceHistory : [{ info: 'No price changes' }]), 'Fuel Price Audit');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(params.tankReserves.length ? params.tankReserves : [{ info: 'No tanks' }]), 'Tank Reserves');
+  XLSX.writeFile(wb, `opesfuel-network-executive-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+
 
 
