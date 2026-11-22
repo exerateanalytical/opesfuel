@@ -183,7 +183,31 @@ public class PaymentGatewayController {
         String txId = String.valueOf(tx.get("id"));
         String tenantId = String.valueOf(tx.get("tenant_id"));
         String invoiceId = String.valueOf(tx.get("invoice_id"));
+        String currentStatus = String.valueOf(tx.get("status"));
         long amount = ((Number) tx.get("amount_fcfa")).longValue();
+
+        // T017: Idempotency & state-machine protection against duplicate or out-of-order webhooks after settlement
+        if ("PAID".equalsIgnoreCase(currentStatus)) {
+            return Map.of(
+                "acknowledged", true,
+                "idempotentReplay", true,
+                "externalRef", payload.externalRef(),
+                "status", "PAID",
+                "invoiceId", invoiceId
+            );
+        }
+
+        // T016: Pending/processing provider callbacks must never mark an invoice PAID
+        if ("PENDING".equalsIgnoreCase(payload.status()) || "PROCESSING".equalsIgnoreCase(payload.status())) {
+            return Map.of(
+                "acknowledged", true,
+                "idempotentReplay", false,
+                "externalRef", payload.externalRef(),
+                "status", "PENDING",
+                "invoiceId", invoiceId
+            );
+        }
+
         String newStatus = "PAID".equalsIgnoreCase(payload.status()) || "SUCCESS".equalsIgnoreCase(payload.status())
             ? "PAID" : "FAILED";
 
@@ -205,7 +229,7 @@ public class PaymentGatewayController {
             );
         }
 
-        return Map.of("acknowledged", true, "externalRef", payload.externalRef(), "status", newStatus, "invoiceId", invoiceId);
+        return Map.of("acknowledged", true, "idempotentReplay", false, "externalRef", payload.externalRef(), "status", newStatus, "invoiceId", invoiceId);
     }
 
     private String hmacSha256(String data, String secret) {

@@ -320,7 +320,7 @@
       "module_code": "M03",
       "module_name": "SaaS plans subscriptions billing and entitlements",
       "tier": "P0",
-      "status": "TESTED_PASS",
+      "status": "PARTIAL",
       "test_evidence": [
         "src/components/console/BillingAndInvitesPanel.tsx",
         "backend/.../billing/BillingController.java"
@@ -329,142 +329,142 @@
         {
           "id": "M03-F001",
           "title": "Free-trial policy by plan",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F002",
           "title": "Per-station and group pricing plans",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F003",
           "title": "Usage-metered add-ons",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F004",
           "title": "Subscription status and grace periods",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F005",
           "title": "Plan upgrades downgrades and proration",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F006",
           "title": "Subscription invoices and credit notes",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F007",
           "title": "Online payment collection and receipts",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F008",
           "title": "Dunning and renewal reminders",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F009",
           "title": "Suspension with data export protection",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F010",
           "title": "Tax and currency aware platform invoices",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F011",
           "title": "Billing contact and payment method management",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F012",
           "title": "Coupons promotions and partner referrals",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F013",
           "title": "Tenant billing history",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         },
         {
           "id": "M03-F014",
           "title": "Contract renewals and enterprise quotations",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/BillingAndInvitesPanel.tsx",
             "backend/.../billing/BillingController.java"
           ],
-          "notes": ""
+          "notes": "Core SaaS billing, checkout, webhooks & trial/grace API verified; automated dunning retries, credit notes & coupon engine scheduled for Sprint 2."
         }
       ]
     },
@@ -614,7 +614,7 @@
       "module_code": "M05",
       "module_name": "IAM RBAC policy and approvals",
       "tier": "P0",
-      "status": "TESTED_PASS",
+      "status": "PARTIAL",
       "test_evidence": [
         "src/auth/auth0.ts",
         "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
@@ -624,178 +624,178 @@
         {
           "id": "M05-F001",
           "title": "MFA for privileged and finance roles",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F002",
           "title": "OIDC OAuth2 token lifecycle",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F003",
           "title": "Users teams roles and scoped grants",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F004",
           "title": "Station and legal-entity data restrictions",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F005",
           "title": "Fine-grained view create approve export actions",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F006",
           "title": "Segregation of duties and conflict checks",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F007",
           "title": "Maker-checker approval chains",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F008",
           "title": "Temporary delegate permissions",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F009",
           "title": "Invite accept deactivate terminate user",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F010",
           "title": "Access review and periodic recertification",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F011",
           "title": "Session revoke and device control",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F012",
           "title": "Emergency access break-glass logged",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F013",
           "title": "Service accounts and API scopes",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F014",
           "title": "Row level policy tests against IDOR",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F015",
           "title": "Password reset and account recovery",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         },
         {
           "id": "M05-F016",
           "title": "Audit events for privileged actions",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/auth/auth0.ts",
             "src/components/console/FixedAssetsAndBudgetsPanel.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java"
           ],
-          "notes": ""
+          "notes": "RBAC (5 roles), Auth0 RS256, IDOR guards & Maker-Checker self-approval verified; periodic access recertification & break-glass scheduled for Sprint 2."
         }
       ]
     },
@@ -2393,7 +2393,7 @@
       "module_code": "M16",
       "module_name": "Convenience shop sales and POS",
       "tier": "P1",
-      "status": "TESTED_PASS",
+      "status": "PARTIAL",
       "test_evidence": [
         "src/components/console/FleetShopSection.tsx",
         "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
@@ -2402,132 +2402,132 @@
         {
           "id": "M16-F001",
           "title": "Shop inventory and categories",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F002",
           "title": "Barcode scanner and PLU lookup",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F003",
           "title": "Cart discounts and promotions",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F004",
           "title": "Multiple taxes and item pricing",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F005",
           "title": "Cash card mobile money split tender",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F006",
           "title": "Returns exchanges and receipts",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F007",
           "title": "Expiry and batch aware sales",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F008",
           "title": "Shop tills cashier shifts and cash drawer",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F009",
           "title": "Price label printing",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F010",
           "title": "Bundles combos and upselling",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F011",
           "title": "Offline retail POS and reconciliation",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F012",
           "title": "Loss prevention and void approvals",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         },
         {
           "id": "M16-F013",
           "title": "Shop margin and cash flow tracking",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "src/utils/thermalReceipt.ts#printShopPosThermalSlip"
           ],
-          "notes": ""
+          "notes": "Shop POS & 80mm thermal receipts live; multi-item barcode cart & FEFO expiry tracking scheduled for Sprint 2."
         }
       ]
     },
@@ -2535,7 +2535,7 @@
       "module_code": "M17",
       "module_name": "Lubricants oils accessories and non-fuel stock",
       "tier": "P0",
-      "status": "TESTED_PASS",
+      "status": "PARTIAL",
       "test_evidence": [
         "src/components/console/FleetShopSection.tsx",
         "backend/.../shop/ShopController.java"
@@ -2544,152 +2544,152 @@
         {
           "id": "M17-F001",
           "title": "SKU and barcode master",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F002",
           "title": "Oils greases filters accessories tires and parts",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F003",
           "title": "Stock by station store bin shelf",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F004",
           "title": "Receive issue adjust transfer inventories",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F005",
           "title": "Batch lot expiry and serial tracking",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F006",
           "title": "Pack bottle drum liter conversions",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F007",
           "title": "Minimum maximum and reorder quantities",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F008",
           "title": "Unit cost FIFO or weighted average selected policy",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F009",
           "title": "Inventory valuation and COGS automation",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F010",
           "title": "Stock counts cycle counts and adjustments",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F011",
           "title": "Damaged obsolete returned items ledger",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F012",
           "title": "Consignment inventory optional",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F013",
           "title": "Supplier batches and product recalls",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F014",
           "title": "Negative stock default prohibit",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         },
         {
           "id": "M17-F015",
           "title": "Stock issue to vehicle service bay",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/FleetShopSection.tsx",
             "backend/.../shop/ShopController.java"
           ],
-          "notes": ""
+          "notes": "Lubricant/LPG SKU stock & COGS live; multi-warehouse transfer & FEFO batch tracking scheduled for Sprint 2."
         }
       ]
     },
@@ -6792,7 +6792,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F002",
@@ -6803,7 +6803,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F003",
@@ -6814,7 +6814,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F004",
@@ -6825,7 +6825,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F005",
@@ -6836,7 +6836,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F006",
@@ -6847,7 +6847,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F007",
@@ -6858,7 +6858,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F008",
@@ -6869,7 +6869,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F009",
@@ -6880,7 +6880,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F010",
@@ -6891,7 +6891,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F011",
@@ -6902,7 +6902,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F012",
@@ -6913,7 +6913,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F013",
@@ -6924,7 +6924,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F014",
@@ -6935,7 +6935,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F015",
@@ -6946,7 +6946,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         },
         {
           "id": "M44-F016",
@@ -6957,7 +6957,7 @@
             "backend/.../apiplatform/ApiPlatformController.java",
             "Note: Live physical ATG/forecourt PLC serial drivers require site hardware bridge"
           ],
-          "notes": ""
+          "notes": "REST API, API Keys & HMAC Webhooks verified; physical forecourt PLC (DOMS/PTS-2) & Veeder-Root ATG serial bridge require site edge hardware."
         }
       ]
     },
@@ -8213,7 +8213,7 @@
       "module_code": "M53",
       "module_name": "EV charging alternative energy and utility metering",
       "tier": "P2",
-      "status": "TESTED_PASS",
+      "status": "PARTIAL",
       "test_evidence": [
         "src/components/console/EnterpriseOperationsSection.tsx",
         "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
@@ -8222,102 +8222,102 @@
         {
           "id": "M53-F001",
           "title": "Enable EV charging as station optional business line",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F002",
           "title": "Charging connector and tariff catalog",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F003",
           "title": "OCPP adapter if supported by certified charger",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F004",
           "title": "Charge session kWh pricing and settlement",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F005",
           "title": "Charging reservation optional",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F006",
           "title": "Generator diesel and grid electricity usage tracking",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F007",
           "title": "Solar storage utility energy cost allocation",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F008",
           "title": "Energy consumption and station energy KPIs",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F009",
           "title": "CNG LPG specific equipment safety parameters",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         },
         {
           "id": "M53-F010",
           "title": "Utility bills and consumption alerts",
-          "status": "TESTED_PASS",
+          "status": "PARTIAL",
           "test_evidence": [
             "src/components/console/EnterpriseOperationsSection.tsx",
             "backend/.../enterprise/EnterpriseOpsController.java#/ev-utility"
           ],
-          "notes": ""
+          "notes": "EV kWh, Solar & Generator metering live; physical OCPP 2.0.1 charger controller integration scheduled for Sprint 3."
         }
       ]
     },
@@ -8715,481 +8715,334 @@
       "id": "T001",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "OpesFuelBackendIntegrationTests#fullStationLifecycleEndToEnd",
+        "OpesFuelBackendIntegrationTests#demoPetrolStation1000RecordsSeederAndLeadToTenantProvisioningWorkflow"
       ]
     },
     {
       "id": "T002",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "OpesFuelBackendIntegrationTests#multiStationVisibilityAndTenantIsolation"
       ]
     },
     {
       "id": "T003",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T003_crossTenantIdorAttackBlocked"
       ]
     },
     {
       "id": "T004",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T004_attendantBlockedFromEmployeePayrollAndPayslips"
       ]
     },
     {
       "id": "T005",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T005_makerCheckerSelfApprovalRejected"
       ]
     },
     {
       "id": "T006",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T006_countrySwitchCameroonVsNigerSeparateTaxAndCurrencyPacks"
       ]
     },
     {
       "id": "T007",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T008",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T008_and_T009_wrongGradeAndUnsafeUllageDeliveryBlocked"
       ]
     },
     {
       "id": "T009",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T008_and_T009_wrongGradeAndUnsafeUllageDeliveryBlocked"
       ]
     },
     {
       "id": "T010",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T011",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T011_nozzleAndTankCrossStationMismatchBlocked"
       ]
     },
     {
       "id": "T012",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "OpesFuelBackendIntegrationTests#idempotencyProtectionPreventsDuplicateMutation"
       ]
     },
     {
       "id": "T013",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T013_T018_and_T020_rolloverCashThresholdAndOpenShiftBlockingPeriodClose"
       ]
     },
     {
       "id": "T014",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T015",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "OpesFuelBackendIntegrationTests#shiftCloseReconcilesMultiTenderAndPostsBalancedDoubleEntryJournal"
       ]
     },
     {
       "id": "T016",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T016_and_T017_pendingWebhookAndDuplicateOutOfOrderIdempotency"
       ]
     },
     {
       "id": "T017",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T016_and_T017_pendingWebhookAndDuplicateOutOfOrderIdempotency"
       ]
     },
     {
       "id": "T018",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T013_T018_and_T020_rolloverCashThresholdAndOpenShiftBlockingPeriodClose"
       ]
     },
     {
       "id": "T019",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T020",
       "status": "TESTED_PASS",
       "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
+        "ReleaseChecklistTests#T013_T018_and_T020_rolloverCashThresholdAndOpenShiftBlockingPeriodClose"
       ]
     },
     {
       "id": "T021",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T022",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T023",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T024",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T025",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T026",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T027",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T028",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T029",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T030",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T031",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T032",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T033",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T034",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T035",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T036",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T037",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T038",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T039",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T040",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T041",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T042",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T043",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T044",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T045",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T046",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T047",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T048",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T049",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T050",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T051",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T052",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T053",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T054",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T055",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T056",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T057",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T058",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T059",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     },
     {
       "id": "T060",
-      "status": "TESTED_PASS",
-      "test_evidence": [
-        "backend/src/test/java/com/opesware/opesfuel/OpesFuelBackendIntegrationTests.java (21/21 Maven tests GREEN)",
-        "npm run lint & vite build GREEN"
-      ]
+      "status": "UNVERIFIED",
+      "test_evidence": []
     }
   ]
 }

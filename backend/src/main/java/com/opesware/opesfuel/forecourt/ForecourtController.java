@@ -443,6 +443,19 @@ class ShiftCommandHandler implements ForecourtQueryApi {
         PumpEntity pump = pumpRepository.findById(shift.getPumpId())
             .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + shift.getPumpId()));
 
+        // T018: Enforce mandatory variance reason when cash drawer over/short exceeds 10,000 FCFA threshold
+        if (cmd.closingMeterLitres().compareTo(shift.getOpeningMeterLitres()) >= 0) {
+            BigDecimal previewLitres = cmd.closingMeterLitres().subtract(shift.getOpeningMeterLitres()).setScale(2, RoundingMode.HALF_UP);
+            long previewExpected = previewLitres.multiply(BigDecimal.valueOf(shift.getUnitPriceFcfa())).setScale(0, RoundingMode.HALF_UP).longValue();
+            long previewDeclared = cmd.cashFcfa() + cmd.mobileMoneyFcfa() + cmd.cardFcfa() + cmd.fleetCreditFcfa();
+            long previewVariance = previewDeclared - previewExpected;
+            if (Math.abs(previewVariance) > 10_000L && (cmd.varianceReason() == null || cmd.varianceReason().isBlank())) {
+                throw new IllegalArgumentException(
+                    "Shift cash variance (" + previewVariance + " FCFA) exceeds 10,000 FCFA threshold; varianceReason is required before closing shift (T018)."
+                );
+            }
+        }
+
         // Always use authoritative tank Weighted Average Cost from Inventory instead of client-supplied or hardcoded ratios.
         InventoryQueryApi.TankSnapshot tank = inventoryQueryApi.findTank(pump.getTankId())
             .orElseThrow(() -> new IllegalStateException("Linked fuel tank not found: " + pump.getTankId()));
@@ -465,6 +478,34 @@ class ShiftCommandHandler implements ForecourtQueryApi {
         shiftRepository.save(shift);
         eventPublisher.publishEvent(event);
         return toDto(shift, pump);
+    }
+
+    /**
+     * T013: Approved mechanical/digital pump meter rollover or counter replacement.
+     * Blocked while a shift is active so no negative phantom fuel volume can ever be generated.
+     */
+    @Transactional
+    public Map<String, Object> recordMeterRollover(String pumpId, MeterRolloverCommand cmd) {
+        PumpEntity pump = pumpRepository.findById(pumpId)
+            .orElseThrow(() -> new IllegalArgumentException("Pump not found: " + pumpId));
+        stationCatalogApi.requireAccessibleStation(pump.getStationId());
+        if (PumpStatus.ACTIVE_SHIFT.name().equals(pump.getStatus()) || shiftRepository.existsByPumpIdAndStatus(pumpId, "OPEN")) {
+            throw new IllegalStateException("Cannot perform meter rollover on pump " + pump.getCode() + " while a shift is OPEN (T013).");
+        }
+        BigDecimal previousTotalizer = pump.getTotalizerLitres();
+        pump.setTotalizerLitres(cmd.newTotalizerLitres());
+        pumpRepository.save(pump);
+        return Map.of(
+            "pumpId", pump.getId(),
+            "pumpCode", pump.getCode(),
+            "previousTotalizerLitres", previousTotalizer,
+            "newTotalizerLitres", pump.getTotalizerLitres(),
+            "rolloverMaxLitres", cmd.rolloverMaxLitres(),
+            "approvalRef", cmd.approvalRef(),
+            "reason", cmd.reason(),
+            "status", "ROLLOVER_APPLIED",
+            "recordedAt", Instant.now().toString()
+        );
     }
 
     @Transactional
@@ -563,13 +604,20 @@ record CreatePumpCommand(
 ) {}
 
 record PatchPumpCommand(String status, Long unitPriceFcfa) {}
+record MeterRolloverCommand(
+    @NotNull @PositiveOrZero BigDecimal newTotalizerLitres,
+    @NotNull @Positive BigDecimal rolloverMaxLitres,
+    @NotBlank String approvalRef,
+    @NotBlank String reason
+) {}
 record OpenShiftCommand(@NotBlank String stationId, @NotBlank String pumpId, @NotBlank String attendantId) {}
 record CloseShiftCommand(
     @NotNull BigDecimal closingMeterLitres,
     @PositiveOrZero long cashFcfa,
     @PositiveOrZero long mobileMoneyFcfa,
     @PositiveOrZero long cardFcfa,
-    @PositiveOrZero long fleetCreditFcfa
+    @PositiveOrZero long fleetCreditFcfa,
+    String varianceReason
 ) {}
 
 @RestController
@@ -598,6 +646,15 @@ public class ForecourtController {
     @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_forecourt:write')")
     public PumpEntity patchPump(@PathVariable String pumpId, @RequestBody PatchPumpCommand cmd) {
         return shiftCommandHandler.patchPump(pumpId, cmd);
+    }
+
+    @PostMapping("/pumps/{pumpId}/meter-rollover")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER') or hasAuthority('SCOPE_forecourt:write')")
+    public Map<String, Object> recordMeterRollover(
+        @PathVariable String pumpId,
+        @Valid @RequestBody MeterRolloverCommand cmd
+    ) {
+        return shiftCommandHandler.recordMeterRollover(pumpId, cmd);
     }
 
     @DeleteMapping("/pumps/{pumpId}")

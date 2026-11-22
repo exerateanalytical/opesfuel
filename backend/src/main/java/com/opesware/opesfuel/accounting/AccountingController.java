@@ -400,6 +400,16 @@ class AccountingAutomationService implements AccountingQueryApi {
         if (!cmd.periodKey().matches("\\d{4}-\\d{2}")) {
             throw new IllegalArgumentException("periodKey must follow YYYY-MM format (e.g. 2026-11).");
         }
+        Long openShifts = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM shift_records WHERE station_id = ? AND status = 'OPEN' AND voided = FALSE",
+            Long.class,
+            cmd.stationId()
+        );
+        if (openShifts != null && openShifts > 0) {
+            throw new IllegalStateException(
+                "Cannot close fiscal period " + cmd.periodKey() + " while " + openShifts + " pump shift(s) remain OPEN (T020)."
+            );
+        }
         if (fiscalPeriodRepo.existsByStationIdAndPeriodKeyAndStatus(cmd.stationId(), cmd.periodKey(), "CLOSED")) {
             throw new IllegalStateException("Fiscal period " + cmd.periodKey() + " is already CLOSED for station " + cmd.stationId());
         }

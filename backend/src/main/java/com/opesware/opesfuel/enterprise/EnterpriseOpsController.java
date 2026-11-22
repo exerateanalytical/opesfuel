@@ -186,6 +186,57 @@ public class EnterpriseOpsController {
         );
     }
 
+    // --- M06 / T006: Multi-Country Statutory Currency, Tax & Payroll Rule Packs ---
+    private static Map<String, Object> countryPack(
+        String code, String name, String zone, String currency, int fractionDigits,
+        double vatRatePct, String socialAuthority, double empPct, double erPct,
+        String accountingStandard, String receiptPrefix
+    ) {
+        return Map.ofEntries(
+            Map.entry("countryCode", code),
+            Map.entry("countryName", name),
+            Map.entry("zone", zone),
+            Map.entry("currency", currency),
+            Map.entry("fractionDigits", fractionDigits),
+            Map.entry("vatRatePct", vatRatePct),
+            Map.entry("socialAuthority", socialAuthority),
+            Map.entry("employeeSocialPct", empPct),
+            Map.entry("employerSocialPct", erPct),
+            Map.entry("accountingStandard", accountingStandard),
+            Map.entry("fiscalReceiptPrefix", receiptPrefix)
+        );
+    }
+
+    private static final Map<String, Map<String, Object>> COUNTRY_PACKS = Map.of(
+        "CM", countryPack("CM", "Cameroon", "CEMAC", "XAF", 0, 19.25, "CNPS", 4.2, 11.2, "SYSCOHADA", "CM-DGI"),
+        "NE", countryPack("NE", "Niger", "WAEMU", "XOF", 0, 19.0, "CNSS-NE", 5.25, 15.4, "SYSCOHADA", "NE-DGI"),
+        "SN", countryPack("SN", "Senegal", "WAEMU", "XOF", 0, 18.0, "IPRES / CSS", 5.6, 8.4, "SYSCOHADA", "SN-DGID"),
+        "CI", countryPack("CI", "Cote d'Ivoire", "WAEMU", "XOF", 0, 18.0, "CNPS-CI", 6.3, 7.7, "SYSCOHADA", "CI-DGI"),
+        "GA", countryPack("GA", "Gabon", "CEMAC", "XAF", 0, 18.0, "CNSS-GA", 2.5, 20.1, "SYSCOHADA", "GA-DGI"),
+        "NG", countryPack("NG", "Nigeria", "ECOWAS", "NGN", 2, 7.5, "PENCOM", 8.0, 10.0, "IFRS", "NG-FIRS"),
+        "GH", countryPack("GH", "Ghana", "ECOWAS", "GHS", 2, 15.0, "SSNIT", 5.5, 13.0, "IFRS", "GH-GRA"),
+        "KE", countryPack("KE", "Kenya", "EAC", "KES", 2, 16.0, "NSSF", 6.0, 6.0, "IFRS", "KE-KRA")
+    );
+
+    @GetMapping("/country-packs")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER','ACCOUNTANT','ATTENDANT')")
+    public List<Map<String, Object>> listCountryPacks() {
+        return List.copyOf(COUNTRY_PACKS.values());
+    }
+
+    @GetMapping("/country-packs/{countryCode}")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER','ACCOUNTANT','ATTENDANT')")
+    public Map<String, Object> getCountryPack(@PathVariable String countryCode) {
+        Map<String, Object> pack = COUNTRY_PACKS.get(countryCode.trim().toUpperCase());
+        if (pack == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND,
+                "Unsupported country regulatory pack: " + countryCode
+            );
+        }
+        return pack;
+    }
+
     // --- M38: HSE Safety & Environmental ---
     @GetMapping("/hse-records")
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER','ACCOUNTANT','ATTENDANT')")
