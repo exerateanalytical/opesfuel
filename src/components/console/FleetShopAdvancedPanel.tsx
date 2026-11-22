@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Car, FileSpreadsheet, PauseCircle, PlayCircle, Receipt, Trash2, X } from 'lucide-react';
+import { Car, FileSpreadsheet, PauseCircle, PlayCircle, Plus, Receipt, Trash2, X } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { FleetAccount, FuelGrade, UserRole } from '../../domain/types';
+import { FormModal } from '../shared/FormModal';
 
 interface FleetShopAdvancedPanelProps {
   engine: OpesFuelApiEngine;
@@ -24,6 +25,7 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
   const activeAccountId = selectedAccountId || fleetAccounts[0]?.id || '';
   const activeAccount = fleetAccounts.find((a) => a.id === activeAccountId);
 
+  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
   const [vehicles, setVehicles] = useState<Array<Record<string, unknown>>>([]);
   const [plateNumber, setPlateNumber] = useState('');
   const [driverName, setDriverName] = useState('');
@@ -76,6 +78,7 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
       onNotify('success', `Registered fleet vehicle ${plateNumber.trim().toUpperCase()}.`);
       setPlateNumber('');
       setDriverName('');
+      setVehicleModalOpen(false);
       await loadVehiclesAndShop();
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to register vehicle.');
@@ -110,12 +113,11 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Car className="w-5 h-5 text-amber-600" />
+              <Car className="w-5 h-5 text-slate-900" />
               Corporate Fleet Vehicles, Credit Hold &amp; Statements
             </h3>
             <p className="text-xs text-slate-500">
-              Powered by <span className="font-mono">/api/v1/fleet/accounts/&#123;id&#125;/vehicles</span> &amp;{' '}
-              <span className="font-mono">/statement</span>
+              Manage authorized vehicle plates, credit holds, and corporate statements.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -133,14 +135,23 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
                 </option>
               ))}
             </select>
+            {canManage && activeAccountId && (
+              <button
+                type="button"
+                onClick={() => setVehicleModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+              >
+                <Plus className="w-3.5 h-3.5" /> Register Fleet Vehicle
+              </button>
+            )}
             {activeAccount && canManage && (
               <button
                 type="button"
                 onClick={() => void handleToggleHold(activeAccount)}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border ${
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border bg-white ${
                   activeAccount.status === 'HOLD'
-                    ? 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
-                    : 'border-red-300 bg-red-50 text-red-800 hover:bg-red-100'
+                    ? 'border-emerald-300 text-emerald-800 hover:bg-slate-50'
+                    : 'border-red-300 text-red-800 hover:bg-slate-50'
                 }`}
               >
                 {activeAccount.status === 'HOLD' ? (
@@ -166,7 +177,7 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
         </div>
 
         {statement && (
-          <div className="p-4 rounded-xl border border-amber-200 bg-white space-y-2 text-xs">
+          <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-900">
                 Corporate Statement — {String(statement.companyName ?? '')} (NIU: {String(statement.taxId ?? '-')})
@@ -196,51 +207,80 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
           </div>
         )}
 
-        {canManage && activeAccountId && (
-          <form onSubmit={(e) => void handleAddVehicle(e)} className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
-            <input
-              type="text"
-              required
-              placeholder="Plate (e.g. LT-445-AB)"
-              value={plateNumber}
-              onChange={(e) => setPlateNumber(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono uppercase"
-            />
-            <input
-              type="text"
-              required
-              placeholder="Authorized Driver Name"
-              value={driverName}
-              onChange={(e) => setDriverName(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-xs"
-            />
-            <select
-              value={allowedGrade}
-              onChange={(e) => setAllowedGrade(e.target.value as FuelGrade)}
-              className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-            >
-              {ALL_FUEL_GRADES.map((g) => (
-                <option key={g} value={g}>
-                  {gradeLabel(g)}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={100}
-              placeholder="Monthly Cap (L)"
-              value={monthlyCap}
-              onChange={(e) => setMonthlyCap(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-            >
-              Register Vehicle
-            </button>
+        <FormModal
+          open={vehicleModalOpen}
+          onClose={() => setVehicleModalOpen(false)}
+          title="Register Authorized Fleet Vehicle"
+          subtitle={activeAccount ? `Account: ${activeAccount.companyName}` : undefined}
+        >
+          <form onSubmit={(e) => void handleAddVehicle(e)} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">Vehicle Plate Number</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. LT-445-AB"
+                  value={plateNumber}
+                  onChange={(e) => setPlateNumber(e.target.value)}
+                  className="opes-input font-mono uppercase"
+                />
+              </div>
+              <div>
+                <label className="opes-label">Authorized Driver Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Driver full name"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  className="opes-input"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">Allowed Fuel Grade</label>
+                <select
+                  value={allowedGrade}
+                  onChange={(e) => setAllowedGrade(e.target.value as FuelGrade)}
+                  className="opes-input"
+                >
+                  {ALL_FUEL_GRADES.map((g) => (
+                    <option key={g} value={g}>
+                      {gradeLabel(g)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="opes-label">Monthly Fuel Cap (Litres)</label>
+                <input
+                  type="number"
+                  min={100}
+                  value={monthlyCap}
+                  onChange={(e) => setMonthlyCap(e.target.value)}
+                  className="opes-input font-mono"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setVehicleModalOpen(false)}
+                className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+              >
+                Save Vehicle
+              </button>
+            </div>
           </form>
-        )}
+        </FormModal>
 
         <div className="divide-y divide-slate-100 text-xs">
           {vehicles.length === 0 ? (

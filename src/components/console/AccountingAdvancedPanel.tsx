@@ -3,6 +3,7 @@ import { BookMarked, Download, FileBarChart2, Landmark, Lock, ReceiptText } from
 import { CHART_OF_ACCOUNTS, OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { formatFcfa, formatLitres, formatShortDate } from '../../domain/formatters';
 import { FinancialReportBundle, JournalEntry, UserRole } from '../../domain/types';
+import { FormModal } from '../shared/FormModal';
 
 interface AccountingAdvancedPanelProps {
   engine: OpesFuelApiEngine;
@@ -26,7 +27,8 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
   const canPost = role === 'OWNER' || role === 'ACCOUNTANT' || role === 'MANAGER';
   const canLockPeriod = role === 'OWNER' || role === 'ACCOUNTANT';
 
-  const [activeTool, setActiveTool] = useState<'ap' | 'vat' | 'manual' | 'periods' | 'zreport'>('ap');
+  const [modal, setModal] = useState<'ap' | 'vat' | 'manual' | 'period' | null>(null);
+  const [activeTool, setActiveTool] = useState<'periods' | 'zreport'>('zreport');
 
   // AP payment
   const [apSupplier, setApSupplier] = useState('SCDP Depot Douala');
@@ -79,6 +81,7 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
         paymentSource: apSource,
       });
       onNotify('success', `Recorded Supplier AP settlement of ${formatFcfa(Number(apAmount) || 0)} (DR 2010 / CR ${apSource === 'BANK' ? '1030' : '1010'}).`);
+      setModal(null);
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to post AP payment.');
     }
@@ -95,6 +98,7 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
         paymentSource: vatSource,
       });
       onNotify('success', `Recorded VAT tax remittance of ${formatFcfa(Number(vatAmount) || 0)} for ${vatPeriod}.`);
+      setModal(null);
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to post VAT remittance.');
     }
@@ -118,6 +122,7 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
         ],
       });
       onNotify('success', `Posted balanced manual journal ${mjRef.trim()} (${formatFcfa(amt)}).`);
+      setModal(null);
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to post manual journal.');
     }
@@ -125,16 +130,10 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
 
   const handleClosePeriod = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !window.confirm(
-        `Close and permanently lock fiscal period ${closePeriodKey}? No further shifts, expenses, or manual journals can be posted into a locked period.`
-      )
-    ) {
-      return;
-    }
     try {
       await engine.closeFiscalPeriod(effectiveStationId, closePeriodKey.trim());
       onNotify('success', `Locked fiscal period ${closePeriodKey}. Future postings into this period will be blocked.`);
+      setModal(null);
       await loadPeriodsAndZ();
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to lock fiscal period.');
@@ -183,236 +182,223 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
             SYSCOHADA Treasury, Tax, Fiscal Period Lock &amp; Z-Report
           </h3>
           <p className="text-xs text-slate-500">
-            Direct Spring Boot accounting &amp; reporting endpoints (<span className="font-mono">/api/v1/accounting/*</span> &amp;{' '}
-            <span className="font-mono">/api/v1/reporting/*</span>)
+            Post Supplier AP settlements, 19.25% VAT remittances, manual balanced journals, and lock closed fiscal periods.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => void handleServerTrialBalanceCsv()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-800"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800"
           >
-            <Download className="w-3.5 h-3.5" /> Server Trial Balance CSV
+            <Download className="w-3.5 h-3.5" /> Trial Balance CSV
           </button>
           <button
             type="button"
             onClick={() => void handleServerJournalsCsv()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-800"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800"
           >
-            <Download className="w-3.5 h-3.5" /> Server Journals CSV
+            <Download className="w-3.5 h-3.5" /> Journals CSV
           </button>
         </div>
       </div>
 
-      {/* Sub-navigation */}
-      <div className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-3">
-        {[
-          { id: 'ap', label: 'Pay Supplier AP', icon: Landmark },
-          { id: 'vat', label: 'Remit VAT (19.25%)', icon: ReceiptText },
-          { id: 'manual', label: 'Manual Journal', icon: BookMarked },
-          { id: 'periods', label: 'Fiscal Period Lock', icon: Lock },
-          { id: 'zreport', label: 'Daily Z-Report', icon: FileBarChart2 },
-        ].map((t) => {
-          const Icon = t.icon;
-          const active = activeTool === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setActiveTool(t.id as typeof activeTool)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" /> {t.label}
-            </button>
-          );
-        })}
+      {/* Action Buttons Opening Popup FormModals */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4">
+        <button
+          type="button"
+          disabled={!canPost}
+          onClick={() => setModal('ap')}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
+        >
+          <Landmark className="w-3.5 h-3.5" /> Pay Supplier AP
+        </button>
+        <button
+          type="button"
+          disabled={!canPost}
+          onClick={() => setModal('vat')}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
+        >
+          <ReceiptText className="w-3.5 h-3.5" /> Remit VAT (19.25%)
+        </button>
+        <button
+          type="button"
+          disabled={!canLockPeriod}
+          onClick={() => setModal('manual')}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 text-slate-900 text-xs font-semibold"
+        >
+          <BookMarked className="w-3.5 h-3.5" /> Post Manual Journal
+        </button>
+        <button
+          type="button"
+          disabled={!canLockPeriod}
+          onClick={() => setModal('period')}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-red-300 bg-white hover:bg-red-50 disabled:opacity-50 text-red-800 text-xs font-semibold"
+        >
+          <Lock className="w-3.5 h-3.5" /> Lock Fiscal Period
+        </button>
+
+        <div className="ml-auto flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveTool('zreport')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+              activeTool === 'zreport' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700'
+            }`}
+          >
+            <FileBarChart2 className="w-3.5 h-3.5" /> Daily Z-Report
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTool('periods')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+              activeTool === 'periods' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700'
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5" /> Locked Periods ({periods.length})
+          </button>
+        </div>
       </div>
 
-      {activeTool === 'ap' && (
-        <form onSubmit={(e) => void handleApPayment(e)} className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-          <input
-            type="text"
-            required
-            placeholder="Supplier Name"
-            value={apSupplier}
-            onChange={(e) => setApSupplier(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs"
-          />
-          <input
-            type="text"
-            required
-            placeholder="Payment Ref"
-            value={apRef}
-            onChange={(e) => setApRef(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-          />
-          <input
-            type="number"
-            min={1}
-            required
-            placeholder="Amount FCFA"
-            value={apAmount}
-            onChange={(e) => setApAmount(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-          />
-          <select
-            value={apSource}
-            onChange={(e) => setApSource(e.target.value as 'CASH_SAFE' | 'BANK')}
-            className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-          >
-            <option value="BANK">Bank Account (1030)</option>
-            <option value="CASH_SAFE">Cash Safe (1010)</option>
-          </select>
-          <button
-            type="submit"
-            disabled={!canPost}
-            className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
-          >
-            Post AP Payment
-          </button>
+      {/* Popup FormModal: Pay Supplier AP */}
+      <FormModal open={modal === 'ap'} onClose={() => setModal(null)} title="Record Supplier AP Settlement" subtitle="Posts DR 2010 Accounts Payable / CR Bank or Cash Safe.">
+        <form onSubmit={(e) => void handleApPayment(e)} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Supplier / Depot Name</label>
+              <input type="text" required value={apSupplier} onChange={(e) => setApSupplier(e.target.value)} className="opes-input" />
+            </div>
+            <div>
+              <label className="opes-label">Payment Reference</label>
+              <input type="text" required value={apRef} onChange={(e) => setApRef(e.target.value)} className="opes-input font-mono" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Amount (FCFA)</label>
+              <input type="number" min={1} required value={apAmount} onChange={(e) => setApAmount(e.target.value)} className="opes-input font-mono" />
+            </div>
+            <div>
+              <label className="opes-label">Payment Source</label>
+              <select value={apSource} onChange={(e) => setApSource(e.target.value as 'CASH_SAFE' | 'BANK')} className="opes-input">
+                <option value="BANK">Bank Account (1030)</option>
+                <option value="CASH_SAFE">Cash Safe (1010)</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button type="button" onClick={() => setModal(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+            <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Post AP Payment</button>
+          </div>
         </form>
-      )}
+      </FormModal>
 
-      {activeTool === 'vat' && (
-        <form onSubmit={(e) => void handleVatRemittance(e)} className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-          <input
-            type="month"
-            required
-            value={vatPeriod}
-            onChange={(e) => setVatPeriod(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-          />
-          <input
-            type="text"
-            required
-            placeholder="Tax Receipt Ref"
-            value={vatRef}
-            onChange={(e) => setVatRef(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-          />
-          <input
-            type="number"
-            min={1}
-            required
-            placeholder="VAT FCFA"
-            value={vatAmount}
-            onChange={(e) => setVatAmount(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-          />
-          <select
-            value={vatSource}
-            onChange={(e) => setVatSource(e.target.value as 'CASH_SAFE' | 'BANK')}
-            className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-          >
-            <option value="BANK">Bank Account (1030)</option>
-            <option value="CASH_SAFE">Cash Safe (1010)</option>
-          </select>
-          <button
-            type="submit"
-            disabled={!canPost}
-            className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
-          >
-            Post VAT Remittance
-          </button>
+      {/* Popup FormModal: Remit VAT */}
+      <FormModal open={modal === 'vat'} onClose={() => setModal(null)} title="Record 19.25% VAT Tax Remittance" subtitle="Clears VAT Payable liability against Bank or Cash Safe.">
+        <form onSubmit={(e) => void handleVatRemittance(e)} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Tax Period</label>
+              <input type="month" required value={vatPeriod} onChange={(e) => setVatPeriod(e.target.value)} className="opes-input font-mono" />
+            </div>
+            <div>
+              <label className="opes-label">DGI Tax Receipt Reference</label>
+              <input type="text" required value={vatRef} onChange={(e) => setVatRef(e.target.value)} className="opes-input font-mono" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">VAT Amount (FCFA)</label>
+              <input type="number" min={1} required value={vatAmount} onChange={(e) => setVatAmount(e.target.value)} className="opes-input font-mono" />
+            </div>
+            <div>
+              <label className="opes-label">Payment Source</label>
+              <select value={vatSource} onChange={(e) => setVatSource(e.target.value as 'CASH_SAFE' | 'BANK')} className="opes-input">
+                <option value="BANK">Bank Account (1030)</option>
+                <option value="CASH_SAFE">Cash Safe (1010)</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button type="button" onClick={() => setModal(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+            <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Post VAT Remittance</button>
+          </div>
         </form>
-      )}
+      </FormModal>
 
-      {activeTool === 'manual' && (
-        <form onSubmit={(e) => void handleManualJournal(e)} className="grid grid-cols-1 sm:grid-cols-6 gap-3">
-          <input
-            type="text"
-            required
-            placeholder="Ref (e.g. MJ-01)"
-            value={mjRef}
-            onChange={(e) => setMjRef(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-          />
-          <input
-            type="text"
-            required
-            placeholder="Narration"
-            value={mjDesc}
-            onChange={(e) => setMjDesc(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs"
-          />
-          <select
-            value={mjDebitAcc}
-            onChange={(e) => setMjDebitAcc(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-          >
-            {CHART_OF_ACCOUNTS.map((a) => (
-              <option key={a.code} value={a.code}>
-                DR {a.code} {a.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={mjCreditAcc}
-            onChange={(e) => setMjCreditAcc(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-          >
-            {CHART_OF_ACCOUNTS.map((a) => (
-              <option key={a.code} value={a.code}>
-                CR {a.code} {a.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={1}
-            required
-            placeholder="Amount FCFA"
-            value={mjAmount}
-            onChange={(e) => setMjAmount(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-          />
-          <button
-            type="submit"
-            disabled={!canLockPeriod}
-            className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
-          >
-            Post Journal
-          </button>
+      {/* Popup FormModal: Manual Balanced Journal */}
+      <FormModal open={modal === 'manual'} onClose={() => setModal(null)} title="Post Balanced Manual SYSCOHADA Journal" subtitle="Enforces strict Debit = Credit balance on double-entry posting.">
+        <form onSubmit={(e) => void handleManualJournal(e)} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Journal Reference</label>
+              <input type="text" required value={mjRef} onChange={(e) => setMjRef(e.target.value)} className="opes-input font-mono" />
+            </div>
+            <div>
+              <label className="opes-label">Amount (FCFA)</label>
+              <input type="number" min={1} required value={mjAmount} onChange={(e) => setMjAmount(e.target.value)} className="opes-input font-mono" />
+            </div>
+          </div>
+          <div>
+            <label className="opes-label">Narration / Description</label>
+            <input type="text" required value={mjDesc} onChange={(e) => setMjDesc(e.target.value)} className="opes-input" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Debit Account (DR)</label>
+              <select value={mjDebitAcc} onChange={(e) => setMjDebitAcc(e.target.value)} className="opes-input">
+                {CHART_OF_ACCOUNTS.map((a) => (
+                  <option key={a.code} value={a.code}>DR {a.code} {a.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Credit Account (CR)</label>
+              <select value={mjCreditAcc} onChange={(e) => setMjCreditAcc(e.target.value)} className="opes-input">
+                {CHART_OF_ACCOUNTS.map((a) => (
+                  <option key={a.code} value={a.code}>CR {a.code} {a.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button type="button" onClick={() => setModal(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+            <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Post Journal Entry</button>
+          </div>
         </form>
-      )}
+      </FormModal>
+
+      {/* Popup FormModal: Close & Lock Fiscal Period */}
+      <FormModal open={modal === 'period'} onClose={() => setModal(null)} title="Close & Lock Fiscal Period" subtitle="Permanently prevents backdated shifts, expenses, or journal edits inside the locked month.">
+        <form onSubmit={(e) => void handleClosePeriod(e)} className="space-y-4">
+          <div>
+            <label className="opes-label">Fiscal Month to Lock</label>
+            <input type="month" required value={closePeriodKey} onChange={(e) => setClosePeriodKey(e.target.value)} className="opes-input font-mono" />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button type="button" onClick={() => setModal(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+            <button type="submit" className="px-5 py-2.5 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold">Confirm Fiscal Lock</button>
+          </div>
+        </form>
+      </FormModal>
 
       {activeTool === 'periods' && (
-        <div className="space-y-4">
-          <form onSubmit={(e) => void handleClosePeriod(e)} className="flex flex-wrap items-center gap-3">
-            <input
-              type="month"
-              value={closePeriodKey}
-              onChange={(e) => setClosePeriodKey(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-            />
-            <button
-              type="submit"
-              disabled={!canLockPeriod}
-              className="px-4 py-2 rounded-lg bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white text-xs font-semibold"
-            >
-              Close &amp; Lock Fiscal Period
-            </button>
-          </form>
-          <div className="divide-y divide-slate-100 text-xs">
-            {periods.length === 0 ? (
-              <div className="text-slate-500 py-2">No fiscal periods locked yet for this station scope.</div>
-            ) : (
-              periods.map((p) => (
-                <div key={String(p.id)} className="py-2 flex items-center justify-between">
-                  <span className="font-mono font-bold text-slate-900">{String(p.periodKey)}</span>
-                  <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-mono text-[10px] font-bold">
-                    {String(p.status ?? 'CLOSED')}
-                  </span>
-                  <span className="text-slate-500">
-                    Closed {p.closedAt ? formatShortDate(String(p.closedAt)) : '-'}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
+        <div className="divide-y divide-slate-100 text-xs">
+          {periods.length === 0 ? (
+            <div className="text-slate-500 py-2">No fiscal periods locked yet for this station scope.</div>
+          ) : (
+            periods.map((p) => (
+              <div key={String(p.id)} className="py-2 flex items-center justify-between">
+                <span className="font-mono font-bold text-slate-900">{String(p.periodKey)}</span>
+                <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-mono text-[10px] font-bold">
+                  {String(p.status ?? 'CLOSED')}
+                </span>
+                <span className="text-slate-500">
+                  Closed {p.closedAt ? formatShortDate(String(p.closedAt)) : '-'}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       )}
 

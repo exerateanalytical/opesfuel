@@ -4,6 +4,7 @@ import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { Employee, FuelGrade, FuelTank, Pump, ShiftRecord, UserRole } from '../../domain/types';
 import { printShiftThermalSlip } from '../../utils/thermalReceipt';
+import { FormModal } from '../shared/FormModal';
 
 interface ForecourtSectionProps {
   role: UserRole;
@@ -66,18 +67,19 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
   const [detailPumpId, setDetailPumpId] = useState<string | null>(null);
   const [detailShiftId, setDetailShiftId] = useState<string | null>(null);
 
-  // Open shift selector
+  // Open shift modal
+  const [showOpenShift, setShowOpenShift] = useState(false);
   const [selectedPumpId, setSelectedPumpId] = useState('');
   const [selectedAttendantId, setSelectedAttendantId] = useState('');
 
-  // Add pump panel
+  // Add pump modal
   const [showAddPump, setShowAddPump] = useState(false);
   const [pumpCode, setPumpCode] = useState('');
   const [pumpGrade, setPumpGrade] = useState<FuelGrade>('SUPER');
   const [pumpTankId, setPumpTankId] = useState('');
   const [pumpTotalizer, setPumpTotalizer] = useState('0');
 
-  // Close shift drawer state
+  // Close shift modal state
   const [closingShift, setClosingShift] = useState<ShiftRecord | null>(null);
   const [closingMeter, setClosingMeter] = useState('');
   const [cashFcfa, setCashFcfa] = useState('0');
@@ -101,6 +103,7 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
     if (!pump || !att) return;
     onOpenShift(pump.stationId, pump.id, att.id);
     setSelectedPumpId('');
+    setShowOpenShift(false);
   };
 
   const handleCloseSubmit = (e: React.FormEvent) => {
@@ -411,11 +414,42 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
 
           <div className="flex flex-wrap items-center gap-2">
             {canOperate && idlePumps.length > 0 && attendants.length > 0 && (
-              <form onSubmit={handleOpenShiftSubmit} className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowOpenShift(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap"
+              >
+                <Fuel className="w-3.5 h-3.5" /> Open Forecourt Shift
+              </button>
+            )}
+
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => setShowAddPump(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Pump Dispenser
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Popup FormModal: Open Forecourt Shift */}
+        <FormModal
+          open={showOpenShift && canOperate}
+          onClose={() => setShowOpenShift(false)}
+          title="Open Forecourt Pump Shift"
+          subtitle="Assigns an idle fuel nozzle to an attendant and locks the opening meter totalizer."
+        >
+          <form onSubmit={handleOpenShiftSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">Select Idle Pump Nozzle</label>
                 <select
                   value={selectedPumpId || idlePumps[0]?.id}
                   onChange={(e) => setSelectedPumpId(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                  className="opes-input"
                 >
                   {idlePumps.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -423,10 +457,13 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="opes-label">Assign Pump Attendant</label>
                 <select
                   value={selectedAttendantId || attendants[0]?.id}
                   onChange={(e) => setSelectedAttendantId(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                  className="opes-input"
                 >
                   {attendants.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -434,95 +471,88 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
                     </option>
                   ))}
                 </select>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap"
-                >
-                  Open Shift
-                </button>
-              </form>
-            )}
-
-            {canManage && (
-              <button
-                type="button"
-                onClick={() => setShowAddPump((v) => !v)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-800 whitespace-nowrap"
-              >
-                <Plus className="w-3.5 h-3.5" /> {showAddPump ? 'Cancel' : 'Add Pump'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {showAddPump && canManage && (
-          <form
-            onSubmit={handleCreatePumpSubmit}
-            className="p-4 rounded-lg bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-5 gap-3 items-end"
-          >
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Pump Code</label>
-              <input
-                type="text"
-                placeholder="e.g. P-05A"
-                value={pumpCode}
-                onChange={(e) => setPumpCode(e.target.value)}
-                className="w-full px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
+              </div>
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Fuel Grade</label>
-              <select
-                value={pumpGrade}
-                onChange={(e) => setPumpGrade(e.target.value as FuelGrade)}
-                className="w-full px-3 py-2 rounded border border-slate-300 text-xs bg-white min-h-[40px]"
-              >
-                {ALL_FUEL_GRADES.map((g) => (
-                  <option key={g} value={g}>
-                    {gradeLabel(g)}
-                  </option>
-                ))}
-              </select>
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button type="button" onClick={() => setShowOpenShift(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Start Shift</button>
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Linked Underground Tank</label>
-              {visibleTanks.length > 0 ? (
+          </form>
+        </FormModal>
+
+        {/* Popup FormModal: Add Pump Dispenser */}
+        <FormModal
+          open={showAddPump && canManage}
+          onClose={() => setShowAddPump(false)}
+          title="Provision Forecourt Pump Dispenser"
+          subtitle="Links a new fuel dispenser nozzle to an underground storage tank."
+        >
+          <form onSubmit={handleCreatePumpSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">Pump Code</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. P-05A"
+                  value={pumpCode}
+                  onChange={(e) => setPumpCode(e.target.value)}
+                  className="opes-input font-mono"
+                />
+              </div>
+              <div>
+                <label className="opes-label">Fuel Grade</label>
                 <select
-                  value={pumpTankId || visibleTanks[0]?.id}
-                  onChange={(e) => setPumpTankId(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-slate-300 text-xs bg-white"
+                  value={pumpGrade}
+                  onChange={(e) => setPumpGrade(e.target.value as FuelGrade)}
+                  className="opes-input"
                 >
-                  {visibleTanks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
+                  {ALL_FUEL_GRADES.map((g) => (
+                    <option key={g} value={g}>
+                      {gradeLabel(g)}
                     </option>
                   ))}
                 </select>
-              ) : (
-                <div className="px-3 py-2 rounded border border-amber-200 bg-white text-[11px] text-amber-800">
-                  Add a fuel tank first
-                </div>
-              )}
+              </div>
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Initial Meter (L)</label>
-              <input
-                type="number"
-                min={0}
-                value={pumpTotalizer}
-                onChange={(e) => setPumpTotalizer(e.target.value)}
-                className="w-full px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">Linked Underground Tank</label>
+                {visibleTanks.length > 0 ? (
+                  <select
+                    value={pumpTankId || visibleTanks[0]?.id}
+                    onChange={(e) => setPumpTankId(e.target.value)}
+                    className="opes-input"
+                  >
+                    {visibleTanks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="px-3 py-2 rounded border border-amber-300 bg-white text-xs text-amber-800">
+                    Add a fuel tank first
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="opes-label">Initial Totalizer Meter (L)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={pumpTotalizer}
+                  onChange={(e) => setPumpTotalizer(e.target.value)}
+                  className="opes-input font-mono"
+                />
+              </div>
             </div>
-            <button
-              type="submit"
-              disabled={visibleTanks.length === 0}
-              className="py-2 px-4 rounded bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
-            >
-              Provision Dispenser
-            </button>
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button type="button" onClick={() => setShowAddPump(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+              <button type="submit" disabled={visibleTanks.length === 0} className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold">Provision Dispenser</button>
+            </div>
           </form>
-        )}
+        </FormModal>
 
         {visiblePumps.length === 0 ? (
           <div className="p-8 border border-dashed border-slate-300 rounded-lg text-center space-y-2">
@@ -607,128 +637,117 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
         )}
       </div>
 
-      {/* Close Shift Calculator Panel */}
-      {closingShift && (
-        <div className="bg-white border-2 border-amber-600 rounded-xl p-6 space-y-5">
-          <div className="flex items-center justify-between">
+      {/* Popup FormModal: Close & Reconcile Shift */}
+      <FormModal
+        open={Boolean(closingShift)}
+        onClose={() => setClosingShift(null)}
+        title={closingShift ? `Close & Reconcile Shift ${closingShift.id} (${closingShift.pumpCode})` : 'Close Shift'}
+        subtitle={
+          closingShift
+            ? `Attendant: ${closingShift.attendantName} · Opening Meter: ${formatLitres(closingShift.openingMeterLitres)} · Price: ${formatFcfa(closingShift.unitPriceFcfa)}/L`
+            : undefined
+        }
+      >
+        <form onSubmit={handleCloseSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <h3 className="font-display text-lg font-bold text-slate-900">
-                Close &amp; Reconcile Shift {closingShift.id} ({closingShift.pumpCode})
-              </h3>
-              <p className="text-xs text-slate-500">
-                Attendant: {closingShift.attendantName} · Opening Meter:{' '}
-                <span className="font-mono tabular-nums">{formatLitres(closingShift.openingMeterLitres)}</span> · Price:{' '}
-                <span className="font-mono tabular-nums">{formatFcfa(closingShift.unitPriceFcfa)}/L</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setClosingShift(null)}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-900"
-            >
-              Cancel
-            </button>
-          </div>
-
-          <form onSubmit={handleCloseSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Closing Meter (L)</label>
+              <label className="opes-label">Closing Meter (L)</label>
               <input
                 type="number"
                 step="0.01"
+                required
                 value={closingMeter}
                 onChange={(e) => setClosingMeter(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono tabular-nums"
+                className="opes-input font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Cash (FCFA)</label>
+              <label className="opes-label">Cash Collected (FCFA)</label>
               <input
                 type="number"
                 value={cashFcfa}
                 onChange={(e) => setCashFcfa(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono tabular-nums"
+                className="opes-input font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Mobile Money (FCFA)</label>
+              <label className="opes-label">Mobile Money (FCFA)</label>
               <input
                 type="number"
                 value={momoFcfa}
                 onChange={(e) => setMomoFcfa(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono tabular-nums"
+                className="opes-input font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Card / TPE (FCFA)</label>
+              <label className="opes-label">Card / TPE (FCFA)</label>
               <input
                 type="number"
                 value={cardFcfa}
                 onChange={(e) => setCardFcfa(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono tabular-nums"
+                className="opes-input font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Fleet Credit (FCFA)</label>
+              <label className="opes-label">Fleet Credit (FCFA)</label>
               <input
                 type="number"
                 value={fleetFcfa}
                 onChange={(e) => setFleetFcfa(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono tabular-nums"
+                className="opes-input font-mono"
               />
             </div>
+          </div>
 
-            <div className="md:col-span-5 bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap gap-6 text-xs">
-                <div>
-                  <span className="text-slate-500">Volume Sold: </span>
-                  <span className="font-mono tabular-nums font-bold text-slate-900">{formatLitres(previewLitres)}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Expected Revenue: </span>
-                  <span className="font-mono tabular-nums font-bold text-slate-900">{formatFcfa(previewExpected)}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Declared Tenders: </span>
-                  <span className="font-mono tabular-nums font-bold text-slate-900">{formatFcfa(previewDeclared)}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Variance: </span>
-                  <span
-                    className={`font-mono tabular-nums font-bold ${
-                      previewVariance === 0 ? 'text-emerald-700' : 'text-red-600'
-                    }`}
-                  >
-                    {previewVariance > 0 ? `+${formatFcfa(previewVariance)}` : formatFcfa(previewVariance)}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {previewExpected > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCashFcfa(String(previewExpected));
-                      setMomoFcfa('0');
-                      setCardFcfa('0');
-                      setFleetFcfa('0');
-                    }}
-                    className="px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
-                  >
-                    Fill Expected as Cash
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-                >
-                  Commit Shift &amp; Post Accounting Journal
-                </button>
+          <div className="bg-white border border-slate-200 rounded-lg p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div>
+              <div className="text-slate-500">Volume Sold</div>
+              <div className="font-mono font-bold text-slate-950 mt-0.5">{formatLitres(previewLitres)}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Expected Revenue</div>
+              <div className="font-mono font-bold text-slate-950 mt-0.5">{formatFcfa(previewExpected)}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Declared Tenders</div>
+              <div className="font-mono font-bold text-slate-950 mt-0.5">{formatFcfa(previewDeclared)}</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Variance</div>
+              <div className={`font-mono font-bold mt-0.5 ${previewVariance === 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                {previewVariance > 0 ? `+${formatFcfa(previewVariance)}` : formatFcfa(previewVariance)}
               </div>
             </div>
-          </form>
-        </div>
-      )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
+            {previewExpected > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setCashFcfa(String(previewExpected));
+                  setMomoFcfa('0');
+                  setCardFcfa('0');
+                  setFleetFcfa('0');
+                }}
+                className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+              >
+                Fill Expected as Cash
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setClosingShift(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">
+                Cancel
+              </button>
+              <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">
+                Commit Shift &amp; Post Journal
+              </button>
+            </div>
+          </div>
+        </form>
+      </FormModal>
 
       {/* Shift Ledger Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">

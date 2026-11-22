@@ -320,48 +320,41 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
             {canSettle && (
               <button
                 type="button"
-                onClick={() => setShowNewAccount((v) => !v)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+                onClick={() => setShowNewAccount(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
               >
-                <Plus className="w-3.5 h-3.5" /> {showNewAccount ? 'Cancel' : 'New Fleet Client'}
+                <Plus className="w-3.5 h-3.5" /> New Fleet Client
               </button>
             )}
           </div>
 
-          {showNewAccount && canSettle && (
-            <form
-              onSubmit={handleCreateAccount}
-              className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end"
-            >
-              <input
-                type="text"
-                placeholder="Company Legal Name"
-                value={newCompany}
-                onChange={(e) => setNewCompany(e.target.value)}
-                className="px-3 py-2 rounded border border-slate-300 text-xs bg-white"
-              />
-              <input
-                type="text"
-                placeholder="Tax ID / NIU"
-                value={newTaxId}
-                onChange={(e) => setNewTaxId(e.target.value)}
-                className="px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
-              <input
-                type="number"
-                placeholder="Credit Limit (FCFA)"
-                value={newLimit}
-                onChange={(e) => setNewLimit(e.target.value)}
-                className="px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
-              <button
-                type="submit"
-                className="py-2 px-4 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-              >
-                Save Client
-              </button>
+          <FormModal
+            open={showNewAccount && canSettle}
+            onClose={() => setShowNewAccount(false)}
+            title="Onboard Corporate Fleet Client"
+            subtitle="Sets up a corporate fuel credit account with a monthly FCFA limit."
+          >
+            <form onSubmit={handleCreateAccount} className="space-y-4">
+              <div>
+                <label className="opes-label">Company Legal Name</label>
+                <input type="text" required placeholder="e.g. Littoral Logistics SA" value={newCompany} onChange={(e) => setNewCompany(e.target.value)} className="opes-input" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="opes-label">Tax ID / NIU</label>
+                  <input type="text" required placeholder="e.g. M09221849302" value={newTaxId} onChange={(e) => setNewTaxId(e.target.value)} className="opes-input font-mono" />
+                </div>
+                <div>
+                  <label className="opes-label">Credit Limit (FCFA)</label>
+                  <input type="number" min={50000} required value={newLimit} onChange={(e) => setNewLimit(e.target.value)} className="opes-input font-mono" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+                <button type="button" onClick={() => setShowNewAccount(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Save Fleet Client</button>
+              </div>
             </form>
-          )}
+          </FormModal>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -611,73 +604,59 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
           {canRestock && (
             <button
               type="button"
-              onClick={() => setShowNewSku((v) => !v)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+              onClick={() => setShowNewSku(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
             >
-              <Plus className="w-3.5 h-3.5" /> {showNewSku ? 'Cancel' : 'Add Shop SKU'}
+              <Plus className="w-3.5 h-3.5" /> Add Shop SKU
             </button>
           )}
         </div>
 
-        {showNewSku && canRestock && (
-          <form
-            onSubmit={handleCreateSku}
-            className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-6 gap-2.5 items-end"
-          >
-            <input
-              type="text"
-              placeholder="SKU (LUB-20W50)"
-              value={skuCode}
-              onChange={(e) => setSkuCode(e.target.value)}
-              className="px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Product Name"
-              value={skuName}
-              onChange={(e) => setSkuName(e.target.value)}
-              className="sm:col-span-2 px-3 py-2 rounded border border-slate-300 text-xs bg-white"
-            />
-            <select
-              value={skuCat}
-              onChange={(e) => setSkuCat(e.target.value as ShopItem['category'])}
-              className="px-3 py-2 rounded border border-slate-300 text-xs bg-white"
-            >
-              <option value="LUBRICANT">Lubricant</option>
-              <option value="LPG">LPG Gas</option>
-              <option value="SHOP">Shop</option>
-            </select>
-            <div className="grid grid-cols-3 gap-1.5">
-              <input
-                type="number"
-                placeholder="Qty"
-                value={skuQty}
-                onChange={(e) => setSkuQty(e.target.value)}
-                className="px-2 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
-              <input
-                type="number"
-                placeholder="Price"
-                value={skuPrice}
-                onChange={(e) => setSkuPrice(e.target.value)}
-                className="px-2 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
-              <input
-                type="number"
-                placeholder="Cost"
-                value={skuCost}
-                onChange={(e) => setSkuCost(e.target.value)}
-                className="px-2 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
+        <FormModal
+          open={showNewSku && canRestock}
+          onClose={() => setShowNewSku(false)}
+          title="Add Lubricant, LPG or Shop SKU"
+          subtitle="Adds a non-fuel retail product to your forecourt POS inventory."
+        >
+          <form onSubmit={handleCreateSku} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">SKU Code</label>
+                <input type="text" required placeholder="e.g. LUB-20W50" value={skuCode} onChange={(e) => setSkuCode(e.target.value)} className="opes-input font-mono" />
+              </div>
+              <div>
+                <label className="opes-label">Category</label>
+                <select value={skuCat} onChange={(e) => setSkuCat(e.target.value as ShopItem['category'])} className="opes-input">
+                  <option value="LUBRICANT">Lubricant</option>
+                  <option value="LPG">LPG Gas</option>
+                  <option value="SHOP">Shop</option>
+                </select>
+              </div>
             </div>
-            <button
-              type="submit"
-              className="py-2 px-3 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-            >
-              Save SKU
-            </button>
+            <div>
+              <label className="opes-label">Product Name</label>
+              <input type="text" required placeholder="e.g. Total Quartz 5W-30 (4L)" value={skuName} onChange={(e) => setSkuName(e.target.value)} className="opes-input" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="opes-label">Opening Qty</label>
+                <input type="number" min={0} required value={skuQty} onChange={(e) => setSkuQty(e.target.value)} className="opes-input font-mono" />
+              </div>
+              <div>
+                <label className="opes-label">Selling Price (FCFA)</label>
+                <input type="number" min={1} required value={skuPrice} onChange={(e) => setSkuPrice(e.target.value)} className="opes-input font-mono" />
+              </div>
+              <div>
+                <label className="opes-label">Unit Cost (FCFA)</label>
+                <input type="number" min={1} required value={skuCost} onChange={(e) => setSkuCost(e.target.value)} className="opes-input font-mono" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button type="button" onClick={() => setShowNewSku(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Save SKU</button>
+            </div>
           </form>
-        )}
+        </FormModal>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">

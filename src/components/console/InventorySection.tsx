@@ -358,84 +358,69 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
             {canDeliver && (
               <button
                 type="button"
-                onClick={() => setShowAddTank((v) => !v)}
+                onClick={() => setShowAddTank(true)}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold whitespace-nowrap shrink-0"
               >
-                <Plus className="w-3.5 h-3.5" /> {showAddTank ? 'Cancel' : 'Add Underground Tank'}
+                <Plus className="w-3.5 h-3.5" /> Add Underground Tank
               </button>
             )}
           </div>
         </div>
 
-        {showAddTank && canDeliver && (
-          <form
-            onSubmit={handleCreateTankSubmit}
-            className="p-5 bg-slate-50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-6 gap-3 items-end"
-          >
-            <div className="sm:col-span-2">
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Tank Name</label>
-              <input
-                type="text"
-                placeholder="Underground Tank T-04 (Super)"
-                value={tankName}
-                onChange={(e) => setTankName(e.target.value)}
-                className="w-full px-3 py-2 rounded border border-slate-300 text-xs bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Grade</label>
-              <select
-                value={tankGrade}
-                onChange={(e) => setTankGrade(e.target.value as FuelGrade)}
-                className="w-full px-3 py-2 rounded border border-slate-300 text-xs bg-white min-h-[40px]"
-              >
-                {ALL_FUEL_GRADES.map((g) => (
-                  <option key={g} value={g}>
-                    {gradeLabel(g)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Capacity (L)</label>
-              <input
-                type="number"
-                min={1000}
-                value={tankCap}
-                onChange={(e) => setTankCap(e.target.value)}
-                className="w-full px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Initial Stock (L)</label>
-              <input
-                type="number"
-                min={0}
-                value={tankVol}
-                onChange={(e) => setTankVol(e.target.value)}
-                className="w-full px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-              />
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">WAC FCFA/L</label>
+        <FormModal
+          open={showAddTank && canDeliver}
+          onClose={() => setShowAddTank(false)}
+          title="Add Underground Fuel Tank"
+          subtitle="Provisions a new storage tank with opening volume and weighted average cost (WAC)."
+        >
+          <form onSubmit={handleCreateTankSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="opes-label">Tank Name</label>
                 <input
-                  type="number"
-                  min={100}
-                  value={tankCost}
-                  onChange={(e) => setTankCost(e.target.value)}
-                  className="w-full px-2.5 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
+                  type="text"
+                  required
+                  placeholder="Underground Tank T-04 (Super)"
+                  value={tankName}
+                  onChange={(e) => setTankName(e.target.value)}
+                  className="opes-input"
                 />
               </div>
-              <button
-                type="submit"
-                className="self-end py-2 px-3.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap"
-              >
-                Save Tank
-              </button>
+              <div>
+                <label className="opes-label">Fuel Grade</label>
+                <select
+                  value={tankGrade}
+                  onChange={(e) => setTankGrade(e.target.value as FuelGrade)}
+                  className="opes-input"
+                >
+                  {ALL_FUEL_GRADES.map((g) => (
+                    <option key={g} value={g}>
+                      {gradeLabel(g)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="opes-label">Capacity (Litres)</label>
+                <input type="number" min={1000} required value={tankCap} onChange={(e) => setTankCap(e.target.value)} className="opes-input font-mono" />
+              </div>
+              <div>
+                <label className="opes-label">Initial Stock (Litres)</label>
+                <input type="number" min={0} required value={tankVol} onChange={(e) => setTankVol(e.target.value)} className="opes-input font-mono" />
+              </div>
+              <div>
+                <label className="opes-label">Unit Cost WAC (FCFA/L)</label>
+                <input type="number" min={100} required value={tankCost} onChange={(e) => setTankCost(e.target.value)} className="opes-input font-mono" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button type="button" onClick={() => setShowAddTank(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">Save Tank</button>
             </div>
           </form>
-        )}
+        </FormModal>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
