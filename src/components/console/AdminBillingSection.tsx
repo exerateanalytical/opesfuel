@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Building2, Check, ChevronRight, RotateCcw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, Building2, Check, ChevronRight, Plus, RotateCcw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { OpesFuelApiEngine, SUBSCRIPTION_PLANS } from '../../api/opesfuelClient';
 import { canPerformAction, isAuth0Configured, ROLE_PROFILES } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, gradeLabel } from '../../domain/formatters';
 import { Employee, FuelTank, Pump, Station, TenantWorkspace, UserRole } from '../../domain/types';
+import { FormModal } from '../shared/FormModal';
 import { BillingAndInvitesPanel } from './BillingAndInvitesPanel';
 
 interface AdminBillingSectionProps {
@@ -28,6 +29,7 @@ interface AdminBillingSectionProps {
   onClearDemoData: () => void;
   onRestoreDemoData: () => void;
   onNotify: (type: 'success' | 'error', message: string) => void;
+  auditAndProfileSlot?: React.ReactNode;
 }
 
 export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
@@ -46,9 +48,11 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   onClearDemoData,
   onRestoreDemoData,
   onNotify,
+  auditAndProfileSlot,
 }) => {
   const [selectedStationId, setSelectedStationId] = useState(stations[0]?.id ?? '');
   const [detailStationId, setDetailStationId] = useState<string | null>(null);
+  const [showAddStationModal, setShowAddStationModal] = useState(false);
   const [editingStation, setEditingStation] = useState(false);
   const [editCode, setEditCode] = useState('');
   const [editName, setEditName] = useState('');
@@ -139,7 +143,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg icon-glass text-slate-900 flex items-center justify-center">
                 <Building2 className="w-5 h-5" />
               </div>
               <div>
@@ -321,7 +325,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                     key={st.id}
                     onClick={() => setSelectedStationId(st.id)}
                     className={`cursor-pointer transition-colors ${
-                      selectedStation?.id === st.id ? 'bg-amber-50/60' : 'hover:bg-slate-50/70'
+                      selectedStation?.id === st.id ? 'bg-white' : 'hover:bg-slate-50/70'
                     }`}
                   >
                     <td className="px-4 py-3 font-mono text-xs text-slate-600">{st.code}</td>
@@ -365,52 +369,98 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleOnboard} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-          <div>
-            <h3 className="font-display text-base font-bold text-slate-900">Provision New Petrol Station</h3>
-            <p className="text-xs text-slate-500">Creates tenant partition in PostgreSQL</p>
+        <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col justify-between gap-4">
+          <div className="space-y-2">
+            <h3 className="font-display text-base font-bold text-slate-950">Expand Your Station Network</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Add a new petrol station with its own tanks, pumps, shift roster, and consolidated SYSCOHADA accounting in seconds.
+            </p>
           </div>
-          <input
-            type="text"
-            placeholder="Station Code (e.g. OPF-KRI-04)"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-          />
-          <input
-            type="text"
-            placeholder="Station Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
-          />
-          <input
-            type="text"
-            placeholder="City"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
-          />
-          <select
-            value={planId}
-            onChange={(e) => setPlanId(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-          >
-            {SUBSCRIPTION_PLANS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} — {formatFcfa(p.monthlyPriceFcfa)}/mo
-              </option>
-            ))}
-          </select>
           <button
-            type="submit"
-            disabled={role !== 'OWNER'}
-            className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
+            type="button"
+            disabled={role !== 'OWNER' && role !== 'PLATFORM_ADMIN'}
+            onClick={() => setShowAddStationModal(true)}
+            className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
           >
-            Add Station to Network
+            <Plus className="w-4 h-4" /> Provision New Petrol Station
           </button>
-        </form>
+        </div>
       </div>
+
+      <FormModal
+        open={showAddStationModal}
+        title="Provision New Petrol Station"
+        subtitle="Creates a dedicated station partition ready for tanks, nozzles, and staff."
+        onClose={() => setShowAddStationModal(false)}
+      >
+        <form
+          onSubmit={(e) => {
+            handleOnboard(e);
+            if (code.trim() && name.trim()) setShowAddStationModal(false);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Station Code</label>
+              <input
+                type="text"
+                placeholder="OPF-KRI-04"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="opes-input font-mono"
+                required
+              />
+            </div>
+            <div>
+              <label className="opes-label">City</label>
+              <input
+                type="text"
+                placeholder="Kribi"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="opes-input"
+                required
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="opes-label">Station Name</label>
+              <input
+                type="text"
+                placeholder="OpesFuel Kribi Port Forecourt"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="opes-input"
+                required
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="opes-label">Subscription Plan</label>
+              <select
+                value={planId}
+                onChange={(e) => setPlanId(e.target.value)}
+                className="opes-input"
+              >
+                {SUBSCRIPTION_PLANS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {formatFcfa(p.monthlyPriceFcfa)}/mo
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setShowAddStationModal(false)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">
+              Add Station to Network
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {auditAndProfileSlot}
 
       {/* Subscription Tier Switcher for Selected Station */}
       {selectedStation && (
@@ -431,7 +481,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                 <div
                   key={plan.id}
                   className={`border rounded-lg p-4 flex flex-col justify-between gap-4 ${
-                    isCurrent ? 'border-amber-600 bg-amber-50/40' : 'border-slate-200'
+                    isCurrent ? 'border-amber-600 bg-white' : 'border-slate-200'
                   }`}
                 >
                   <div className="space-y-2">

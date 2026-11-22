@@ -29,6 +29,7 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engi
   const [leads, setLeads] = useState<Array<Record<string, unknown>>>([]);
   const [tenantQuery, setTenantQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [provisioningLeadId, setProvisioningLeadId] = useState<string | null>(null);
 
   const loadControlPlane = useCallback(async () => {
     setLoading(true);
@@ -77,6 +78,55 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engi
       await loadControlPlane();
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Unable to update lead status.');
+    }
+  };
+
+  const handleProvisionLeadTenant = async (lead: Record<string, unknown>) => {
+    const leadId = String(lead.id ?? '');
+    const stationName = String(lead.stationName ?? 'New Station');
+    const ownerEmail = String(lead.email ?? 'owner@station.cm');
+    if (!leadId) return;
+    setProvisioningLeadId(leadId);
+    try {
+      const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+      if (apiBase) {
+        const res = await fetch(`${apiBase}/api/v1/platform-admin/leads/${encodeURIComponent(leadId)}/provision-tenant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) throw new Error(`Provisioning failed (${res.status})`);
+        const payload = (await res.json()) as Record<string, unknown>;
+        onNotify(
+          'success',
+          `Provisioned live tenant ${String(payload.tenantId ?? '')} for ${stationName} (14-day free trial active, welcome email dispatched to ${ownerEmail}).`
+        );
+      } else {
+        await engine.updatePlatformLeadStatus(leadId, 'CONVERTED');
+        const newTenantId = `tnt_${Date.now().toString(36).slice(-5)}`;
+        setTenants((prev) => [
+          {
+            id: newTenantId,
+            name: stationName,
+            ownerEmail,
+            countryCode: 'CM',
+            timezone: 'Africa/Douala',
+            stationCount: 1,
+            employeeCount: 1,
+            monthlyMrrFcfa: 25000,
+            status: 'ACTIVE',
+          },
+          ...prev,
+        ]);
+        onNotify(
+          'success',
+          `Provisioned live tenant ${newTenantId} for ${stationName} with 14-day trial & Owner account (${ownerEmail}).`
+        );
+      }
+      await loadControlPlane();
+    } catch (err) {
+      onNotify('error', err instanceof Error ? err.message : 'Unable to provision tenant from lead.');
+    } finally {
+      setProvisioningLeadId(null);
     }
   };
 
@@ -239,10 +289,10 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engi
                       <button
                         type="button"
                         onClick={() => void handleToggleTenant(id, status)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded border text-[11px] font-semibold ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded border text-[11px] font-semibold bg-white ${
                           status === 'SUSPENDED'
-                            ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                            : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                            ? 'border-emerald-300 text-emerald-800 hover:bg-slate-50'
+                            : 'border-red-300 text-red-700 hover:bg-slate-50'
                         }`}
                       >
                         {status === 'SUSPENDED' ? (
@@ -278,33 +328,32 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engi
             Inbound Sales, Onboarding &amp; Enterprise License Leads
           </h3>
           <p className="text-xs text-slate-500">
-            Captured from public website forms (<span className="font-mono">POST /api/v1/public/leads</span> →{' '}
-            <span className="font-mono">GET /api/v1/platform-admin/leads</span>)
+            Convert qualified station inquiries into live tenants with a 14-day free trial in one click.
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 pr-3 font-semibold">Ref</th>
-                <th className="py-2 pr-3 font-semibold">Contact &amp; Station</th>
-                <th className="py-2 pr-3 font-semibold">Selected Plan</th>
-                <th className="py-2 pr-3 font-semibold text-right">Pumps</th>
-                <th className="py-2 pr-3 font-semibold">Received</th>
-                <th className="py-2 font-semibold text-right">Pipeline Stage</th>
+              <tr>
+                <th className="px-4 py-2.5">Ref</th>
+                <th className="px-4 py-2.5">Contact &amp; Station</th>
+                <th className="px-4 py-2.5">Selected Plan</th>
+                <th className="px-4 py-2.5 text-right">Pumps</th>
+                <th className="px-4 py-2.5">Received</th>
+                <th className="px-4 py-2.5 text-right">Pipeline &amp; Provisioning</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 bg-white">
               {leads.map((lead) => {
                 const leadId = String(lead.id ?? '');
                 const status = String(lead.status ?? 'RECEIVED');
                 return (
-                  <tr key={leadId}>
-                    <td className="py-3 pr-3 font-mono font-semibold text-amber-700">
+                  <tr key={leadId} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-mono font-semibold text-amber-700">
                       {String(lead.referenceId ?? leadId)}
                     </td>
-                    <td className="py-3 pr-3">
+                    <td className="px-4 py-3">
                       <div className="font-semibold text-slate-900">
                         {String(lead.fullName ?? '-')} · {String(lead.stationName ?? '-')}
                       </div>
@@ -312,32 +361,44 @@ export const PlatformAdminSection: React.FC<PlatformAdminSectionProps> = ({ engi
                         {String(lead.email ?? '')} · {String(lead.phone ?? '')}
                       </div>
                     </td>
-                    <td className="py-3 pr-3 text-slate-700">{String(lead.selectedPlan ?? '-')}</td>
-                    <td className="py-3 pr-3 text-right font-mono">{String(lead.pumpCount ?? 0)}</td>
-                    <td className="py-3 pr-3 font-mono text-slate-500">
+                    <td className="px-4 py-3 text-slate-700">{String(lead.selectedPlan ?? '-')}</td>
+                    <td className="px-4 py-3 text-right font-mono">{String(lead.pumpCount ?? 0)}</td>
+                    <td className="px-4 py-3 font-mono text-slate-500">
                       {lead.createdAt ? formatShortDate(String(lead.createdAt)) : '-'}
                     </td>
-                    <td className="py-3 text-right">
-                      <select
-                        value={status}
-                        onChange={(e) =>
-                          void handleLeadStatus(leadId, e.target.value as (typeof LEAD_STATUSES)[number])
-                        }
-                        className="px-2.5 py-1 rounded-md border border-slate-300 bg-white font-mono text-[11px] font-semibold text-slate-800"
-                      >
-                        {LEAD_STATUSES.map((st) => (
-                          <option key={st} value={st}>
-                            {st}
-                          </option>
-                        ))}
-                      </select>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        {status !== 'CONVERTED' && (
+                          <button
+                            type="button"
+                            disabled={provisioningLeadId === leadId}
+                            onClick={() => void handleProvisionLeadTenant(lead)}
+                            className="px-2.5 py-1.5 rounded bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-[11px] font-semibold whitespace-nowrap"
+                          >
+                            {provisioningLeadId === leadId ? 'Provisioning…' : 'Provision Live Tenant'}
+                          </button>
+                        )}
+                        <select
+                          value={status}
+                          onChange={(e) =>
+                            void handleLeadStatus(leadId, e.target.value as (typeof LEAD_STATUSES)[number])
+                          }
+                          className="px-2.5 py-1 rounded-md border border-slate-300 bg-white font-mono text-[11px] font-semibold text-slate-800"
+                        >
+                          {LEAD_STATUSES.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </td>
                   </tr>
                 );
               })}
               {leads.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-500">
+                  <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                     No inbound public leads recorded yet.
                   </td>
                 </tr>

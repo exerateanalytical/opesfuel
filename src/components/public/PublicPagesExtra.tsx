@@ -163,7 +163,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
 
           <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             <div className="lg:col-span-8 space-y-5">
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-white border border-amber-200 text-amber-800 text-xs font-semibold">
                 {current.badge}
               </div>
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-900">
@@ -221,7 +221,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                   <th className="px-6 py-3.5">Daily Station Need</th>
                   <th className="px-6 py-3.5">Paper Books / Excel</th>
                   <th className="px-6 py-3.5">Basic Shop POS</th>
-                  <th className="px-6 py-3.5 text-amber-800 bg-amber-50/70">OpesFuel Station OS</th>
+                  <th className="px-6 py-3.5 text-white">OpesFuel Station OS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -237,7 +237,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                     <td className="px-6 py-3.5 font-semibold text-slate-900">{cap}</td>
                     <td className="px-6 py-3.5 text-slate-500">{legacy}</td>
                     <td className="px-6 py-3.5 text-slate-500">{generic}</td>
-                    <td className="px-6 py-3.5 font-semibold text-emerald-700 bg-amber-50/30">{opes}</td>
+                    <td className="px-6 py-3.5 font-semibold text-emerald-700 bg-white">{opes}</td>
                   </tr>
                 ))}
               </tbody>
@@ -371,10 +371,10 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="w-10 h-10 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg icon-glass text-slate-900 flex items-center justify-center">
                       <Icon className="w-5 h-5" />
                     </div>
-                    <span className="font-mono text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="font-mono text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white text-emerald-800 border border-emerald-200">
                       {item.status}
                     </span>
                   </div>
@@ -481,7 +481,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
             const Icon = p.icon;
             return (
               <div key={p.title} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-                <div className="w-10 h-10 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg icon-glass text-slate-900 flex items-center justify-center">
                   <Icon className="w-5 h-5" />
                 </div>
                 <h2 className="font-display text-lg font-bold text-slate-900">{p.title}</h2>
@@ -634,7 +634,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
                     <div className="text-xs font-bold text-slate-900 uppercase tracking-wider">The Problem</div>
                     <p className="text-slate-600 leading-relaxed">{s.challenge}</p>
                   </div>
-                  <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-100 space-y-1">
+                  <div className="p-4 rounded-xl bg-white border border-emerald-100 space-y-1">
                     <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider">The Result With OpesFuel</div>
                     <p className="text-slate-700 leading-relaxed">{s.solution}</p>
                   </div>
@@ -704,7 +704,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
             const Icon = card.icon;
             return (
               <div key={card.title} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg icon-glass text-slate-900 flex items-center justify-center">
                   <Icon className="w-5 h-5" />
                 </div>
                 <h2 className="font-display text-lg font-bold text-slate-900">{card.title}</h2>
@@ -919,7 +919,7 @@ export const PublicPagesExtra: React.FC<PublicPagesExtraProps> = ({
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-emerald-200 text-emerald-800 text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
             All Services Running Normally
           </div>

@@ -5,6 +5,7 @@ import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { DipstickReadingRecord, FuelGrade, FuelTank, PurchaseOrder, TankDeliveryRecord, UserRole } from '../../domain/types';
 import { exportInventoryExcel, exportInventoryPdf } from '../../utils/exportReports';
+import { FormModal } from '../shared/FormModal';
 import { InventoryAdvancedPanel } from './InventoryAdvancedPanel';
 
 interface InventorySectionProps {
@@ -76,8 +77,9 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
   const visibleDeliveries = deliveries.filter((d) => stationId === 'ALL' || visibleTankIds.has(d.tankId));
   const visibleDipsticks = dipsticks.filter((d) => stationId === 'ALL' || visibleTankIds.has(d.tankId));
 
-  // Tank Detail page state
+  // Tank Detail page & popup modal state
   const [detailTankId, setDetailTankId] = useState<string | null>(null);
+  const [invModal, setInvModal] = useState<'dip' | 'delivery' | 'po' | null>(null);
 
   // Create Tank form state
   const [showAddTank, setShowAddTank] = useState(false);
@@ -183,7 +185,7 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg icon-glass text-slate-900 flex items-center justify-center">
                 <Database className="w-5 h-5" />
               </div>
               <div>
@@ -510,188 +512,227 @@ export const InventorySection: React.FC<InventorySectionProps> = ({
         </div>
       </div>
 
-      {/* Action Forms: Dipstick + Receive Delivery + Purchase Order */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {canDip && (
-          <form onSubmit={handleDipSubmit} className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-            <div>
-              <h3 className="font-display text-base font-bold text-slate-900">Record Physical Dipstick</h3>
-              <p className="text-xs text-slate-500">Flags variance alerts when delta exceeds 100 L</p>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Select Tank</label>
-              <select
-                value={dipTankId || visibleTanks[0]?.id || ''}
-                onChange={(e) => setDipTankId(e.target.value)}
+      {/* Action Bar: Dipstick, Tanker Delivery & Purchase Order Buttons (Forms Pop Up Cleanly) */}
+      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="font-display text-base font-bold text-slate-950">
+              Tank Dipsticks, Tanker Deliveries &amp; Fuel Orders
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Select an action below to open a clean form modal for daily tank operations.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {canDip && (
+              <button
+                type="button"
                 disabled={visibleTanks.length === 0}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white disabled:opacity-50"
+                onClick={() => setInvModal('dip')}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
               >
-                {visibleTanks.length === 0 && <option value="">No tanks available</option>}
-                {visibleTanks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Measured Volume (Litres)</label>
-              <input
-                type="number"
-                value={dipLitres}
-                onChange={(e) => setDipLitres(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono tabular-nums"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={visibleTanks.length === 0}
-              className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
-            >
-              Submit Dipstick Calibration
-            </button>
-          </form>
-        )}
+                <Plus className="w-3.5 h-3.5" /> Record Physical Dipstick
+              </button>
+            )}
+            {canDeliver && (
+              <>
+                <button
+                  type="button"
+                  disabled={visibleTanks.length === 0}
+                  onClick={() => setInvModal('delivery')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Receive Tanker Delivery
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvModal('po')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Raise Purchase Order
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
-        {canDeliver && (
-          <form onSubmit={handleDeliverySubmit} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-            <div>
-              <h3 className="font-display text-base font-bold text-slate-900">Receive Tanker Delivery</h3>
-              <p className="text-xs text-slate-500">Increments tank stock &amp; posts Inventory / AP journal</p>
-            </div>
-            <select
-              value={delTankId || visibleTanks[0]?.id || ''}
-              onChange={(e) => setDelTankId(e.target.value)}
-              disabled={visibleTanks.length === 0}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white disabled:opacity-50"
-            >
-              {visibleTanks.length === 0 && <option value="">No tanks available</option>}
-              {visibleTanks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Supplier Name"
-              value={delSupplier}
-              onChange={(e) => setDelSupplier(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
-            />
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-[11px] text-slate-500 mb-1">BoL (L)</label>
-                <input
-                  type="number"
-                  value={delBol}
-                  onChange={(e) => setDelBol(e.target.value)}
-                  className="w-full px-2.5 py-2 rounded border border-slate-300 text-xs font-mono"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-500 mb-1">Actual (L)</label>
-                <input
-                  type="number"
-                  value={delActual}
-                  onChange={(e) => setDelActual(e.target.value)}
-                  className="w-full px-2.5 py-2 rounded border border-slate-300 text-xs font-mono"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-500 mb-1">Cost/L</label>
-                <input
-                  type="number"
-                  value={delCost}
-                  onChange={(e) => setDelCost(e.target.value)}
-                  className="w-full px-2.5 py-2 rounded border border-slate-300 text-xs font-mono"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={visibleTanks.length === 0}
-              className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
-            >
-              Confirm Delivery Receipt
-            </button>
-          </form>
-        )}
-
-        {canDeliver && (
-          <form onSubmit={handlePoSubmit} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-            <div>
-              <h3 className="font-display text-base font-bold text-slate-900">Raise Purchase Order</h3>
-              <p className="text-xs text-slate-500">Schedule replenishment from fuel depot</p>
-            </div>
-            <input
-              type="text"
-              placeholder="Supplier Depot"
-              value={poSupplier}
-              onChange={(e) => setPoSupplier(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
-            />
-            <div className="grid grid-cols-3 gap-2">
-              <select
-                value={poGrade}
-                onChange={(e) => setPoGrade(e.target.value as FuelGrade)}
-                className="px-2 py-2 rounded border border-slate-300 text-xs bg-white min-h-[40px]"
-              >
-                {ALL_FUEL_GRADES.map((g) => (
-                  <option key={g} value={g}>
-                    {gradeLabel(g)}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                value={poLitres}
-                onChange={(e) => setPoLitres(e.target.value)}
-                placeholder="Litres"
-                className="px-2.5 py-2 rounded border border-slate-300 text-xs font-mono"
-              />
-              <input
-                type="number"
-                value={poCost}
-                onChange={(e) => setPoCost(e.target.value)}
-                placeholder="FCFA/L"
-                className="px-2.5 py-2 rounded border border-slate-300 text-xs font-mono"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
-            >
-              Create Supplier PO
-            </button>
-
-            <div className="pt-2 border-t border-slate-100 space-y-1.5">
-              <div className="text-xs font-semibold text-slate-700">Active Purchase Orders</div>
-              {visiblePOs.slice(0, 4).map((po) => (
-                <div key={po.id} className="flex items-center justify-between gap-2 text-xs text-slate-600">
+        {visiblePOs.length > 0 && (
+          <div className="pt-3 border-t border-slate-200 space-y-2">
+            <div className="text-xs font-semibold text-slate-700">Active Supplier Purchase Orders</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {visiblePOs.slice(0, 6).map((po) => (
+                <div key={po.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-700 bg-white">
                   <span>
-                    {po.id} · {po.grade} ({formatLitres(po.orderedLitres)})
+                    <span className="font-mono font-semibold text-slate-900">{po.id}</span> · {po.supplierName} · {po.grade} ({formatLitres(po.orderedLitres)})
                   </span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono">{po.status}</span>
-                    <button
-                      type="button"
-                      onClick={() => onDeletePO(po.id)}
-                      aria-label={`Delete PO ${po.id}`}
-                      className="text-slate-400 hover:text-red-600"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-semibold text-slate-600">{po.status}</span>
+                    {canDeliver && (
+                      <button
+                        type="button"
+                        onClick={() => onDeletePO(po.id)}
+                        aria-label={`Delete PO ${po.id}`}
+                        className="text-slate-400 hover:text-red-600"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
-              {visiblePOs.length === 0 && (
-                <div className="text-xs text-slate-400">No active supplier purchase orders.</div>
-              )}
             </div>
-          </form>
+          </div>
         )}
       </div>
+
+      {/* Popup Modals for Dipstick, Tanker Delivery & Purchase Order */}
+      <FormModal
+        open={invModal === 'dip'}
+        title="Record Physical Tank Dipstick"
+        subtitle="Compares physical tank fuel against book stock and flags variances over 100 L."
+        onClose={() => setInvModal(null)}
+      >
+        <form
+          onSubmit={(e) => {
+            handleDipSubmit(e);
+            setInvModal(null);
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="opes-label">Select Underground Tank</label>
+            <select
+              value={dipTankId || visibleTanks[0]?.id || ''}
+              onChange={(e) => setDipTankId(e.target.value)}
+              className="opes-input"
+              required
+            >
+              {visibleTanks.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="opes-label">Measured Physical Volume (Litres)</label>
+            <input
+              type="number"
+              value={dipLitres}
+              onChange={(e) => setDipLitres(e.target.value)}
+              className="opes-input font-mono tabular-nums"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setInvModal(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold">
+              Submit Dipstick Reading
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      <FormModal
+        open={invModal === 'delivery'}
+        title="Receive Tanker Delivery"
+        subtitle="Verifies supplier Bill-of-Lading vs. actual received litres and updates tank cost & inventory."
+        onClose={() => setInvModal(null)}
+      >
+        <form
+          onSubmit={(e) => {
+            handleDeliverySubmit(e);
+            setInvModal(null);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="opes-label">Destination Tank</label>
+              <select
+                value={delTankId || visibleTanks[0]?.id || ''}
+                onChange={(e) => setDelTankId(e.target.value)}
+                className="opes-input"
+                required
+              >
+                {visibleTanks.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="opes-label">Depot Supplier Name</label>
+              <input type="text" value={delSupplier} onChange={(e) => setDelSupplier(e.target.value)} placeholder="SCDP Douala Depot" className="opes-input" required />
+            </div>
+            <div>
+              <label className="opes-label">Bill-of-Lading (Litres)</label>
+              <input type="number" value={delBol} onChange={(e) => setDelBol(e.target.value)} className="opes-input font-mono" required />
+            </div>
+            <div>
+              <label className="opes-label">Actual Received (Litres)</label>
+              <input type="number" value={delActual} onChange={(e) => setDelActual(e.target.value)} className="opes-input font-mono" required />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="opes-label">Wholesale Unit Cost (FCFA / Litre)</label>
+              <input type="number" value={delCost} onChange={(e) => setDelCost(e.target.value)} className="opes-input font-mono" required />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setInvModal(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">
+              Confirm Delivery Receipt
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      <FormModal
+        open={invModal === 'po'}
+        title="Raise Supplier Fuel Purchase Order"
+        subtitle="Schedule fuel replenishment from your depot supplier."
+        onClose={() => setInvModal(null)}
+      >
+        <form
+          onSubmit={(e) => {
+            handlePoSubmit(e);
+            setInvModal(null);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="opes-label">Supplier Depot</label>
+              <input type="text" value={poSupplier} onChange={(e) => setPoSupplier(e.target.value)} placeholder="SCDP Douala Depot" className="opes-input" required />
+            </div>
+            <div>
+              <label className="opes-label">Fuel Grade</label>
+              <select value={poGrade} onChange={(e) => setPoGrade(e.target.value as FuelGrade)} className="opes-input">
+                {ALL_FUEL_GRADES.map((g) => (
+                  <option key={g} value={g}>{gradeLabel(g)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Ordered Volume (Litres)</label>
+              <input type="number" value={poLitres} onChange={(e) => setPoLitres(e.target.value)} className="opes-input font-mono" required />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="opes-label">Expected Cost (FCFA / Litre)</label>
+              <input type="number" value={poCost} onChange={(e) => setPoCost(e.target.value)} className="opes-input font-mono" required />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setInvModal(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold">
+              Create Supplier PO
+            </button>
+          </div>
+        </form>
+      </FormModal>
 
       {/* Tanker Delivery History & Dipstick Calibration Audit Log */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

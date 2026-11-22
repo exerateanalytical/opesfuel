@@ -1,0 +1,189 @@
+package com.opesware.opesfuel.billing;
+
+import com.opesware.opesfuel.shared.audit.AuditTrailRecorder;
+import com.opesware.opesfuel.shared.security.OpesFuelPrincipal;
+import com.opesware.opesfuel.shared.security.TenantAccessGuard;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+record InitiateCheckoutCommand(
+    @NotBlank String provider,
+    String phoneNumber
+) {}
+
+record PaymentWebhookPayload(
+    @NotBlank String externalRef,
+    @NotBlank String status,
+    String transactionId
+) {}
+
+@RestController
+public class PaymentGatewayController {
+    private static final Set<String> PROVIDERS = Set.of("ORANGE_MONEY", "MTN_MOMO", "CINETPAY", "STRIPE");
+
+    private final JdbcTemplate jdbcTemplate;
+    private final TenantAccessGuard accessGuard;
+    private final AuditTrailRecorder auditRecorder;
+
+    @Value("${opesfuel.payment.checkout-base-url:https://pay.opesfuel.com/checkout}")
+    private String checkoutBaseUrl;
+
+    @Value("${opesfuel.payment.webhook-secret:opesfuel-dev-webhook-secret}")
+    private String webhookSecret;
+
+    public PaymentGatewayController(
+        JdbcTemplate jdbcTemplate,
+        TenantAccessGuard accessGuard,
+        AuditTrailRecorder auditRecorder
+    ) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.accessGuard = accessGuard;
+        this.auditRecorder = auditRecorder;
+    }
+
+    @GetMapping("/api/v1/billing/payments")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','ACCOUNTANT') or hasAuthority('SCOPE_billing:read')")
+    public List<Map<String, Object>> listPayments() {
+        String tenantId = accessGuard.currentTenantId();
+        return jdbcTemplate.query(
+            "SELECT * FROM payment_transactions WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 100",
+            (rs, idx) -> Map.<String, Object>of(
+                "id", rs.getString("id"),
+                "invoiceId", rs.getString("invoice_id"),
+                "provider", rs.getString("provider"),
+                "externalRef", rs.getString("external_ref"),
+                "amountFcfa", rs.getLong("amount_fcfa"),
+                "currency", rs.getString("currency"),
+                "status", rs.getString("status"),
+                "checkoutUrl", rs.getString("checkout_url"),
+                "createdAt", rs.getTimestamp("created_at").toInstant().toString()
+            ),
+            tenantId
+        );
+    }
+
+    @PostMapping("/api/v1/billing/invoices/{invoiceId}/checkout")
+    @Transactional
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','ACCOUNTANT') or hasAuthority('SCOPE_billing:write')")
+    public Map<String, Object> initiateCheckout(
+        @PathVariable String invoiceId,
+        @Valid @RequestBody InitiateCheckoutCommand cmd
+    ) {
+        OpesFuelPrincipal principal = accessGuard.currentPrincipal();
+        String provider = cmd.provider().trim().toUpperCase();
+        if (!PROVIDERS.contains(provider)) {
+            throw new IllegalArgumentException("Unsupported payment provider: " + provider);
+        }
+
+        Map<String, Object> inv = jdbcTemplate.queryForMap(
+            "SELECT id, tenant_id, total_fcfa, status FROM billing_invoices WHERE id = ?",
+            invoiceId
+        );
+        accessGuard.assertTenantMatch(String.valueOf(inv.get("tenant_id")));
+        if ("PAID".equalsIgnoreCase(String.valueOf(inv.get("status")))) {
+            throw new IllegalStateException("Invoice " + invoiceId + " is already PAID.");
+        }
+
+        long amount = ((Number) inv.get("total_fcfa")).longValue();
+        String txId = "pay_" + UUID.randomUUID().toString().substring(0, 10);
+        String extRef = provider.substring(0, 3) + "-" + UUID.randomUUID().toString().substring(0, 10).toUpperCase();
+        String checkoutUrl = checkoutBaseUrl + "/" + provider.toLowerCase() + "?ref=" + extRef + "&amount=" + amount + "&currency=XAF";
+
+        jdbcTemplate.update(
+            """
+            INSERT INTO payment_transactions (id, tenant_id, invoice_id, provider, external_ref, amount_fcfa, currency, status, checkout_url, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'XAF', 'PENDING', ?, ?)
+            """,
+            txId, principal.tenantId(), invoiceId, provider, extRef, amount, checkoutUrl, Timestamp.from(Instant.now())
+        );
+
+        auditRecorder.record(
+            principal.tenantId(), null, principal.subject(),
+            principal.roles().stream().findFirst().orElse("OWNER"),
+            "PAYMENT_CHECKOUT_INITIATED", "BILLING_INVOICE", invoiceId,
+            "Initiated " + provider + " checkout for " + amount + " FCFA (ref " + extRef + ")"
+        );
+
+        return Map.of(
+            "id", txId,
+            "invoiceId", invoiceId,
+            "provider", provider,
+            "externalRef", extRef,
+            "amountFcfa", amount,
+            "status", "PENDING",
+            "checkoutUrl", checkoutUrl
+        );
+    }
+
+    @PostMapping("/api/v1/public/webhooks/payments/{provider}")
+    @Transactional
+    public Map<String, Object> handlePaymentWebhook(
+        @PathVariable String provider,
+        @RequestHeader(value = "X-OpesFuel-Signature", required = false) String signature,
+        @Valid @RequestBody PaymentWebhookPayload payload
+    ) {
+        if (webhookSecret != null && !webhookSecret.isBlank() && signature != null && !signature.isBlank()) {
+            String expected = hmacSha256(payload.externalRef() + ":" + payload.status(), webhookSecret);
+            if (!expected.equalsIgnoreCase(signature.trim())) {
+                throw new IllegalArgumentException("Invalid payment webhook HMAC signature.");
+            }
+        }
+
+        Map<String, Object> tx = jdbcTemplate.queryForMap(
+            "SELECT id, tenant_id, invoice_id, amount_fcfa, status FROM payment_transactions WHERE external_ref = ?",
+            payload.externalRef()
+        );
+        String txId = String.valueOf(tx.get("id"));
+        String tenantId = String.valueOf(tx.get("tenant_id"));
+        String invoiceId = String.valueOf(tx.get("invoice_id"));
+        long amount = ((Number) tx.get("amount_fcfa")).longValue();
+        String newStatus = "PAID".equalsIgnoreCase(payload.status()) || "SUCCESS".equalsIgnoreCase(payload.status())
+            ? "PAID" : "FAILED";
+
+        jdbcTemplate.update(
+            "UPDATE payment_transactions SET status = ?, completed_at = ? WHERE id = ?",
+            newStatus, Timestamp.from(Instant.now()), txId
+        );
+
+        if ("PAID".equals(newStatus)) {
+            jdbcTemplate.update(
+                "UPDATE billing_invoices SET status = 'PAID', paid_at = ? WHERE id = ?",
+                Timestamp.from(Instant.now()), invoiceId
+            );
+            jdbcTemplate.update("UPDATE tenants SET status = 'ACTIVE' WHERE id = ?", tenantId);
+            auditRecorder.record(
+                tenantId, null, "webhook@" + provider.toLowerCase(), "PAYMENT_GATEWAY",
+                "INVOICE_AUTO_SETTLED", "BILLING_INVOICE", invoiceId,
+                "Auto-settled invoice " + invoiceId + " (" + amount + " FCFA) via " + provider.toUpperCase()
+            );
+        }
+
+        return Map.of("acknowledged", true, "externalRef", payload.externalRef(), "status", newStatus, "invoiceId", invoiceId);
+    }
+
+    private String hmacSha256(String data, String secret) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return HexFormat.of().formatHex(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("HMAC calculation failed", e);
+        }
+    }
+}

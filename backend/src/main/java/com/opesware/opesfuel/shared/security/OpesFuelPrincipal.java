@@ -11,6 +11,10 @@ public record OpesFuelPrincipal(
     Set<String> allowedStationIds,
     boolean apiKeyAuth
 ) {
+    public String subject() {
+        return principalId != null ? principalId : auth0Sub;
+    }
+
     public boolean hasRole(String role) {
         return roles != null && roles.contains(role.toUpperCase());
     }

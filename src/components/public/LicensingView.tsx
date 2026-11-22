@@ -313,7 +313,7 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole, onL
         </div>
 
         {receipt ? (
-          <div className="border border-emerald-300 bg-emerald-50/40 rounded-xl p-7 space-y-4">
+          <div className="border border-emerald-300 bg-white rounded-xl p-7 space-y-4">
             <div className="text-sm font-semibold text-emerald-700">Enterprise Proposal Registered</div>
             <h3 className="font-display text-2xl font-bold text-slate-900">Reference {receipt}</h3>
             <p className="text-sm text-slate-700">
@@ -369,7 +369,7 @@ export const LicensingView: React.FC<LicensingViewProps> = ({ onOpenConsole, onL
                   onClick={() => setLicenseTrack(opt.id)}
                   className={`p-4 rounded-lg border text-left transition-colors ${
                     licenseTrack === opt.id
-                      ? 'border-amber-600 bg-amber-50/60'
+                      ? 'border-amber-600 bg-white'
                       : 'border-slate-200 hover:bg-slate-50'
                   }`}
                 >

@@ -11,26 +11,26 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import {
+  ArrowLeft,
   CheckCircle2,
+  ChevronRight,
   Circle,
+  Cloud,
+  CloudOff,
   CreditCard,
-  Flame,
   Fuel,
   Gauge,
   Menu,
   RefreshCw,
-  Shield,
+  ShieldCheck,
   Sparkles,
   TrendingUp,
-  Wifi,
-  WifiOff,
   Wrench,
   X,
 } from 'lucide-react-native';
 import {
   DEFAULT_INSTITUTIONAL_FUELS,
   MobileFuelGrade,
-  MobileInstitutionalFuelTemplate,
   MobileRole,
   MobileSyncHealth,
   MobileTankDto,
@@ -49,19 +49,54 @@ const client = new OpesFuelMobileClient();
 const formatFcfa = (value: number) => `${Math.round(value).toLocaleString('fr-FR')} FCFA`;
 const formatLitres = (value: number) => `${Math.round(value).toLocaleString('fr-FR')} L`;
 
-type MobileTab = 'shifts' | 'inventory' | 'fleet' | 'reports' | 'ai' | 'setup';
+type MobileTab = 'shifts' | 'inventory' | 'fleet' | 'reports' | 'sync' | 'ai' | 'setup';
 
-interface SetupRowDraft {
-  selected: boolean;
+interface MobilePump {
+  id: string;
+  code: string;
   grade: MobileFuelGrade;
-  label: string;
-  tankName: string;
-  capacityLitres: string;
-  openingLitres: string;
-  unitCostFcfa: string;
-  sellingPriceFcfa: string;
-  nozzleCount: string;
+  totalizerLitres: number;
+  unitPriceFcfa: number;
+  status: 'ACTIVE_SHIFT' | 'IDLE';
+  attendantName: string | null;
 }
+
+interface MobileFleet {
+  id: string;
+  companyName: string;
+  creditLimitFcfa: number;
+  currentBalanceFcfa: number;
+}
+
+const INITIAL_PUMPS: MobilePump[] = [
+  {
+    id: 'pmp_01',
+    code: 'PMP-01',
+    grade: 'SUPER',
+    totalizerLitres: 485000,
+    unitPriceFcfa: 840,
+    status: 'ACTIVE_SHIFT',
+    attendantName: 'Samuel Tchoupo',
+  },
+  {
+    id: 'pmp_02',
+    code: 'PMP-02',
+    grade: 'GASOIL',
+    totalizerLitres: 612400,
+    unitPriceFcfa: 828,
+    status: 'IDLE',
+    attendantName: null,
+  },
+  {
+    id: 'pmp_03',
+    code: 'PMP-03',
+    grade: 'SUPER',
+    totalizerLitres: 294120,
+    unitPriceFcfa: 840,
+    status: 'ACTIVE_SHIFT',
+    attendantName: 'Mireille Ngo',
+  },
+];
 
 const INITIAL_TANKS: MobileTankDto[] = [
   {
@@ -93,20 +128,27 @@ const INITIAL_TANKS: MobileTankDto[] = [
   },
 ];
 
+const INITIAL_FLEETS: MobileFleet[] = [
+  { id: 'flt_01', companyName: 'Cameroon Timber Logistics SA', creditLimitFcfa: 6000000, currentBalanceFcfa: 2450000 },
+  { id: 'flt_02', companyName: 'Douala Express Freight SARL', creditLimitFcfa: 4500000, currentBalanceFcfa: 1820000 },
+  { id: 'flt_03', companyName: 'Littoral Construction Group', creditLimitFcfa: 8000000, currentBalanceFcfa: 3100000 },
+];
+
 export default function App() {
   const [role, setRole] = useState<MobileRole>('OWNER');
   const [activeTab, setActiveTab] = useState<MobileTab>('shifts');
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Master -> Detail drill-down IDs
+  const [detailPumpId, setDetailPumpId] = useState<string | null>(null);
+  const [detailTankId, setDetailTankId] = useState<string | null>(null);
+  const [detailFleetId, setDetailFleetId] = useState<string | null>(null);
+  const [posSubTab, setPosSubTab] = useState<'fleet' | 'shop'>('fleet');
+
+  // Operational state
+  const [pumps, setPumps] = useState<MobilePump[]>(INITIAL_PUMPS);
   const [tanks, setTanks] = useState<MobileTankDto[]>(INITIAL_TANKS);
-  const [closingMeter, setClosingMeter] = useState('485420');
-  const [cashFcfa, setCashFcfa] = useState('840000');
-  const [momoFcfa, setMomoFcfa] = useState('310000');
-  const [dipTankId, setDipTankId] = useState('tk_01');
-  const [dipTankLitres, setDipTankLitres] = useState('24645');
-  const [fleetPlate, setFleetPlate] = useState('LT-482-AK');
-  const [fleetGrade, setFleetGrade] = useState<MobileFuelGrade>('GASOIL');
-  const [fleetLitres, setFleetLitres] = useState('150');
-  const [shopQty, setShopQty] = useState('2');
+  const [fleets] = useState<MobileFleet[]>(INITIAL_FLEETS);
   const [queue, setQueue] = useState<QueuedCommand[]>([]);
   const [syncHealth, setSyncHealth] = useState<MobileSyncHealth>({
     state: 'CHECKING',
@@ -117,1002 +159,775 @@ export default function App() {
     endpoint: 'http://localhost:8080/api/v1',
   });
   const [banner, setBanner] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
 
-  // Paid AI Copilot state
-  const [aiActive, setAiActive] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [aiQuestion, setAiQuestion] = useState('');
-  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  // Form states inside detail screens
+  const [litresDelta, setLitresDelta] = useState('420');
+  const [cashFcfa, setCashFcfa] = useState('247000');
+  const [momoFcfa, setMomoFcfa] = useState('105800');
+  const [dipLitres, setDipLitres] = useState('24645');
+  const [fleetPlate, setFleetPlate] = useState('LT-482-AK');
+  const [fleetDriver, setFleetDriver] = useState('Jean-Luc Fotso');
+  const [fleetLitres, setFleetLitres] = useState('120');
 
-  // Institutional Fuels & Onboarding Setup state
-  const [setupRows, setSetupRows] = useState<SetupRowDraft[]>(() =>
-    DEFAULT_INSTITUTIONAL_FUELS.map((tpl) => ({
-      selected: tpl.code === 'SUPER' || tpl.code === 'GASOIL',
-      grade: tpl.code,
-      label: tpl.label,
-      tankName: tpl.tankName,
-      capacityLitres: String(tpl.defaultCapacityLitres),
-      openingLitres: String(tpl.defaultOpeningLitres),
-      unitCostFcfa: String(tpl.defaultUnitCostFcfa),
-      sellingPriceFcfa: String(tpl.defaultSellingPriceFcfa),
-      nozzleCount: String(tpl.defaultNozzleCount),
+  // Setup screen drafts
+  const [setupRows, setSetupRows] = useState(() =>
+    DEFAULT_INSTITUTIONAL_FUELS.map((f) => ({
+      selected: f.code === 'SUPER' || f.code === 'GASOIL',
+      grade: f.code,
+      label: f.label,
+      tankName: f.tankName,
+      capacityLitres: String(f.defaultCapacityLitres),
+      openingLitres: String(f.defaultOpeningLitres),
+      unitCostFcfa: String(f.defaultUnitCostFcfa),
+      sellingPriceFcfa: String(f.defaultSellingPriceFcfa),
+      nozzleCount: String(f.defaultNozzleCount),
     }))
   );
-  const [includeLubricants, setIncludeLubricants] = useState(true);
-  const [oilQty, setOilQty] = useState('30');
-  const [lpgCylQty, setLpgCylQty] = useState('24');
-  const [shiftClosedOnce, setShiftClosedOnce] = useState(true);
 
-  const [report, setReport] = useState({
-    totalRevenueFcfa: 48650000,
-    grossProfitFcfa: 6240000,
-    operatingExpensesFcfa: 1480000,
-    vatPayableFcfa: 7854000,
-    netIncomeFcfa: 4760000,
-    trialBalanceBalanced: true,
-  });
-
-  const refreshSyncHealth = async () => {
-    setSyncHealth((prev) => ({ ...prev, state: 'CHECKING' }));
-    const health = await client.checkConnectivity();
+  const refreshSyncState = async () => {
+    const [q, health] = await Promise.all([client.getOfflineQueue(), client.checkConnectivity()]);
+    setQueue(q);
     setSyncHealth(health);
-    setQueue(await client.getOfflineQueue());
-  };
-
-  const [authToken, setAuthToken] = useState<string | null>(null);
-
-  const handleMobileAuth0Toggle = async () => {
-    if (authToken) {
-      await clearMobileAccessToken();
-      client.setAccessToken(null);
-      setAuthToken(null);
-      setBanner('Signed out from Auth0 mobile session.');
-      return;
-    }
-    try {
-      const token = await loginWithMobileAuth0();
-      client.setAccessToken(token);
-      setAuthToken(token);
-      setBanner('Authenticated via Auth0 OIDC PKCE. Syncing live station telemetry.');
-      await refreshSyncHealth();
-    } catch (err) {
-      setBanner(err instanceof Error ? err.message : 'Mobile Auth0 sign-in failed.');
-    }
   };
 
   useEffect(() => {
-    void getStoredMobileAccessToken().then((stored) => {
-      if (stored) {
-        client.setAccessToken(stored);
-        setAuthToken(stored);
+    void (async () => {
+      const token = await getStoredMobileAccessToken();
+      if (token) {
+        client.setAccessToken(token);
+        setSignedIn(true);
       }
-    });
-    void refreshSyncHealth();
-    const poll = setInterval(() => {
-      void client.checkConnectivity().then(setSyncHealth).catch(() => {});
-    }, 15000);
-    client
-      .fetchTanks('st_plateau')
-      .then((remoteTanks) => {
-        if (Array.isArray(remoteTanks) && remoteTanks.length > 0) {
-          setTanks(remoteTanks);
-          setDipTankId(remoteTanks[0].id);
-        }
-      })
-      .catch(() => {});
-    client
-      .fetchFinancialReport('st_plateau')
-      .then((res) => setReport(res))
-      .catch(() => {});
-    client
-      .fetchAiSubscription('st_plateau')
-      .then((sub) => setAiActive(Boolean(sub.active)))
-      .catch(() => {});
-    client
-      .fetchInstitutionalFuels()
-      .then((catalog: MobileInstitutionalFuelTemplate[]) => {
-        setSetupRows(
-          catalog.map((tpl) => ({
-            selected: tpl.code === 'SUPER' || tpl.code === 'GASOIL',
-            grade: tpl.code,
-            label: tpl.label,
-            tankName: tpl.tankName,
-            capacityLitres: String(tpl.defaultCapacityLitres),
-            openingLitres: String(tpl.defaultOpeningLitres),
-            unitCostFcfa: String(tpl.defaultUnitCostFcfa),
-            sellingPriceFcfa: String(tpl.defaultSellingPriceFcfa),
-            nozzleCount: String(tpl.defaultNozzleCount),
-          }))
-        );
-      })
-      .catch(() => {});
-    return () => clearInterval(poll);
+      await refreshSyncState();
+    })();
   }, []);
 
-  const metricsSnapshot = useMemo(
-    () => ({
-      stationId: 'st_plateau',
-      tanks,
-      reportFcfa: report,
-      queuedOfflineCommands: queue.length,
-    }),
-    [tanks, report, queue.length]
-  );
+  const detailPump = useMemo(() => pumps.find((p) => p.id === detailPumpId) ?? null, [pumps, detailPumpId]);
+  const detailTank = useMemo(() => tanks.find((t) => t.id === detailTankId) ?? null, [tanks, detailTankId]);
+  const detailFleet = useMemo(() => fleets.find((f) => f.id === detailFleetId) ?? null, [fleets, detailFleetId]);
 
-  const onboardingSteps = useMemo(
-    () => [
-      { key: 'FUELS', label: '1. Institutional Fuels & Opening Volumes', done: tanks.length > 0 },
-      { key: 'PUMPS', label: '2. Forecourt Pumps & Staff Roster', done: tanks.length > 0 },
-      { key: 'SHIFT', label: '3. Open & Reconcile First Shift', done: shiftClosedOnce },
-      { key: 'LEDGER', label: '4. Audit Balanced FCFA Trial Balance', done: report.trialBalanceBalanced },
-      { key: 'AI', label: '5. Activate Paid AI Copilot (25 000 FCFA/mo)', done: aiActive },
-    ],
-    [tanks.length, shiftClosedOnce, report.trialBalanceBalanced, aiActive]
-  );
-
-  const completedStepsCount = onboardingSteps.filter((s) => s.done).length;
-
-  const applyCommandSyncResult = async (synced: boolean) => {
-    const updatedQueue = await client.getOfflineQueue();
-    setQueue(updatedQueue);
-    setSyncHealth((prev) => ({
-      ...prev,
-      connected: synced,
-      pendingQueueCount: updatedQueue.length,
-      state: synced && updatedQueue.length === 0 ? 'LIVE_CONNECTED' : 'OFFLINE_QUEUED',
-      lastSyncedAt: synced ? new Date().toISOString() : prev.lastSyncedAt,
-    }));
+  const navigateTab = (next: MobileTab) => {
+    setActiveTab(next);
+    setDetailPumpId(null);
+    setDetailTankId(null);
+    setDetailFleetId(null);
+    setDrawerOpen(false);
   };
 
-  const handleShiftSubmit = async () => {
-    const res = await client.submitOrQueueCommand('Close Pump P-01 Shift', '/forecourt/shifts/sh_101/close', {
-      closingMeterLitres: Number(closingMeter) || 0,
-      cashFcfa: Number(cashFcfa) || 0,
-      mobileMoneyFcfa: Number(momoFcfa) || 0,
-      cardFcfa: 0,
-      fleetCreditFcfa: 0,
-    });
-    setShiftClosedOnce(true);
-    await applyCommandSyncResult(res.synced);
-    setBanner(res.synced ? 'Shift synced to Java Spring Boot ledger.' : 'Offline: queued safely with Idempotency-Key.');
-  };
-
-  const handleDipstickSubmit = async () => {
-    const measured = Number(dipTankLitres) || 0;
-    const res = await client.submitOrQueueCommand('Tank Dipstick Reading', '/inventory/dipsticks', {
-      tankId: dipTankId,
-      measuredLitres: measured,
-    });
-    setTanks((prev) =>
-      prev.map((t) =>
-        t.id === dipTankId
-          ? {
-              ...t,
-              lastDipLitres: measured,
-              status: Math.abs(measured - t.bookVolumeLitres) > 100 ? 'VARIANCE_ALERT' : t.status,
-            }
-          : t
-      )
+  const handleCloseShift = async (pump: MobilePump) => {
+    const sold = Math.max(1, Number(litresDelta) || 0);
+    const closingMeterLitres = pump.totalizerLitres + sold;
+    const res = await client.submitOrQueueCommand(
+      `Close Shift ${pump.code} (${sold} L)`,
+      `/forecourt/shifts/${pump.id}/close`,
+      {
+        closingMeterLitres,
+        cashFcfa: Number(cashFcfa) || 0,
+        mobileMoneyFcfa: Number(momoFcfa) || 0,
+        cardFcfa: 0,
+        fleetCreditFcfa: 0,
+      }
     );
-    await applyCommandSyncResult(res.synced);
-    setBanner(res.synced ? 'Dipstick reconciled.' : 'Offline: dipstick queued for auto-sync.');
-  };
-
-  const handleFleetVoucher = async () => {
-    const res = await client.submitOrQueueCommand('Fleet Voucher ' + fleetPlate, '/fleet/vouchers', {
-      accountId: 'flt_01',
-      stationId: 'st_plateau',
-      vehiclePlate: fleetPlate,
-      driverName: 'Mobile Driver',
-      grade: fleetGrade,
-      litres: Number(fleetLitres) || 0,
-    });
-    await applyCommandSyncResult(res.synced);
-    setBanner(res.synced ? `Fleet credit voucher (${fleetGrade}) posted.` : 'Offline: fleet voucher queued.');
-  };
-
-  const handleShopSale = async () => {
-    const res = await client.submitOrQueueCommand('Lubricant 15W40 Sale', '/shop/sales', {
-      itemId: 'sku_01',
-      quantity: Number(shopQty) || 1,
-      paymentMethod: 'MOBILE_MONEY',
-    });
-    await applyCommandSyncResult(res.synced);
-    setBanner(res.synced ? 'Shop sale recorded.' : 'Offline: shop sale queued.');
-  };
-
-  const handleToggleAi = async () => {
-    const next = !aiActive;
-    setAiActive(next);
-    const res = await client.toggleAiSubscription('st_plateau', next);
-    await applyCommandSyncResult(res.synced);
-    setBanner(
-      res.synced
-        ? next
-          ? 'Paid AI Copilot activated (25 000 FCFA/mo).'
-          : 'Paid AI Copilot paused.'
-        : 'AI Copilot status queued for server sync.'
+    setPumps((prev) =>
+      prev.map((p) => (p.id === pump.id ? { ...p, totalizerLitres: closingMeterLitres, status: 'IDLE', attendantName: null } : p))
     );
+    setDetailPumpId(null);
+    setBanner(res.synced ? `Shift closed on ${pump.code} and synced live.` : `Queued offline (${res.idempotencyKey.slice(0, 8)}).`);
+    await refreshSyncState();
   };
 
-  const handleRunAiAnalysis = async () => {
-    setAiLoading(true);
-    try {
-      const res = await client.runAiAnalysis('st_plateau', metricsSnapshot);
-      setAiSummary(res.analysis);
-    } catch {
-      const lowTanks = tanks.filter((t) => t.bookVolumeLitres / Math.max(1, t.capacityLitres) < 0.25);
-      const alerts =
-        lowTanks.length > 0
-          ? lowTanks.map((t) => `${t.name}: ${formatLitres(t.bookVolumeLitres)} left — schedule SCDP refill within 48h.`).join('\n')
-          : 'All underground tanks are above 25% reserve threshold.';
-      setAiSummary(
-        `Offline Forecast Snapshot (30d est. ${formatFcfa(report.totalRevenueFcfa)}):\n${alerts}\nConnect to your OpesFuel Java Spring Boot server with GEMINI_API_KEY configured for live predictive modeling.`
-      );
-    } finally {
-      setAiLoading(false);
-    }
+  const handleOpenShift = async (pump: MobilePump) => {
+    const res = await client.submitOrQueueCommand(`Open Shift ${pump.code}`, '/forecourt/shifts/open', {
+      stationId: 'st_plateau',
+      pumpId: pump.id,
+      attendantId: 'emp_01',
+    });
+    setPumps((prev) =>
+      prev.map((p) => (p.id === pump.id ? { ...p, status: 'ACTIVE_SHIFT', attendantName: 'Samuel Tchoupo' } : p))
+    );
+    setBanner(res.synced ? `Opened shift on ${pump.code}.` : `Shift open queued offline (${res.idempotencyKey.slice(0, 8)}).`);
+    await refreshSyncState();
   };
 
-  const handleAskAi = async () => {
-    const q = aiQuestion.trim();
-    if (!q) return;
-    setAiLoading(true);
-    setAiQuestion('');
-    try {
-      const res = await client.askAiAdvisor('st_plateau', q, metricsSnapshot);
-      setAiAnswer(res.answer);
-    } catch {
-      const lowest = [...tanks].sort((a, b) => a.bookVolumeLitres - b.bookVolumeLitres)[0];
-      setAiAnswer(
-        lowest
-          ? `Lowest current reserve is ${lowest.name} at ${formatLitres(lowest.bookVolumeLitres)}. Connect to live station API for full AI Q&A.`
-          : 'No tanks configured yet. Complete Institutional Setup first.'
-      );
-    } finally {
-      setAiLoading(false);
-    }
+  const handleRecordDipstick = async (tank: MobileTankDto) => {
+    const measuredLitres = Number(dipLitres) || tank.bookVolumeLitres;
+    const res = await client.submitOrQueueCommand(
+      `Dipstick ${tank.name}: ${measuredLitres} L`,
+      `/inventory/tanks/${tank.id}/dipstick`,
+      { measuredLitres }
+    );
+    setTanks((prev) => prev.map((t) => (t.id === tank.id ? { ...t, lastDipLitres: measuredLitres } : t)));
+    setDetailTankId(null);
+    setBanner(res.synced ? `Dipstick saved (${formatLitres(measuredLitres)}).` : `Dipstick queued offline (${res.idempotencyKey.slice(0, 8)}).`);
+    await refreshSyncState();
   };
 
-  const updateSetupRow = (grade: MobileFuelGrade, patch: Partial<SetupRowDraft>) => {
-    setSetupRows((prev) => prev.map((r) => (r.grade === grade ? { ...r, ...patch } : r)));
+  const handleIssueVoucher = async (fleet: MobileFleet) => {
+    const litres = Math.max(1, Number(fleetLitres) || 0);
+    const res = await client.submitOrQueueCommand(
+      `Fleet Voucher ${fleetPlate} (${litres} L)`,
+      '/fleet/vouchers',
+      {
+        accountId: fleet.id,
+        stationId: 'st_plateau',
+        vehiclePlate: fleetPlate.trim(),
+        driverName: fleetDriver.trim(),
+        grade: 'GASOIL',
+        litres,
+      }
+    );
+    setDetailFleetId(null);
+    setBanner(res.synced ? `Voucher posted for ${fleet.companyName}.` : `Voucher queued offline (${res.idempotencyKey.slice(0, 8)}).`);
+    await refreshSyncState();
   };
 
-  const handleApplyInstitutionalSetup = async () => {
-    const selected = setupRows.filter((r) => r.selected);
-    if (selected.length === 0) {
-      setBanner('Select at least one fuel grade before syncing.');
+  const handleFlushQueue = async () => {
+    const count = await client.flushOfflineQueue();
+    await refreshSyncState();
+    setBanner(count > 0 ? `Synchronized ${count} queued operation(s) cleanly.` : 'Server unreachable — queue safely preserved.');
+  };
+
+  const handleAuthToggle = async () => {
+    if (signedIn) {
+      await clearMobileAccessToken();
+      client.setAccessToken(null);
+      setSignedIn(false);
+      setBanner('Signed out of Auth0 session.');
       return;
     }
-    const items = selected.map((r) => ({
-      grade: r.grade,
-      tankName: r.tankName.trim() || `${r.grade} Reserve Tank`,
-      capacityLitres: Math.max(1000, Number(r.capacityLitres) || 20000),
-      openingLitres: Math.max(0, Number(r.openingLitres) || 0),
-      unitCostFcfa: Math.max(100, Number(r.unitCostFcfa) || 500),
-      sellingPriceFcfa: Math.max(100, Number(r.sellingPriceFcfa) || 600),
-      nozzleCount: Math.max(1, Number(r.nozzleCount) || 1),
-    }));
-
-    const res = await client.applyInstitutionalSetup('st_plateau', items, {
-      includeLubricants,
-      oilBottlesQty: Math.max(0, Number(oilQty) || 0),
-      lpgCylindersQty: Math.max(0, Number(lpgCylQty) || 0),
-    });
-
-    setTanks(
-      items.map((item, idx) => ({
-        id: `tk_sync_${idx + 1}`,
-        name: item.tankName,
-        grade: item.grade,
-        capacityLitres: item.capacityLitres,
-        bookVolumeLitres: item.openingLitres,
-        lastDipLitres: item.openingLitres,
-        status: item.openingLitres / item.capacityLitres < 0.2 ? 'LOW_STOCK' : 'NOMINAL',
-      }))
-    );
-    await applyCommandSyncResult(res.synced);
-    setBanner(
-      res.synced
-        ? `Synchronized ${items.length} institutional fuel grades & opening volumes across mobile and backend.`
-        : `Synchronized locally & queued ${items.length} institutional grades with Idempotency-Key.`
-    );
+    if (!isMobileAuth0Configured) {
+      setBanner('Configure EXPO_PUBLIC_AUTH0_DOMAIN to enable SSO sign-in.');
+      return;
+    }
+    const result = await loginWithMobileAuth0();
+    if (result.accessToken) {
+      client.setAccessToken(result.accessToken);
+      setSignedIn(true);
+      setBanner('Signed in via Auth0 PKCE.');
+    } else if (result.error) {
+      setBanner(result.error);
+    }
   };
 
-  const handleSyncQueue = async () => {
-    const synced = await client.flushOfflineQueue();
-    await refreshSyncHealth();
-    setBanner(`Synced ${synced} queued command(s) to Java Spring Boot.`);
-  };
-
-  const isLiveConnected = syncHealth.connected && queue.length === 0;
+  const activeCount = pumps.filter((p) => p.status === 'ACTIVE_SHIFT').length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
-      {/* Native Slide-Over Hamburger Navigation Drawer */}
-      <Modal
-        visible={drawerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDrawerOpen(false)}
-      >
+      <StatusBar style="light" />
+
+      {/* Clean Obsidian Navy Top Bar */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.iconBtn} accessibilityLabel="Open menu">
+            <Menu color="#FFFFFF" size={22} />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.topTitle}>OpesFuel Douala</Text>
+            <Text style={styles.topSub}>{role} · Forecourt Companion</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity onPress={() => navigateTab('sync')} style={styles.syncPill}>
+          {syncHealth.connected ? <Cloud color="#FFFFFF" size={14} /> : <CloudOff color="#F59E0B" size={14} />}
+          <Text style={styles.syncPillText}>
+            {queue.length > 0 ? `${queue.length} Queued` : syncHealth.connected ? 'LIVE' : 'OFFLINE'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {banner && (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>{banner}</Text>
+          <TouchableOpacity onPress={() => setBanner(null)}>
+            <X color="#FFFFFF" size={16} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Slide-Over Hamburger Drawer */}
+      <Modal visible={drawerOpen} transparent animationType="fade" onRequestClose={() => setDrawerOpen(false)}>
         <View style={styles.drawerOverlay}>
           <View style={styles.drawerPanel}>
             <View style={styles.drawerHeader}>
-              <View style={styles.brandRow}>
-                <View style={styles.logoMark}>
-                  <Flame size={18} color="#F59E0B" />
-                </View>
-                <View>
-                  <Text style={styles.drawerBrand}>
-                    Opes<Text style={styles.brandAccent}>Fuel</Text> Mobile
-                  </Text>
-                  <Text style={styles.drawerSubtitle}>Station Plateau · FCFA</Text>
-                </View>
+              <View>
+                <Text style={styles.drawerBrand}>OpesFuel Mobile</Text>
+                <Text style={styles.drawerSub}>Petrol Station OS</Text>
               </View>
-              <TouchableOpacity
-                onPress={() => setDrawerOpen(false)}
-                style={styles.drawerCloseBtn}
-                accessibilityLabel="Close navigation menu"
-              >
-                <X size={20} color="#CBD5E1" />
+              <TouchableOpacity onPress={() => setDrawerOpen(false)}>
+                <X color="#94A3B8" size={22} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.drawerRoleBox}>
-              <View style={styles.drawerRoleLabelRow}>
-                <Shield size={13} color="#F59E0B" />
-                <Text style={styles.drawerRoleLabel}>ACTIVE ROLE</Text>
-              </View>
-              <View style={styles.drawerRoleGrid}>
-                {(['OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as MobileRole[]).map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.drawerRoleChip, role === r && styles.drawerRoleChipActive]}
-                    onPress={() => setRole(r)}
-                  >
-                    <Text style={[styles.drawerRoleChipText, role === r && styles.drawerRoleChipTextActive]}>
-                      {r}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <Text style={styles.drawerSectionLabel}>ACTIVE ROLE</Text>
+            <View style={styles.roleRow}>
+              {(['OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as MobileRole[]).map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  onPress={() => setRole(r)}
+                  style={[styles.roleChip, role === r && styles.roleChipActive]}
+                >
+                  <Text style={[styles.roleChipText, role === r && styles.roleChipTextActive]}>{r}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            <ScrollView style={styles.drawerNavList}>
-              {([
-                { id: 'shifts' as MobileTab, label: 'Forecourt Shifts & Pumps', icon: Fuel },
-                { id: 'inventory' as MobileTab, label: 'Underground Tanks & Dipsticks', icon: Gauge },
-                { id: 'fleet' as MobileTab, label: 'Fleet Credit & Shop POS', icon: CreditCard },
-                { id: 'reports' as MobileTab, label: 'Financial Reports (FCFA)', icon: TrendingUp },
-                { id: 'ai' as MobileTab, label: 'AI Operations Copilot', icon: Sparkles },
-                { id: 'setup' as MobileTab, label: `Station Setup (${completedStepsCount}/5)`, icon: Wrench },
-              ]).map((item) => {
+            <View style={styles.drawerNavList}>
+              {[
+                { id: 'shifts' as const, label: 'Forecourt & Shifts', icon: Fuel },
+                { id: 'inventory' as const, label: 'Underground Tanks', icon: Gauge },
+                { id: 'fleet' as const, label: 'Fleet Credit & POS', icon: CreditCard },
+                { id: 'reports' as const, label: 'Daily Reports & P&L', icon: TrendingUp },
+                { id: 'sync' as const, label: `Offline Sync Queue (${queue.length})`, icon: RefreshCw },
+                { id: 'setup' as const, label: 'Fuel Grade Setup', icon: Wrench },
+                { id: 'ai' as const, label: 'AI Station Copilot', icon: Sparkles },
+              ].map((item) => {
                 const Icon = item.icon;
                 const active = activeTab === item.id;
                 return (
                   <TouchableOpacity
                     key={item.id}
+                    onPress={() => navigateTab(item.id)}
                     style={[styles.drawerNavItem, active && styles.drawerNavItemActive]}
-                    onPress={() => {
-                      setActiveTab(item.id);
-                      setDrawerOpen(false);
-                    }}
                   >
-                    <Icon size={18} color={active ? '#FFFFFF' : '#CBD5E1'} />
-                    <Text style={[styles.drawerNavText, active && styles.drawerNavTextActive]}>
-                      {item.label}
-                    </Text>
+                    <Icon color={active ? '#FFFFFF' : '#CBD5E1'} size={18} />
+                    <Text style={[styles.drawerNavText, active && styles.drawerNavTextActive]}>{item.label}</Text>
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
-
-            <View style={styles.drawerFooter}>
-              {isMobileAuth0Configured && (
-                <TouchableOpacity
-                  style={styles.drawerAuthBtn}
-                  onPress={() => {
-                    setDrawerOpen(false);
-                    void handleMobileAuth0Toggle();
-                  }}
-                >
-                  <Text style={styles.drawerAuthBtnText}>
-                    {authToken ? 'Sign Out of Auth0 SSO' : 'Sign In with Auth0 SSO (PKCE)'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={styles.drawerSyncBtn}
-                onPress={() => {
-                  setDrawerOpen(false);
-                  void (queue.length > 0 ? handleSyncQueue() : refreshSyncHealth());
-                }}
-              >
-                <RefreshCw size={14} color="#F59E0B" />
-                <Text style={styles.drawerSyncBtnText}>
-                  {queue.length > 0 ? `Flush Offline Queue (${queue.length})` : 'Check Spring Boot Connection'}
-                </Text>
-              </TouchableOpacity>
             </View>
+
+            <TouchableOpacity onPress={() => void handleAuthToggle()} style={styles.authButton}>
+              <ShieldCheck color="#FFFFFF" size={16} />
+              <Text style={styles.authButtonText}>{signedIn ? 'Sign Out Auth0' : 'Sign In with Auth0 SSO'}</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.drawerBackdrop}
-            activeOpacity={1}
-            onPress={() => setDrawerOpen(false)}
-          />
+          <TouchableOpacity style={styles.drawerBackdrop} onPress={() => setDrawerOpen(false)} />
         </View>
       </Modal>
 
-      {/* Clean Native Top App Bar */}
-      <View style={styles.headerWrapper}>
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <TouchableOpacity
-              style={styles.hamburgerBtn}
-              onPress={() => setDrawerOpen(true)}
-              accessibilityLabel="Open navigation menu"
-            >
-              <Menu size={20} color="#0F172A" />
-            </TouchableOpacity>
-            <View>
-              <Text style={styles.brand}>
-                {activeTab === 'shifts'
-                  ? 'Forecourt Shifts'
-                  : activeTab === 'inventory'
-                  ? 'Underground Tanks'
-                  : activeTab === 'fleet'
-                  ? 'Fleet & Shop POS'
-                  : activeTab === 'reports'
-                  ? 'Financial Reports'
-                  : activeTab === 'ai'
-                  ? 'AI Copilot'
-                  : 'Station Setup'}
-              </Text>
-              <Text style={styles.subtitle}>OpesFuel · Station Plateau · {role}</Text>
+      {/* Pure Crisp White Scrollable Body */}
+      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+        {/* SHIFTS MASTER LIST */}
+        {activeTab === 'shifts' && !detailPump && (
+          <>
+            <View style={styles.kpiGrid}>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>Active Pumps</Text>
+                <Text style={styles.kpiValue}>
+                  {activeCount} / {pumps.length}
+                </Text>
+              </View>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>Queued Offline</Text>
+                <Text style={styles.kpiValue}>{queue.length}</Text>
+              </View>
             </View>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.syncPill,
-              isLiveConnected
-                ? styles.syncBarLive
-                : syncHealth.state === 'CHECKING'
-                ? styles.syncBarChecking
-                : styles.syncBarOffline,
-            ]}
-            onPress={queue.length > 0 ? handleSyncQueue : refreshSyncHealth}
-          >
-            <View
-              style={[
-                styles.syncDot,
-                isLiveConnected
-                  ? styles.syncDotLive
-                  : syncHealth.state === 'CHECKING'
-                  ? styles.syncDotChecking
-                  : styles.syncDotOffline,
-              ]}
-            />
-            {isLiveConnected ? (
-              <Wifi size={12} color="#15803D" />
+
+            <Text style={styles.sectionTitle}>Forecourt Pumps</Text>
+            {pumps.map((pump) => (
+              <TouchableOpacity
+                key={pump.id}
+                onPress={() => setDetailPumpId(pump.id)}
+                style={styles.listCard}
+              >
+                <View style={styles.listCardMain}>
+                  <Text style={styles.cardTitle}>
+                    {pump.code} · {pump.grade}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {pump.attendantName ? `Attendant: ${pump.attendantName}` : 'Idle — Tap to start shift'}
+                  </Text>
+                  <Text style={styles.cardMono}>
+                    Meter {formatLitres(pump.totalizerLitres)} · {formatFcfa(pump.unitPriceFcfa)}/L
+                  </Text>
+                </View>
+                <View style={styles.listCardRight}>
+                  <View style={[styles.badge, pump.status === 'ACTIVE_SHIFT' ? styles.badgeActive : styles.badgeIdle]}>
+                    <Text style={[styles.badgeText, pump.status === 'ACTIVE_SHIFT' ? styles.badgeTextActive : styles.badgeTextIdle]}>
+                      {pump.status === 'ACTIVE_SHIFT' ? 'OPEN' : 'IDLE'}
+                    </Text>
+                  </View>
+                  <ChevronRight color="#94A3B8" size={18} />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+
+        {/* PUMP DETAIL SCREEN */}
+        {activeTab === 'shifts' && detailPump && (
+          <View style={styles.detailWrap}>
+            <TouchableOpacity onPress={() => setDetailPumpId(null)} style={styles.backRow}>
+              <ArrowLeft color="#0F172A" size={18} />
+              <Text style={styles.backText}>Back to Pumps</Text>
+            </TouchableOpacity>
+
+            <View style={styles.detailCard}>
+              <Text style={styles.detailTitle}>
+                Pump {detailPump.code} ({detailPump.grade})
+              </Text>
+              <Text style={styles.cardMono}>
+                Current Totalizer: {formatLitres(detailPump.totalizerLitres)} · Tariff: {formatFcfa(detailPump.unitPriceFcfa)}/L
+              </Text>
+            </View>
+
+            {detailPump.status === 'IDLE' ? (
+              <View style={styles.detailCard}>
+                <Text style={styles.sectionTitle}>Start Forecourt Shift</Text>
+                <TouchableOpacity onPress={() => void handleOpenShift(detailPump)} style={styles.primaryBtn}>
+                  <Text style={styles.primaryBtnText}>Open Shift on {detailPump.code}</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
-              <WifiOff size={12} color={syncHealth.connected ? '#B45309' : '#B91C1C'} />
+              <View style={styles.detailCard}>
+                <Text style={styles.sectionTitle}>Close &amp; Reconcile Shift</Text>
+                <Text style={styles.inputLabel}>Litres Sold</Text>
+                <TextInput value={litresDelta} onChangeText={setLitresDelta} keyboardType="numeric" style={styles.input} />
+                <Text style={styles.inputLabel}>Cash Collected (FCFA)</Text>
+                <TextInput value={cashFcfa} onChangeText={setCashFcfa} keyboardType="numeric" style={styles.input} />
+                <Text style={styles.inputLabel}>Mobile Money (FCFA)</Text>
+                <TextInput value={momoFcfa} onChangeText={setMomoFcfa} keyboardType="numeric" style={styles.input} />
+                <TouchableOpacity onPress={() => void handleCloseShift(detailPump)} style={styles.primaryBtn}>
+                  <Text style={styles.primaryBtnText}>Submit Closing Reading</Text>
+                </TouchableOpacity>
+              </View>
             )}
-            <Text
-              style={[
-                styles.syncPillText,
-                isLiveConnected
-                  ? styles.syncTextLive
-                  : syncHealth.state === 'CHECKING'
-                  ? styles.syncTextChecking
-                  : styles.syncTextOffline,
-              ]}
-            >
-              {syncHealth.state === 'CHECKING'
-                ? 'Sync…'
-                : isLiveConnected
-                ? `${syncHealth.latencyMs ?? 12}ms`
-                : queue.length > 0
-                ? `${queue.length} Q`
-                : 'Offline'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        {banner ? (
-          <View style={styles.banner}>
-            <Text style={styles.bannerText}>{banner}</Text>
-          </View>
-        ) : null}
-
-        {queue.length > 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Offline Sync Queue ({queue.length})</Text>
-            <Text style={styles.muted}>Idempotent commands waiting for connection</Text>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={handleSyncQueue}>
-              <Text style={styles.secondaryBtnText}>Sync Now</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {activeTab === 'shifts' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Close Pump Shift (P-01A · Super)</Text>
-            <Text style={styles.label}>Closing Totalizer (Litres)</Text>
-            <TextInput style={styles.input} keyboardType="numeric" value={closingMeter} onChangeText={setClosingMeter} />
-            <Text style={styles.label}>Cash Collected (FCFA)</Text>
-            <TextInput style={styles.input} keyboardType="numeric" value={cashFcfa} onChangeText={setCashFcfa} />
-            <Text style={styles.label}>Mobile Money OM/MoMo (FCFA)</Text>
-            <TextInput style={styles.input} keyboardType="numeric" value={momoFcfa} onChangeText={setMomoFcfa} />
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleShiftSubmit}>
-              <Text style={styles.primaryBtnText}>Submit &amp; Post Ledger</Text>
-            </TouchableOpacity>
           </View>
         )}
 
-        {activeTab === 'inventory' && (
+        {/* TANKS MASTER LIST */}
+        {activeTab === 'inventory' && !detailTank && (
           <>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Underground Tanks ({tanks.length})</Text>
-              {tanks.map((tank) => (
+            <Text style={styles.sectionTitle}>Underground Fuel Tanks</Text>
+            {tanks.map((tank) => {
+              const pct = Math.min(100, Math.round((tank.bookVolumeLitres / Math.max(1, tank.capacityLitres)) * 100));
+              return (
                 <TouchableOpacity
                   key={tank.id}
-                  style={[styles.tankRow, dipTankId === tank.id && styles.tankRowSelected]}
                   onPress={() => {
-                    setDipTankId(tank.id);
-                    setDipTankLitres(String(tank.lastDipLitres));
+                    setDetailTankId(tank.id);
+                    setDipLitres(String(tank.bookVolumeLitres));
                   }}
+                  style={styles.detailCard}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.tankName}>{tank.name}</Text>
-                    <Text style={styles.muted}>
-                      {tank.grade} · Cap {formatLitres(tank.capacityLitres)}
-                    </Text>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.cardTitle}>{tank.name}</Text>
+                    <Text style={styles.cardMonoBold}>{pct}%</Text>
                   </View>
-                  <Text style={styles.monoValue}>{formatLitres(tank.bookVolumeLitres)}</Text>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${pct}%` }]} />
+                  </View>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.cardSub}>Book: {formatLitres(tank.bookVolumeLitres)}</Text>
+                    <Text style={styles.cardSub}>Last Dip: {formatLitres(tank.lastDipLitres)}</Text>
+                  </View>
                 </TouchableOpacity>
-              ))}
-              {tanks.length === 0 && (
-                <Text style={styles.muted}>No tanks provisioned yet. Open Setup to tick fuels &amp; volumes.</Text>
-              )}
-            </View>
-
-            {tanks.length > 0 && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Record Physical Dipstick</Text>
-                <Text style={styles.label}>Measured Dipstick Volume (Litres)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={dipTankLitres} onChangeText={setDipTankLitres} />
-                <TouchableOpacity style={styles.primaryBtn} onPress={handleDipstickSubmit}>
-                  <Text style={styles.primaryBtnText}>Record Dipstick Check</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              );
+            })}
           </>
         )}
 
-        {activeTab === 'fleet' && (
-          <>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Corporate Fleet Voucher</Text>
-              <Text style={styles.label}>Vehicle Plate</Text>
-              <TextInput style={styles.input} value={fleetPlate} onChangeText={setFleetPlate} />
-              <Text style={styles.label}>Fuel Grade</Text>
-              <View style={styles.gradeRow}>
-                {(['SUPER', 'GASOIL', 'KEROSENE', 'LPG_BULK', 'HEAVY_FUEL'] as MobileFuelGrade[]).map((g) => (
-                  <TouchableOpacity
-                    key={g}
-                    style={[styles.gradeBtn, fleetGrade === g && styles.gradeBtnActive]}
-                    onPress={() => setFleetGrade(g)}
-                  >
-                    <Text style={[styles.gradeBtnText, fleetGrade === g && styles.gradeBtnTextActive]}>{g}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.label}>Dispensed Litres</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={fleetLitres} onChangeText={setFleetLitres} />
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleFleetVoucher}>
-                <Text style={styles.primaryBtnText}>Charge Fleet Account</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Lubricants &amp; 12.5kg Gas POS</Text>
-              <Text style={styles.muted}>OpesLube 15W40 (5L) · 18 500 FCFA</Text>
-              <Text style={styles.label}>Quantity</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={shopQty} onChangeText={setShopQty} />
-              <TouchableOpacity style={styles.secondaryBtn} onPress={handleShopSale}>
-                <Text style={styles.secondaryBtnText}>Record Mobile Money Sale</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
+        {/* TANK DETAIL SCREEN */}
+        {activeTab === 'inventory' && detailTank && (
+          <View style={styles.detailWrap}>
+            <TouchableOpacity onPress={() => setDetailTankId(null)} style={styles.backRow}>
+              <ArrowLeft color="#0F172A" size={18} />
+              <Text style={styles.backText}>Back to Tanks</Text>
+            </TouchableOpacity>
 
-        {activeTab === 'reports' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Automated Financial Report (FCFA)</Text>
-            <View style={styles.row}>
-              <Text style={styles.muted}>Fuel &amp; Shop Revenue</Text>
-              <Text style={styles.monoValue}>{formatFcfa(report.totalRevenueFcfa)}</Text>
+            <View style={styles.detailCard}>
+              <Text style={styles.detailTitle}>{detailTank.name}</Text>
+              <Text style={styles.cardMono}>
+                Book Stock: {formatLitres(detailTank.bookVolumeLitres)} / {formatLitres(detailTank.capacityLitres)}
+              </Text>
             </View>
-            <View style={styles.row}>
-              <Text style={styles.muted}>Gross Margin</Text>
-              <Text style={styles.monoValue}>{formatFcfa(report.grossProfitFcfa)}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.muted}>Operating Expenses</Text>
-              <Text style={styles.monoValue}>{formatFcfa(report.operatingExpensesFcfa)}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.muted}>VAT Payable (19.25%)</Text>
-              <Text style={styles.monoValue}>{formatFcfa(report.vatPayableFcfa)}</Text>
-            </View>
-            <View style={[styles.row, styles.totalRow]}>
-              <Text style={styles.cardTitle}>Net Income</Text>
-              <Text style={styles.monoPositive}>{formatFcfa(report.netIncomeFcfa)}</Text>
+
+            <View style={styles.detailCard}>
+              <Text style={styles.sectionTitle}>Record Physical Dipstick</Text>
+              <Text style={styles.inputLabel}>Measured Volume (Litres)</Text>
+              <TextInput value={dipLitres} onChangeText={setDipLitres} keyboardType="numeric" style={styles.input} />
+              <TouchableOpacity onPress={() => void handleRecordDipstick(detailTank)} style={styles.primaryBtn}>
+                <Text style={styles.primaryBtnText}>Save Dipstick Reading</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {activeTab === 'ai' && (
+        {/* FLEET & SHOP POS */}
+        {activeTab === 'fleet' && !detailFleet && (
           <>
-            <View style={styles.darkCard}>
-              <View style={styles.rowHeader}>
-                <Sparkles size={18} color="#F59E0B" />
-                <Text style={styles.darkCardTitle}>OpesFuel Paid AI Copilot</Text>
-              </View>
-              <Text style={styles.darkMuted}>
-                {aiActive
-                  ? 'Active SaaS Intelligence · Tank stockout alerts, 30-day FCFA forecasts & variance checks.'
-                  : '25 000 FCFA/month Add-On (Free with Network Enterprise). Unlock automated stockout predictions & financial Q&A.'}
-              </Text>
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleToggleAi}>
-                <Text style={styles.primaryBtnText}>
-                  {aiActive ? 'Pause Paid AI Copilot' : 'Activate Paid AI Copilot (25 000 FCFA/mo)'}
-                </Text>
+            <View style={styles.segmentWrap}>
+              <TouchableOpacity
+                onPress={() => setPosSubTab('fleet')}
+                style={[styles.segmentBtn, posSubTab === 'fleet' && styles.segmentBtnActive]}
+              >
+                <Text style={[styles.segmentText, posSubTab === 'fleet' && styles.segmentTextActive]}>Fleet Credit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setPosSubTab('shop')}
+                style={[styles.segmentBtn, posSubTab === 'shop' && styles.segmentBtnActive]}
+              >
+                <Text style={[styles.segmentText, posSubTab === 'shop' && styles.segmentTextActive]}>Shop &amp; Lubes</Text>
               </TouchableOpacity>
             </View>
 
-            {aiActive && (
-              <>
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Predictive Tank &amp; Margin Analysis</Text>
-                  <TouchableOpacity style={styles.secondaryBtn} onPress={handleRunAiAnalysis} disabled={aiLoading}>
-                    <Text style={styles.secondaryBtnText}>
-                      {aiLoading ? 'Analyzing Telemetry...' : 'Run AI Stockout & Revenue Forecast'}
+            {posSubTab === 'fleet' ? (
+              fleets.map((f) => (
+                <TouchableOpacity key={f.id} onPress={() => setDetailFleetId(f.id)} style={styles.listCard}>
+                  <View style={styles.listCardMain}>
+                    <Text style={styles.cardTitle}>{f.companyName}</Text>
+                    <Text style={styles.cardMono}>
+                      Bal: {formatFcfa(f.currentBalanceFcfa)} / {formatFcfa(f.creditLimitFcfa)}
                     </Text>
-                  </TouchableOpacity>
-                  {aiSummary ? <Text style={styles.aiOutput}>{aiSummary}</Text> : null}
-                </View>
-
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Ask OpesFuel AI Advisor</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Which tank runs out first?"
-                    value={aiQuestion}
-                    onChangeText={setAiQuestion}
-                  />
-                  <TouchableOpacity style={styles.primaryBtn} onPress={handleAskAi} disabled={aiLoading}>
-                    <Text style={styles.primaryBtnText}>Ask Station Advisor</Text>
-                  </TouchableOpacity>
-                  {aiAnswer ? <Text style={styles.aiOutput}>{aiAnswer}</Text> : null}
-                </View>
-              </>
+                  </View>
+                  <ChevronRight color="#94A3B8" size={18} />
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.detailCard}>
+                <Text style={styles.cardTitle}>Total Quartz 5W-30 (4L Lubricant)</Text>
+                <Text style={styles.cardSub}>24,500 FCFA · Instant Cash / MoMo Sale</Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    void client
+                      .submitOrQueueCommand('Shop Sale: Total Quartz 4L', '/shop/sales', {
+                        itemId: 'sku_01',
+                        quantity: 1,
+                        paymentMethod: 'CASH',
+                      })
+                      .then(async (res) => {
+                        setBanner(res.synced ? 'Lubricant sale posted.' : 'Sale queued offline.');
+                        await refreshSyncState();
+                      })
+                  }
+                  style={styles.primaryBtn}
+                >
+                  <Text style={styles.primaryBtnText}>Record 1x Lubricant Sale</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </>
         )}
 
-        {activeTab === 'setup' && (
-          <>
-            <View style={styles.card}>
-              <View style={styles.rowHeader}>
-                <Wrench size={18} color="#D97706" />
-                <Text style={styles.cardTitle}>Onboarding Guide ({completedStepsCount}/5)</Text>
-              </View>
-              {onboardingSteps.map((step) => (
-                <View key={step.key} style={styles.checkRow}>
-                  {step.done ? <CheckCircle2 size={18} color="#16A34A" /> : <Circle size={18} color="#94A3B8" />}
-                  <Text style={styles.checkLabel}>{step.label}</Text>
-                </View>
-              ))}
+        {/* FLEET DETAIL SCREEN */}
+        {activeTab === 'fleet' && detailFleet && (
+          <View style={styles.detailWrap}>
+            <TouchableOpacity onPress={() => setDetailFleetId(null)} style={styles.backRow}>
+              <ArrowLeft color="#0F172A" size={18} />
+              <Text style={styles.backText}>Back to Fleet Accounts</Text>
+            </TouchableOpacity>
+            <View style={styles.detailCard}>
+              <Text style={styles.detailTitle}>{detailFleet.companyName}</Text>
+              <Text style={styles.inputLabel}>Vehicle Plate</Text>
+              <TextInput value={fleetPlate} onChangeText={setFleetPlate} style={styles.input} />
+              <Text style={styles.inputLabel}>Driver Name</Text>
+              <TextInput value={fleetDriver} onChangeText={setFleetDriver} style={styles.input} />
+              <Text style={styles.inputLabel}>Litres Dispensed</Text>
+              <TextInput value={fleetLitres} onChangeText={setFleetLitres} keyboardType="numeric" style={styles.input} />
+              <TouchableOpacity onPress={() => void handleIssueVoucher(detailFleet)} style={styles.primaryBtn}>
+                <Text style={styles.primaryBtnText}>Post Fleet Fuel Voucher</Text>
+              </TouchableOpacity>
             </View>
+          </View>
+        )}
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Institutional Fuels &amp; Opening Volumes</Text>
-              <Text style={styles.muted}>
-                Tick the fuels carried at your station and enter capacities &amp; Litres to sync tanks, nozzles, and ledger.
-              </Text>
-              {setupRows.map((row) => (
-                <View key={row.grade} style={[styles.setupCard, row.selected && styles.setupCardActive]}>
-                  <TouchableOpacity
-                    style={styles.checkRow}
-                    onPress={() => updateSetupRow(row.grade, { selected: !row.selected })}
-                  >
-                    {row.selected ? <CheckCircle2 size={18} color="#D97706" /> : <Circle size={18} color="#94A3B8" />}
-                    <Text style={styles.tankName}>{row.label}</Text>
-                  </TouchableOpacity>
-                  {row.selected && (
-                    <View style={styles.setupInputs}>
-                      <View style={styles.setupCol}>
-                        <Text style={styles.smallLabel}>Capacity (L)</Text>
-                        <TextInput
-                          style={styles.input}
-                          keyboardType="numeric"
-                          value={row.capacityLitres}
-                          onChangeText={(v) => updateSetupRow(row.grade, { capacityLitres: v })}
-                        />
-                      </View>
-                      <View style={styles.setupCol}>
-                        <Text style={styles.smallLabel}>Opening (L)</Text>
-                        <TextInput
-                          style={styles.input}
-                          keyboardType="numeric"
-                          value={row.openingLitres}
-                          onChangeText={(v) => updateSetupRow(row.grade, { openingLitres: v })}
-                        />
-                      </View>
-                      <View style={styles.setupCol}>
-                        <Text style={styles.smallLabel}>Sell FCFA/L</Text>
-                        <TextInput
-                          style={styles.input}
-                          keyboardType="numeric"
-                          value={row.sellingPriceFcfa}
-                          onChangeText={(v) => updateSetupRow(row.grade, { sellingPriceFcfa: v })}
-                        />
-                      </View>
-                    </View>
-                  )}
-                </View>
-              ))}
-
-              <TouchableOpacity
-                style={styles.checkRow}
-                onPress={() => setIncludeLubricants(!includeLubricants)}
-              >
-                {includeLubricants ? <CheckCircle2 size={18} color="#D97706" /> : <Circle size={18} color="#94A3B8" />}
-                <Text style={styles.tankName}>Include Lubricants &amp; 12.5kg Gas Cylinders</Text>
-              </TouchableOpacity>
-
-              {includeLubricants && (
-                <View style={styles.setupInputs}>
-                  <View style={styles.setupCol}>
-                    <Text style={styles.smallLabel}>15W40 5L Qty</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" value={oilQty} onChangeText={setOilQty} />
-                  </View>
-                  <View style={styles.setupCol}>
-                    <Text style={styles.smallLabel}>12.5kg LPG Qty</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" value={lpgCylQty} onChangeText={setLpgCylQty} />
-                  </View>
-                </View>
-              )}
-
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleApplyInstitutionalSetup}>
-                <Text style={styles.primaryBtnText}>Apply &amp; Sync Station Modules</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.dangerBtn}
-                onPress={() => {
-                  setTanks([]);
-                  setBanner('Cleared mobile station tanks. Tick fuels above to configure live station tanks.');
-                }}
-              >
-                <Text style={styles.dangerBtnText}>Reset Tank Draft</Text>
-              </TouchableOpacity>
+        {/* REPORTS */}
+        {activeTab === 'reports' && (
+          <>
+            <Text style={styles.sectionTitle}>Daily Station P&amp;L</Text>
+            <View style={styles.kpiGrid}>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>Today Revenue</Text>
+                <Text style={styles.kpiValueSmall}>{formatFcfa(4860000)}</Text>
+              </View>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>Gross Margin</Text>
+                <Text style={styles.kpiValueSmall}>{formatFcfa(548000)}</Text>
+              </View>
+            </View>
+            <View style={styles.detailCard}>
+              <Text style={styles.cardTitle}>SYSCOHADA Trial Balance</Text>
+              <Text style={styles.cardSub}>Balanced (Debit = Credit) · Auto-posted on shift close</Text>
             </View>
           </>
+        )}
+
+        {/* OFFLINE SYNC QUEUE SCREEN */}
+        {activeTab === 'sync' && (
+          <>
+            <View style={styles.detailCard}>
+              <Text style={styles.detailTitle}>Offline Sync Queue</Text>
+              <Text style={styles.cardSub}>
+                Endpoint: {syncHealth.endpoint} · {queue.length} pending item(s)
+              </Text>
+              <TouchableOpacity onPress={() => void handleFlushQueue()} style={styles.primaryBtn}>
+                <Text style={styles.primaryBtnText}>Sync All Queued Actions ({queue.length})</Text>
+              </TouchableOpacity>
+            </View>
+
+            {queue.length === 0 ? (
+              <View style={styles.detailCard}>
+                <Text style={styles.cardTitle}>All Forecourt Data Synchronized</Text>
+                <Text style={styles.cardSub}>Zero pending offline commands in device storage.</Text>
+              </View>
+            ) : (
+              queue.map((cmd) => (
+                <View key={cmd.idempotencyKey} style={styles.detailCard}>
+                  <Text style={styles.cardTitle}>{cmd.label}</Text>
+                  <Text style={styles.cardMono}>UUID: {cmd.idempotencyKey}</Text>
+                  <Text style={styles.cardSub}>
+                    {cmd.path} · {cmd.createdAt}
+                  </Text>
+                </View>
+              ))
+            )}
+          </>
+        )}
+
+        {/* FUEL GRADE SETUP (FROM DRAWER) */}
+        {activeTab === 'setup' && (
+          <>
+            <Text style={styles.sectionTitle}>Station Fuel Setup</Text>
+            {setupRows.map((row, idx) => (
+              <TouchableOpacity
+                key={row.grade}
+                onPress={() =>
+                  setSetupRows((prev) => prev.map((r, i) => (i === idx ? { ...r, selected: !r.selected } : r)))
+                }
+                style={styles.listCard}
+              >
+                <View style={styles.listCardMain}>
+                  <Text style={styles.cardTitle}>{row.label}</Text>
+                  <Text style={styles.cardMono}>
+                    Opening: {row.openingLitres} L · {row.sellingPriceFcfa} FCFA/L
+                  </Text>
+                </View>
+                {row.selected ? <CheckCircle2 color="#D97706" size={20} /> : <Circle color="#94A3B8" size={20} />}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() =>
+                void client
+                  .applyInstitutionalSetup(
+                    'st_plateau',
+                    setupRows
+                      .filter((r) => r.selected)
+                      .map((r) => ({
+                        grade: r.grade,
+                        tankName: r.tankName,
+                        capacityLitres: Number(r.capacityLitres) || 35000,
+                        openingLitres: Number(r.openingLitres) || 12000,
+                        unitCostFcfa: Number(r.unitCostFcfa) || 720,
+                        sellingPriceFcfa: Number(r.sellingPriceFcfa) || 840,
+                        nozzleCount: Number(r.nozzleCount) || 2,
+                      })),
+                    { includeLubricants: true, oilBottlesQty: 24, lpgCylindersQty: 12 }
+                  )
+                  .then(async (res) => {
+                    setBanner(res.synced ? 'Fuel setup synced.' : 'Fuel setup queued offline.');
+                    await refreshSyncState();
+                  })
+              }
+              style={styles.primaryBtn}
+            >
+              <Text style={styles.primaryBtnText}>Save Fuel Configuration</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* AI COPILOT (FROM DRAWER) */}
+        {activeTab === 'ai' && (
+          <View style={styles.detailCard}>
+            <Text style={styles.detailTitle}>AI Station Copilot</Text>
+            <Text style={styles.cardSub}>
+              Monitors underground dipstick shrinkage, attendant cash variance, and forecasts tank reorder dates.
+            </Text>
+          </View>
         )}
       </ScrollView>
 
-      {/* Fixed Native 5-Tab Bottom Navigation Bar */}
-      <View style={styles.bottomNav}>
-        {([
-          { id: 'shifts' as MobileTab, label: 'Shifts', icon: Fuel },
-          { id: 'inventory' as MobileTab, label: 'Tanks', icon: Gauge },
-          { id: 'fleet' as MobileTab, label: 'POS', icon: CreditCard },
-          { id: 'reports' as MobileTab, label: 'Reports', icon: TrendingUp },
-        ]).map((item) => {
+      {/* Clean Fixed 5-Tab Bottom Navigation Bar */}
+      <View style={styles.bottomBar}>
+        {[
+          { id: 'shifts' as const, label: 'Shifts', icon: Fuel },
+          { id: 'inventory' as const, label: 'Tanks', icon: Gauge },
+          { id: 'fleet' as const, label: 'POS', icon: CreditCard },
+          { id: 'reports' as const, label: 'Reports', icon: TrendingUp },
+          { id: 'sync' as const, label: 'Sync', icon: RefreshCw },
+        ].map((item) => {
           const Icon = item.icon;
           const active = activeTab === item.id;
           return (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.bottomNavItem, active && styles.bottomNavItemActive]}
-              onPress={() => setActiveTab(item.id)}
-            >
-              <Icon size={20} color={active ? '#D97706' : '#64748B'} />
-              <Text style={[styles.bottomNavLabel, active && styles.bottomNavLabelActive]}>
-                {item.label}
-              </Text>
+            <TouchableOpacity key={item.id} onPress={() => navigateTab(item.id)} style={styles.bottomTab}>
+              {active && <View style={styles.bottomTabIndicator} />}
+              <Icon color={active ? '#D97706' : '#64748B'} size={19} />
+              <Text style={[styles.bottomTabText, active && styles.bottomTabTextActive]}>{item.label}</Text>
             </TouchableOpacity>
           );
         })}
-        <TouchableOpacity
-          style={[
-            styles.bottomNavItem,
-            (activeTab === 'ai' || activeTab === 'setup') && styles.bottomNavItemActive,
-          ]}
-          onPress={() => setDrawerOpen(true)}
-        >
-          <Menu size={20} color={activeTab === 'ai' || activeTab === 'setup' ? '#D97706' : '#64748B'} />
-          <Text
-            style={[
-              styles.bottomNavLabel,
-              (activeTab === 'ai' || activeTab === 'setup') && styles.bottomNavLabelActive,
-            ]}
-          >
-            More
-          </Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
-  headerWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  header: {
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  topBar: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
-  hamburgerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconBtn: { padding: 6 },
+  topTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  topSub: { color: '#94A3B8', fontSize: 11, marginTop: 2 },
   syncPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  syncPillText: { fontSize: 11, fontWeight: '700' },
-  syncBarLive: { backgroundColor: '#ECFDF5' },
-  syncBarOffline: { backgroundColor: '#FEF2F2' },
-  syncBarChecking: { backgroundColor: '#FFFBEB' },
-  syncDot: { width: 7, height: 7, borderRadius: 4 },
-  syncDotLive: { backgroundColor: '#16A34A' },
-  syncDotOffline: { backgroundColor: '#DC2626' },
-  syncDotChecking: { backgroundColor: '#D97706' },
-  syncTextLive: { color: '#166534' },
-  syncTextOffline: { color: '#991B1B' },
-  syncTextChecking: { color: '#92400E' },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    borderColor: '#334155',
     backgroundColor: '#1E293B',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  brand: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
-  brandAccent: { color: '#D97706' },
-  subtitle: { fontSize: 11, color: '#64748B', marginTop: 1 },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+  syncPillText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  banner: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-  },
-  bottomNavItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 3,
-  },
-  bottomNavItemActive: { backgroundColor: '#FFFBEB' },
-  bottomNavLabel: { fontSize: 10, fontWeight: '600', color: '#64748B' },
-  bottomNavLabelActive: { color: '#D97706', fontWeight: '700' },
-  drawerOverlay: { flex: 1, flexDirection: 'row' },
-  drawerPanel: { width: '80%', maxWidth: 310, backgroundColor: '#0F172A', height: '100%' },
-  drawerBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.55)' },
-  drawerHeader: {
+    borderTopColor: '#1E293B',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
   },
-  drawerBrand: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
-  drawerSubtitle: { fontSize: 11, color: '#94A3B8', marginTop: 1 },
-  drawerCloseBtn: { padding: 6 },
-  drawerRoleBox: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#1E293B', gap: 8 },
-  drawerRoleLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  drawerRoleLabel: { fontSize: 10, fontWeight: '700', color: '#94A3B8', letterSpacing: 1 },
-  drawerRoleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  drawerRoleChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#1E293B' },
-  drawerRoleChipActive: { backgroundColor: '#D97706' },
-  drawerRoleChipText: { fontSize: 10, fontWeight: '700', color: '#CBD5E1' },
-  drawerRoleChipTextActive: { color: '#FFFFFF' },
-  drawerNavList: { flex: 1, padding: 12 },
-  drawerNavItem: {
+  bannerText: { color: '#FFFFFF', fontSize: 12, flex: 1, marginRight: 10 },
+  body: { flex: 1, backgroundColor: '#FFFFFF' },
+  bodyContent: { padding: 16, gap: 14, paddingBottom: 32 },
+  kpiGrid: { flexDirection: 'row', gap: 12 },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 14,
+  },
+  kpiLabel: { fontSize: 11, color: '#64748B', fontWeight: '600' },
+  kpiValue: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginTop: 4 },
+  kpiValueSmall: { fontSize: 15, fontWeight: '800', color: '#0F172A', marginTop: 4 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  listCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 4,
   },
+  listCardMain: { flex: 1, gap: 4 },
+  listCardRight: { alignItems: 'flex-end', gap: 6 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  cardSub: { fontSize: 12, color: '#64748B' },
+  cardMono: { fontSize: 12, color: '#334155' },
+  cardMonoBold: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgeActive: { backgroundColor: '#D1FAE5' },
+  badgeIdle: { backgroundColor: '#F1F5F9' },
+  badgeText: { fontSize: 10, fontWeight: '700' },
+  badgeTextActive: { color: '#065F46' },
+  badgeTextIdle: { color: '#334155' },
+  detailWrap: { gap: 14 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  backText: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  detailCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 16,
+    gap: 10,
+  },
+  detailTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  inputLabel: { fontSize: 11, fontWeight: '700', color: '#475569', textTransform: 'uppercase' },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  primaryBtn: {
+    backgroundColor: '#D97706',
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  progressTrack: { height: 8, backgroundColor: '#F1F5F9', borderRadius: 999, overflow: 'hidden' },
+  progressFill: { height: 8, backgroundColor: '#0F172A', borderRadius: 999 },
+  segmentWrap: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  segmentBtn: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center' },
+  segmentBtnActive: { backgroundColor: '#0F172A' },
+  segmentText: { fontSize: 12, fontWeight: '700', color: '#475569' },
+  segmentTextActive: { color: '#FFFFFF' },
+  bottomBar: {
+    height: 64,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    flexDirection: 'row',
+  },
+  bottomTab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, position: 'relative' },
+  bottomTabIndicator: { position: 'absolute', top: 0, left: 12, right: 12, height: 2.5, backgroundColor: '#D97706', borderRadius: 4 },
+  bottomTabText: { fontSize: 11, fontWeight: '600', color: '#64748B' },
+  bottomTabTextActive: { color: '#D97706' },
+  drawerOverlay: { flex: 1, flexDirection: 'row' },
+  drawerPanel: { width: 290, backgroundColor: '#0F172A', padding: 20, paddingTop: 52, gap: 16 },
+  drawerBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)' },
+  drawerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#1E293B' },
+  drawerBrand: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
+  drawerSub: { color: '#94A3B8', fontSize: 11, marginTop: 2 },
+  drawerSectionLabel: { color: '#94A3B8', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
+  roleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  roleChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#334155' },
+  roleChipActive: { backgroundColor: '#D97706', borderColor: '#D97706' },
+  roleChipText: { color: '#CBD5E1', fontSize: 10, fontWeight: '700' },
+  roleChipTextActive: { color: '#FFFFFF' },
+  drawerNavList: { flex: 1, gap: 4 },
+  drawerNavItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 11, borderRadius: 10 },
   drawerNavItemActive: { backgroundColor: '#D97706' },
-  drawerNavText: { fontSize: 13, fontWeight: '600', color: '#CBD5E1' },
-  drawerNavTextActive: { color: '#FFFFFF', fontWeight: '700' },
-  drawerFooter: { padding: 14, borderTopWidth: 1, borderTopColor: '#1E293B', gap: 8 },
-  drawerAuthBtn: { backgroundColor: '#D97706', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  drawerAuthBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
-  drawerSyncBtn: {
+  drawerNavText: { color: '#CBD5E1', fontSize: 13, fontWeight: '600' },
+  drawerNavTextActive: { color: '#FFFFFF' },
+  authButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#1E293B',
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  drawerSyncBtnText: { color: '#E2E8F0', fontSize: 12, fontWeight: '600' },
-  content: { padding: 16, gap: 14 },
-  banner: { padding: 12, borderRadius: 8, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B' },
-  bannerText: { color: '#78350F', fontSize: 13, fontWeight: '600' },
-  card: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 10 },
-  darkCard: { backgroundColor: '#0F172A', padding: 16, borderRadius: 10, gap: 10 },
-  darkCardTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  darkMuted: { fontSize: 13, color: '#CBD5E1', lineHeight: 18 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
-  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  label: { fontSize: 13, fontWeight: '600', color: '#334155', marginTop: 4 },
-  smallLabel: { fontSize: 11, fontWeight: '600', color: '#475569', marginBottom: 4 },
-  muted: { fontSize: 13, color: '#64748B' },
-  input: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 6, padding: 10, fontSize: 14, color: '#0F172A', backgroundColor: '#F8FAFC' },
-  primaryBtn: { backgroundColor: '#D97706', paddingVertical: 13, borderRadius: 8, alignItems: 'center', marginTop: 6 },
-  primaryBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-  secondaryBtn: { backgroundColor: '#0F172A', paddingVertical: 11, borderRadius: 6, alignItems: 'center' },
-  secondaryBtnText: { color: '#FFFFFF', fontWeight: '600', fontSize: 13 },
-  dangerBtn: { borderWidth: 1, borderColor: '#FECACA', backgroundColor: '#FEF2F2', paddingVertical: 11, borderRadius: 8, alignItems: 'center' },
-  dangerBtnText: { color: '#B91C1C', fontWeight: '600', fontSize: 13 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-  totalRow: { borderTopWidth: 1, borderTopColor: '#E2E8F0', marginTop: 6, paddingTop: 12 },
-  monoValue: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
-  monoPositive: { fontSize: 15, fontWeight: '700', color: '#16A34A' },
-  tankRow: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
-  tankRowSelected: { borderColor: '#D97706', backgroundColor: '#FFFBEB' },
-  tankName: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
-  gradeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  gradeBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' },
-  gradeBtnActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
-  gradeBtnText: { fontSize: 11, fontWeight: '700', color: '#334155' },
-  gradeBtnTextActive: { color: '#F59E0B' },
-  aiOutput: { marginTop: 8, padding: 12, borderRadius: 8, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', fontSize: 13, color: '#0F172A', lineHeight: 19 },
-  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
-  checkLabel: { fontSize: 13, color: '#1E293B', flex: 1 },
-  setupCard: { padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
-  setupCardActive: { borderColor: '#F59E0B', backgroundColor: '#FFFBEB' },
-  setupInputs: { flexDirection: 'row', gap: 8 },
-  setupCol: { flex: 1 },
+  authButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
 });

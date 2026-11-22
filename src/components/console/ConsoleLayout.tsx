@@ -11,6 +11,7 @@ import {
   Crown,
   Database,
   Fuel,
+  Globe,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -31,6 +32,7 @@ import {
 } from '../../auth/auth0';
 import { formatShortDate } from '../../domain/formatters';
 import { ConsoleSection, Station, TenantWorkspace, UserRole } from '../../domain/types';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
 
 export interface NotificationItem {
@@ -74,7 +76,7 @@ const NAV_ITEMS: { id: ConsoleSection; label: string; shortLabel: string; icon: 
   { id: 'forecourt', label: 'Forecourt & Shifts', shortLabel: 'Shifts', icon: Fuel },
   { id: 'inventory', label: 'Tanks & Deliveries', shortLabel: 'Tanks', icon: Truck },
   { id: 'fleet', label: 'Fleet Credit & POS', shortLabel: 'POS', icon: CreditCard },
-  { id: 'workforce', label: 'Staff & Payroll', shortLabel: 'Staff', icon: Users },
+  { id: 'workforce', label: 'Staff, HR & Payroll', shortLabel: 'HR', icon: Users },
   { id: 'accounting', label: 'Accounting & Reports', shortLabel: 'Ledger', icon: BookOpen },
   { id: 'ai-assistant', label: 'AI Copilot', shortLabel: 'AI', icon: Sparkles },
   { id: 'mobile-app', label: 'Mobile App', shortLabel: 'Mobile', icon: Smartphone },
@@ -105,6 +107,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
   onDismissToast,
   children,
 }) => {
+  const { lang, setLang } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const profile = ROLE_PROFILES[role];
@@ -234,7 +237,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
   );
 
   return (
-    <div className="min-h-screen flex bg-[#F8FAFC] text-slate-900">
+    <div className="min-h-screen flex bg-white text-slate-900">
       {/* Desktop Rail */}
       <aside className="hidden lg:block w-64 shrink-0 border-r border-slate-200 no-print">
         <div className="sticky top-0 h-screen">{sidebarContent}</div>
@@ -256,7 +259,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-amber-600" />
+                  <Bell className="w-4 h-4 text-slate-900" />
                   Operational Alerts ({unreadCount} unread)
                 </h2>
                 <p className="text-xs text-slate-500">
@@ -272,7 +275,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+            <div className="px-5 py-2.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={onRefreshNotifications}
@@ -299,7 +302,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
                 notifications.map((n) => (
                   <div
                     key={n.id}
-                    className={`p-4 space-y-1.5 ${n.read ? 'bg-white opacity-75' : 'bg-amber-50/40'}`}
+                    className={`p-4 space-y-1.5 bg-white ${n.read ? 'opacity-70' : 'border-l-2 border-l-amber-600'}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -339,13 +342,13 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-3.5 sm:px-6 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2.5 no-print">
+      <div className="flex-1 flex flex-col min-w-0 bg-white">
+        <header className="sticky top-0 z-30 glass-surface border-b border-slate-200 px-3.5 sm:px-6 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2.5 no-print">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 min-h-[40px] min-w-[40px] flex items-center justify-center"
+              className="lg:hidden p-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 min-h-[40px] min-w-[40px] flex items-center justify-center"
               aria-label="Open menu"
             >
               <Menu className="w-5 h-5" />
@@ -368,6 +371,16 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
+              aria-label="Switch language EN / FR"
+              className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-mono font-bold text-slate-900 min-h-[38px]"
+            >
+              <Globe className="w-3.5 h-3.5 text-slate-700" />
+              <span>{lang.toUpperCase()}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 setAlertsOpen(true);
                 onRefreshNotifications();
@@ -386,9 +399,9 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
             <button
               type="button"
               onClick={onOpenOnboardingGuide}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-900 min-h-[38px]"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900 min-h-[38px]"
             >
-              <Database className="w-3.5 h-3.5 text-amber-700" />
+              <Database className="w-3.5 h-3.5 text-slate-700" />
               <span>Setup Guide ({onboardingCompletedCount}/5)</span>
             </button>
 
@@ -409,15 +422,15 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
               {activeStationId === 'ALL' && stations.length > 1 && (
                 <span
                   title={`New shifts, expenses, and deliveries default to ${stations[0]?.name} unless a specific station is selected.`}
-                  className="hidden xl:inline-flex items-center px-2 py-1 rounded bg-amber-50 border border-amber-200 text-[10px] font-mono font-semibold text-amber-900 whitespace-nowrap"
+                  className="hidden xl:inline-flex items-center px-2 py-1 rounded bg-white border border-slate-300 text-[10px] font-mono font-semibold text-slate-700 whitespace-nowrap"
                 >
                   New entries → {stations[0]?.code}
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 min-h-[38px]">
-              <Shield className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+            <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 min-h-[38px]">
+              <Shield className="w-3.5 h-3.5 text-slate-700 shrink-0" />
               <select
                 aria-label="Switch active RBAC role"
                 value={role}
@@ -425,6 +438,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
                 onChange={(e) => onChangeRole(e.target.value as UserRole)}
                 className="bg-transparent text-xs font-semibold text-slate-900 focus:outline-none disabled:opacity-75"
               >
+                <option value="PLATFORM_ADMIN">Platform Admin</option>
                 <option value="OWNER">Owner</option>
                 <option value="MANAGER">Manager</option>
                 <option value="ATTENDANT">Attendant</option>
@@ -444,14 +458,14 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 md:pb-8 max-w-7xl w-full mx-auto space-y-5">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 md:pb-8 max-w-7xl w-full mx-auto space-y-5 bg-white">
           {toast && (
             <div
               role="status"
-              className={`px-4 py-3 rounded-lg border flex items-center justify-between gap-4 text-sm no-print ${
+              className={`px-4 py-3 rounded-lg border flex items-center justify-between gap-4 text-sm no-print bg-white ${
                 toast.type === 'error'
-                  ? 'bg-red-50 border-red-200 text-red-800'
-                  : 'bg-amber-50 border-amber-200 text-amber-900'
+                  ? 'border-red-300 border-l-4 border-l-red-600 text-red-900'
+                  : 'border-slate-300 border-l-4 border-l-slate-900 text-slate-900'
               }`}
             >
               <span className="font-medium">{toast.message}</span>

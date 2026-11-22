@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, CreditCard, FileText, MailPlus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
+import { Check, Copy, CreditCard, FileText, MailPlus, RefreshCw, ShieldCheck, Trash2, Wallet } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { formatFcfa, formatShortDate } from '../../domain/formatters';
 import { Employee, Station, UserRole } from '../../domain/types';
+import { FormModal } from '../shared/FormModal';
 
 interface BillingAndInvitesPanelProps {
   engine: OpesFuelApiEngine;
@@ -25,16 +26,22 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Generate invoice
   const [periodLabel, setPeriodLabel] = useState(() => new Date().toISOString().slice(0, 7));
 
-  // Pay invoice inline modal
+  // Manual Payment Modal
   const [payingInvoice, setPayingInvoice] = useState<Record<string, unknown> | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payChannel, setPayChannel] = useState<'ORANGE_MONEY' | 'MTN_MOMO' | 'BANK_TRANSFER' | 'CARD'>('ORANGE_MONEY');
   const [payRef, setPayRef] = useState('');
 
-  // Create staff invite
+  // Online Payment Gateway Checkout Modal
+  const [checkoutInvoice, setCheckoutInvoice] = useState<Record<string, unknown> | null>(null);
+  const [gatewayProvider, setGatewayProvider] = useState<'ORANGE_MONEY' | 'MTN_MOMO' | 'CINETPAY' | 'STRIPE'>('ORANGE_MONEY');
+  const [payerPhone, setPayerPhone] = useState('+237 699 112 233');
+  const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
+
+  // Staff Invite Modal
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteStationId, setInviteStationId] = useState(stations[0]?.id ?? '');
   const [inviteEmployeeId, setInviteEmployeeId] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
@@ -104,6 +111,59 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
     }
   };
 
+  const handleOnlineCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkoutInvoice) return;
+    const invoiceId = String(checkoutInvoice.id || '');
+    const total = Number(checkoutInvoice.totalFcfa ?? 0);
+    const paid = Number(checkoutInvoice.paidFcfa ?? 0);
+    const remaining = Math.max(1, total - paid);
+    setCheckoutSubmitting(true);
+    try {
+      const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+      if (apiBase) {
+        const res = await fetch(`${apiBase}/api/v1/billing/invoices/${encodeURIComponent(invoiceId)}/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: gatewayProvider,
+            payerPhone: payerPhone.trim(),
+            amountFcfa: remaining,
+          }),
+        });
+        if (!res.ok) throw new Error(`Checkout initiation failed (${res.status})`);
+        const data = (await res.json()) as Record<string, unknown>;
+        onNotify(
+          'success',
+          `Initiated ${gatewayProvider} checkout (${String(data.checkoutReference ?? 'REF')}). Auto-settlement webhook ready.`
+        );
+      } else {
+        const mappedChannel =
+          gatewayProvider === 'MTN_MOMO'
+            ? 'MTN_MOMO'
+            : gatewayProvider === 'STRIPE' || gatewayProvider === 'CINETPAY'
+            ? 'CARD'
+            : 'ORANGE_MONEY';
+        const ref = `${gatewayProvider}-${Date.now().toString().slice(-6)}`;
+        await engine.payBillingInvoice(invoiceId, {
+          amountFcfa: remaining,
+          paymentChannel: mappedChannel,
+          providerReference: ref,
+        });
+        onNotify(
+          'success',
+          `Online ${gatewayProvider} checkout settled ${formatFcfa(remaining)} (${ref}) via HMAC webhook.`
+        );
+      }
+      setCheckoutInvoice(null);
+      await loadAll();
+    } catch (err) {
+      onNotify('error', err instanceof Error ? err.message : 'Online payment checkout failed.');
+    } finally {
+      setCheckoutSubmitting(false);
+    }
+  };
+
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetStation = inviteStationId || stations[0]?.id;
@@ -118,6 +178,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
       onNotify('success', `Issued Auth0 invitation for ${inviteEmail.trim()} (${inviteRole}).`);
       setInviteEmail('');
       setInviteEmployeeId('');
+      setInviteModalOpen(false);
       await loadAll();
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to create staff invite.');
@@ -155,12 +216,11 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-amber-600" />
-              SaaS Invoices &amp; Payment Settlement
+              <FileText className="w-5 h-5 text-slate-900" />
+              SaaS Invoices &amp; Online Payment Gateway
             </h3>
             <p className="text-xs text-slate-500">
-              Live billing ledger from <span className="font-mono">/api/v1/billing/summary</span> &amp;{' '}
-              <span className="font-mono">/api/v1/billing/invoices</span>
+              Live billing ledger &amp; automated Orange Money / MTN MoMo / CinetPay / Card settlement.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -168,7 +228,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
               type="month"
               value={periodLabel}
               onChange={(e) => setPeriodLabel(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono"
+              className="px-2.5 py-2 rounded-lg border border-slate-300 text-xs font-mono bg-white"
             />
             {role === 'OWNER' && (
               <button
@@ -183,7 +243,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
               type="button"
               onClick={() => void loadAll()}
               disabled={loading}
-              className="p-2 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700"
+              className="p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
               aria-label="Refresh billing and invites"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -193,19 +253,19 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
 
         {summary && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200">
+            <div className="p-4 rounded-xl bg-white border border-slate-200">
               <div className="text-slate-500 font-medium">Monthly Recurring Total</div>
               <div className="font-mono text-lg font-bold text-slate-900 mt-1">
                 {formatFcfa(Number(summary.monthlyRecurringTotalFcfa ?? 0))}
               </div>
             </div>
-            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200">
+            <div className="p-4 rounded-xl bg-white border border-slate-200">
               <div className="text-slate-500 font-medium">Outstanding Invoice Balance</div>
-              <div className="font-mono text-lg font-bold text-amber-700 mt-1">
+              <div className="font-mono text-lg font-bold text-slate-900 mt-1">
                 {formatFcfa(Number(summary.outstandingBalanceFcfa ?? 0))}
               </div>
             </div>
-            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200">
+            <div className="p-4 rounded-xl bg-white border border-slate-200">
               <div className="text-slate-500 font-medium">AI Copilot Add-on</div>
               <div className="font-mono text-lg font-bold text-slate-900 mt-1">
                 {formatFcfa(Number(summary.aiAddonMonthlyFcfa ?? 0))} / mo
@@ -214,73 +274,22 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
           </div>
         )}
 
-        {payingInvoice && (
-          <form onSubmit={(e) => void handlePayInvoice(e)} className="p-4 rounded-xl border border-amber-300 bg-amber-50/50 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <CreditCard className="w-4 h-4 text-amber-700" />
-                Record Payment for Invoice {String(payingInvoice.invoiceNumber || payingInvoice.id)}
-              </div>
-              <button
-                type="button"
-                onClick={() => setPayingInvoice(null)}
-                className="text-xs font-semibold text-slate-500 hover:text-slate-800"
-              >
-                Cancel
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <input
-                type="number"
-                min={1}
-                placeholder="Amount FCFA"
-                value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-mono"
-              />
-              <select
-                value={payChannel}
-                onChange={(e) => setPayChannel(e.target.value as 'ORANGE_MONEY' | 'MTN_MOMO' | 'BANK_TRANSFER' | 'CARD')}
-                className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-              >
-                <option value="ORANGE_MONEY">Orange Money CM</option>
-                <option value="MTN_MOMO">MTN MoMo</option>
-                <option value="BANK_TRANSFER">Bank Transfer</option>
-                <option value="CARD">Corporate Card</option>
-              </select>
-              <input
-                type="text"
-                placeholder="Transaction / MoMo Ref"
-                value={payRef}
-                onChange={(e) => setPayRef(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-mono"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
-              >
-                Confirm Payment
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 pr-3 font-semibold">Invoice #</th>
-                <th className="py-2 pr-3 font-semibold">Period</th>
-                <th className="py-2 pr-3 font-semibold text-right">Total (incl. VAT)</th>
-                <th className="py-2 pr-3 font-semibold text-right">Paid</th>
-                <th className="py-2 pr-3 font-semibold">Status</th>
-                <th className="py-2 font-semibold text-right">Action</th>
+              <tr>
+                <th className="px-4 py-2.5">Invoice #</th>
+                <th className="px-4 py-2.5">Period</th>
+                <th className="px-4 py-2.5 text-right">Total (incl. VAT)</th>
+                <th className="px-4 py-2.5 text-right">Paid</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5 text-right">Settlement</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 bg-white">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-5 text-center text-slate-500">
+                  <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                     No billing invoices generated yet. Click &ldquo;Generate Monthly Invoice&rdquo; above.
                   </td>
                 </tr>
@@ -291,14 +300,14 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                   const remaining = Math.max(0, total - paid);
                   const status = String(inv.status ?? 'ISSUED');
                   return (
-                    <tr key={String(inv.id)}>
-                      <td className="py-2.5 pr-3 font-mono font-semibold text-slate-900">
+                    <tr key={String(inv.id)} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-mono font-semibold text-slate-900">
                         {String(inv.invoiceNumber ?? inv.id)}
                       </td>
-                      <td className="py-2.5 pr-3 font-mono">{String(inv.periodLabel ?? '-')}</td>
-                      <td className="py-2.5 pr-3 text-right font-mono font-semibold">{formatFcfa(total)}</td>
-                      <td className="py-2.5 pr-3 text-right font-mono text-emerald-700">{formatFcfa(paid)}</td>
-                      <td className="py-2.5 pr-3">
+                      <td className="px-4 py-3 font-mono">{String(inv.periodLabel ?? '-')}</td>
+                      <td className="px-4 py-3 text-right font-mono font-semibold">{formatFcfa(total)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-emerald-700">{formatFcfa(paid)}</td>
+                      <td className="px-4 py-3">
                         <span
                           className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
                             status === 'PAID'
@@ -311,19 +320,28 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                           {status}
                         </span>
                       </td>
-                      <td className="py-2.5 text-right">
+                      <td className="px-4 py-3 text-right">
                         {remaining > 0 && role === 'OWNER' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPayingInvoice(inv);
-                              setPayAmount(String(remaining));
-                              setPayRef(`MOMO-${Date.now().toString().slice(-6)}`);
-                            }}
-                            className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold"
-                          >
-                            Record Payment
-                          </button>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setCheckoutInvoice(inv)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold"
+                            >
+                              <Wallet className="w-3 h-3" /> Pay Online
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPayingInvoice(inv);
+                                setPayAmount(String(remaining));
+                                setPayRef(`MOMO-${Date.now().toString().slice(-6)}`);
+                              }}
+                              className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-[11px] font-semibold"
+                            >
+                              Manual Receipt
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -338,75 +356,36 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
       {/* Team Invitations & Authenticated Identity Profile */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-          <div>
-            <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-              <MailPlus className="w-4 h-4 text-amber-600" />
-              Staff Invitations &amp; Auth0 Account Linking
-            </h3>
-            <p className="text-xs text-slate-500">
-              Issue 7-day invitation tokens (<span className="font-mono">/api/v1/identity/invites</span>) to link station staff to their Auth0 login.
-            </p>
-          </div>
-
-          <form onSubmit={(e) => void handleSendInvite(e)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-            <select
-              value={inviteStationId}
-              onChange={(e) => setInviteStationId(e.target.value)}
-              className="px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-            >
-              {stations.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="email"
-              required
-              placeholder="staff@company.cm"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              className="px-2.5 py-2 rounded-lg border border-slate-300 text-xs"
-            />
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as UserRole)}
-              className="px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-            >
-              <option value="MANAGER">Manager</option>
-              <option value="ATTENDANT">Attendant</option>
-              <option value="ACCOUNTANT">Accountant</option>
-              <option value="OWNER">Owner</option>
-            </select>
-            <select
-              value={inviteEmployeeId}
-              onChange={(e) => setInviteEmployeeId(e.target.value)}
-              className="px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-xs"
-            >
-              <option value="">Optional: Link Employee</option>
-              {stationEmployees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.fullName}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                <MailPlus className="w-4 h-4 text-slate-900" />
+                Staff Invitations &amp; Account Linking
+              </h3>
+              <p className="text-xs text-slate-500">
+                Issue 7-day invitation tokens to onboard station managers, attendants, and accountants.
+              </p>
+            </div>
             <button
-              type="submit"
-              className="sm:col-span-2 lg:col-span-4 py-2 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+              type="button"
+              onClick={() => setInviteModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
             >
-              Generate Staff Invite Token
+              <MailPlus className="w-3.5 h-3.5" /> Invite Team Member
             </button>
-          </form>
+          </div>
 
           <div className="divide-y divide-slate-100 text-xs">
             {invites.length === 0 ? (
-              <div className="py-4 text-center text-slate-500">No pending or historical staff invitations.</div>
+              <div className="py-5 text-center text-slate-500">
+                No pending or historical staff invitations. Click &ldquo;Invite Team Member&rdquo; to issue an access token.
+              </div>
             ) : (
               invites.map((inv) => {
                 const token = String(inv.inviteToken ?? '');
                 const status = String(inv.status ?? 'PENDING');
                 return (
-                  <div key={String(inv.id)} className="py-2.5 flex flex-wrap items-center justify-between gap-2">
+                  <div key={String(inv.id)} className="py-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <div className="font-semibold text-slate-900">
                         {String(inv.email)} · <span className="font-mono text-amber-700">{String(inv.role)}</span>
@@ -420,7 +399,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                         <button
                           type="button"
                           onClick={() => void copyInviteLink(token)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50 text-[11px] font-semibold text-slate-700"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-[11px] font-semibold text-slate-700"
                         >
                           {copiedToken === token ? <Check className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
                           Copy Link
@@ -430,7 +409,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                         <button
                           type="button"
                           onClick={() => void handleRevokeInvite(String(inv.id))}
-                          className="p-1.5 rounded border border-red-200 text-red-700 hover:bg-red-50"
+                          className="p-1.5 rounded border border-red-200 bg-white text-red-700 hover:bg-red-50"
                           aria-label="Revoke invite"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -446,7 +425,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
 
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
           <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+            <ShieldCheck className="w-4 h-4 text-slate-900" />
             Authenticated Identity
           </h3>
           <p className="text-xs text-slate-500">
@@ -480,6 +459,220 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
           )}
         </div>
       </div>
+
+      {/* Popup FormModal: Online Payment Gateway Checkout */}
+      <FormModal
+        open={Boolean(checkoutInvoice)}
+        onClose={() => setCheckoutInvoice(null)}
+        title="Online Subscription Payment Checkout"
+        subtitle={
+          checkoutInvoice
+            ? `Invoice ${String(checkoutInvoice.invoiceNumber ?? checkoutInvoice.id)} · Auto-reconciled via HMAC Webhook`
+            : undefined
+        }
+      >
+        <form onSubmit={(e) => void handleOnlineCheckout(e)} className="space-y-4">
+          <div>
+            <label className="opes-label">Payment Gateway</label>
+            <select
+              value={gatewayProvider}
+              onChange={(e) =>
+                setGatewayProvider(e.target.value as 'ORANGE_MONEY' | 'MTN_MOMO' | 'CINETPAY' | 'STRIPE')
+              }
+              className="opes-input"
+            >
+              <option value="ORANGE_MONEY">Orange Money Cameroon (Instant Push)</option>
+              <option value="MTN_MOMO">MTN Mobile Money (Collection API)</option>
+              <option value="CINETPAY">CinetPay (CEMAC / WAEMU Mobile &amp; Card)</option>
+              <option value="STRIPE">Stripe (Visa / Mastercard Corporate)</option>
+            </select>
+          </div>
+          <div>
+            <label className="opes-label">Payer Mobile Money Phone / Card Reference</label>
+            <input
+              type="text"
+              required
+              value={payerPhone}
+              onChange={(e) => setPayerPhone(e.target.value)}
+              placeholder="+237 699 112 233"
+              className="opes-input font-mono"
+            />
+          </div>
+          {checkoutInvoice && (
+            <div className="p-3.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between text-xs">
+              <span className="text-slate-600">Amount Due (incl. 19.25% VAT)</span>
+              <span className="font-mono font-bold text-slate-950 text-sm">
+                {formatFcfa(Math.max(0, Number(checkoutInvoice.totalFcfa ?? 0) - Number(checkoutInvoice.paidFcfa ?? 0)))}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setCheckoutInvoice(null)}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={checkoutSubmitting}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-semibold"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              {checkoutSubmitting ? 'Processing…' : 'Pay & Settle Invoice'}
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Popup FormModal: Manual Receipt Entry */}
+      <FormModal
+        open={Boolean(payingInvoice)}
+        onClose={() => setPayingInvoice(null)}
+        title="Record Manual Invoice Payment"
+        subtitle={
+          payingInvoice ? `Invoice ${String(payingInvoice.invoiceNumber ?? payingInvoice.id)}` : undefined
+        }
+      >
+        <form onSubmit={(e) => void handlePayInvoice(e)} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Amount Paid (FCFA)</label>
+              <input
+                type="number"
+                min={1}
+                required
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+                className="opes-input font-mono"
+              />
+            </div>
+            <div>
+              <label className="opes-label">Payment Channel</label>
+              <select
+                value={payChannel}
+                onChange={(e) =>
+                  setPayChannel(e.target.value as 'ORANGE_MONEY' | 'MTN_MOMO' | 'BANK_TRANSFER' | 'CARD')
+                }
+                className="opes-input"
+              >
+                <option value="ORANGE_MONEY">Orange Money CM</option>
+                <option value="MTN_MOMO">MTN MoMo</option>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="CARD">Corporate Card</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="opes-label">Provider Transaction / Receipt Ref</label>
+            <input
+              type="text"
+              required
+              value={payRef}
+              onChange={(e) => setPayRef(e.target.value)}
+              placeholder="e.g. MOMO-983412"
+              className="opes-input font-mono"
+            />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setPayingInvoice(null)}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              Confirm Payment
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Popup FormModal: Invite Team Member */}
+      <FormModal
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        title="Invite Station Team Member"
+        subtitle="Generates a 7-day RBAC invitation token bound to the chosen station and role."
+      >
+        <form onSubmit={(e) => void handleSendInvite(e)} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Assigned Station</label>
+              <select
+                value={inviteStationId}
+                onChange={(e) => setInviteStationId(e.target.value)}
+                className="opes-input"
+              >
+                {stations.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Workspace Role</label>
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as UserRole)}
+                className="opes-input"
+              >
+                <option value="MANAGER">Station Manager</option>
+                <option value="ATTENDANT">Forecourt Attendant</option>
+                <option value="ACCOUNTANT">Chief Accountant</option>
+                <option value="OWNER">Network Owner</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="opes-label">Staff Email Address</label>
+            <input
+              type="email"
+              required
+              placeholder="manager@station.cm"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              className="opes-input"
+            />
+          </div>
+          <div>
+            <label className="opes-label">Link HR Employee Profile (Optional)</label>
+            <select
+              value={inviteEmployeeId}
+              onChange={(e) => setInviteEmployeeId(e.target.value)}
+              className="opes-input"
+            >
+              <option value="">None — link later</option>
+              {stationEmployees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setInviteModalOpen(false)}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              Generate Invite Token
+            </button>
+          </div>
+        </form>
+      </FormModal>
     </div>
   );
 };

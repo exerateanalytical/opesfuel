@@ -374,7 +374,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
 
       {!analysis && !analyzing && (
         <div className="bg-white border border-slate-200 rounded-xl p-8 text-center space-y-3">
-          <div className="w-11 h-11 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center mx-auto">
+          <div className="w-11 h-11 rounded-xl icon-glass text-slate-900 flex items-center justify-center mx-auto">
             <TrendingUp className="w-5 h-5" />
           </div>
           <h2 className="font-display text-lg font-bold text-slate-900">
@@ -488,7 +488,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
               <h3 className="font-display text-base font-bold text-slate-900">Variance &amp; Risk Alerts</h3>
               <div className="space-y-3">
                 {analysis.anomalyAlerts.map((alert, idx) => (
-                  <div key={idx} className="p-3 rounded-lg bg-amber-50/60 border border-amber-200 space-y-1">
+                  <div key={idx} className="p-3 rounded-lg bg-white border border-amber-200 space-y-1">
                     <div className="flex items-center justify-between text-[11px] font-mono font-bold text-amber-800">
                       <span>{alert.module}</span>
                       <span>{alert.severity}</span>
@@ -497,7 +497,7 @@ export const AiAssistantSection: React.FC<AiAssistantSectionProps> = ({
                   </div>
                 ))}
                 {analysis.anomalyAlerts.length === 0 && (
-                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+                  <div className="p-3 rounded-lg bg-white border border-emerald-200 text-xs text-emerald-800">
                     No material shrinkage or shift variance anomalies flagged.
                   </div>
                 )}

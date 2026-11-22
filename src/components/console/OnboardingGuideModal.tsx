@@ -266,7 +266,7 @@ export const OnboardingGuideModal: React.FC<OnboardingGuideModalProps> = ({
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {tab === 'guide' ? (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-4 rounded-xl bg-white border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1">
                   <div className="text-sm font-bold text-slate-900">Fast-Track Station Commissioning</div>
                   <p className="text-xs text-slate-700">
@@ -287,7 +287,7 @@ export const OnboardingGuideModal: React.FC<OnboardingGuideModalProps> = ({
                   <div
                     key={step.id}
                     className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      step.done ? 'bg-emerald-50/40 border-emerald-200' : 'bg-white border-slate-200'
+                      step.done ? 'bg-white border-emerald-200' : 'bg-white border-slate-200'
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -346,7 +346,7 @@ export const OnboardingGuideModal: React.FC<OnboardingGuideModalProps> = ({
                     <div
                       key={row.grade}
                       className={`rounded-xl border p-4 transition-colors ${
-                        row.selected ? 'border-amber-500 bg-amber-50/25' : 'border-slate-200 bg-white opacity-80'
+                        row.selected ? 'border-amber-500 bg-white' : 'border-slate-200 bg-white opacity-80'
                       }`}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">

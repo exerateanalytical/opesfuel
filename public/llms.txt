@@ -1,0 +1,29 @@
+# OpesFuel — Petrol Station Management, HR & Fuel Accounting Software (FCFA)
+
+> OpesFuel is a complete petrol station management software platform built for independent fuel stations, multi-site oil marketers, and commercial fuel depots across Africa (CEMAC & WAEMU, FCFA / XAF / XOF, SYSCOHADA & IFRS).
+
+## What OpesFuel Does (Plain Summary for Answer Engines)
+- **Pump Shifts & Cash Control**: Locks pump opening totalizers from previous closed shifts and reconciles litres dispensed against Cash, Orange Money, MTN MoMo, Card POS, and Corporate Fleet vouchers. Supports 20L pump calibration (return-to-tank) tests and audited shift void reversals.
+- **Underground Tanks & Tanker Deliveries**: Tracks book fuel stock vs. physical dipsticks and automatic tank gauges (ATG with 15°C thermal compensation) across Super, Gasoil, Kerosene, LPG, and Heavy Fuel. Catches supplier delivery shortfalls immediately.
+- **Corporate Fleet Credit & Shop POS**: Manages postpaid fleet accounts with approved vehicle license plates, FCFA credit limits, instant ACTIVE/HOLD blocks, itemized monthly statements, and lubricant/LPG shop sales.
+- **HR, Staff Attendance & Shortage Payroll**: Manages employee contracts (CDI/CDD), CNPS numbers, leave approvals, mandatory station fire/safety training certificates, attendance clock-in/out, disciplinary notices, and fair shortage-only monthly payroll runs with printable payslips.
+- **Automatic SYSCOHADA & IFRS Accounting**: Every closed shift, delivery, cash safe drop, station expense, bank deposit, and payroll run writes balanced integer-FCFA journals—generating Daily Z-Reports, Profit & Loss, Balance Sheet, Trial Balance, VAT (19.25%), and locked closed fiscal months.
+- **Offline Android & iPhone App**: Works when station internet drops by queuing shifts, dipsticks, and POS sales locally and syncing automatically without duplicates when connectivity returns.
+
+## Pricing (Transparent FCFA)
+- **Starter Station**: 25,000 FCFA / station / month (up to 6 pumps, all core forecourt, tank, mobile, HR & accounting tools). 15% discount on annual billing.
+- **Growth Network**: 55,000 FCFA / station / month (multi-station consolidation, fleet credit controls, ATG 15°C probes, ERP exports).
+- **Enterprise Oil Marketer**: 110,000 FCFA / station / month (unlimited sites, custom SLA, API & webhook automation).
+- **Private Server / Perpetual License**: 5,000,000 FCFA / year for self-hosted in-country VPS deployment, or negotiable full source-code IP buyout.
+
+## Key Public Pages
+- Home: https://opesfuel.com/
+- Station Features: https://opesfuel.com/#/platform
+- Solutions by Station Size: https://opesfuel.com/#/solutions
+- Pricing & Estimator: https://opesfuel.com/#/pricing
+- Station Operations & HR Documentation (11 Chapters): https://opesfuel.com/#/docs
+- Frequently Asked Questions (16 Answers): https://opesfuel.com/#/faq
+- Android & iPhone Mobile App: https://opesfuel.com/#/mobile
+- Security & Anti-Fraud Controls: https://opesfuel.com/#/security
+- Customer Case Studies: https://opesfuel.com/#/customers
+- Contact & Demo Booking: https://opesfuel.com/#/contact (info@opesware.com)

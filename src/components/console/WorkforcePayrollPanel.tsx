@@ -169,7 +169,7 @@ export const WorkforcePayrollPanel: React.FC<WorkforcePayrollPanelProps> = ({
       </div>
 
       {payslip && (
-        <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-2 text-xs">
+        <div className="p-4 rounded-xl border border-emerald-200 bg-white space-y-2 text-xs">
           <div className="flex items-center justify-between">
             <span className="font-bold text-slate-900">
               Payslip — {String(payslip.fullName ?? '')} ({String(payslip.role ?? '')})

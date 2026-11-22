@@ -656,7 +656,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
         </div>
 
         {leadReceipt ? (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-8 space-y-4">
+          <div className="bg-white border border-emerald-200 rounded-xl p-8 space-y-4">
             <div className="text-sm font-semibold text-emerald-800">Demo Request Received</div>
             <h2 className="font-display text-2xl font-bold text-slate-900">
               Thank you, {leadForm.fullName}. Your reference is{' '}
@@ -847,7 +847,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   }
 
   // =========================================================================
-  // REDESIGNED LANDING PAGE ("CANOPY EXECUTIVE" — PLAIN STATION-OWNER COPY)
+  // FOCUSED, PURE-WHITE LANDING PAGE — ONLY WHAT A STATION OWNER NEEDS TO SEE
   // =========================================================================
   const simUnitPrice = 840;
   const simGrossFcfa = simLitres * simUnitPrice;
@@ -856,141 +856,152 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   const simFuelCost = Math.round(simLitres * 745);
   const simShiftProfit = simNetRevenue - simFuelCost;
 
-  const roleShowcase = {
-    OWNER: {
-      badge: 'Station Owner',
-      title: 'See your true daily profit and fuel stock—even when you are away.',
-      desc: 'Stop waiting for end-of-month calls or messy Excel files. Check live sales across one or multiple stations, update pump fuel prices, review cash safe vs. bank deposits, and approve supplier orders from your phone or laptop.',
-      bullets: [
-        'View one station or all your stations combined',
-        'Change Super, Gasoil, Kerosene & LPG prices in seconds',
-        'Spot cash shortages and low tanks immediately',
-      ],
-      highlightLabel: 'Owner Control',
-      highlightValue: 'Live 24/7 Visibility',
-    },
-    MANAGER: {
-      badge: 'Forecourt Manager',
-      title: 'Close every shift in 2 minutes and verify every tanker delivery.',
-      desc: 'Open and close pump shifts with locked meter readings, compare supplier delivery notes against before-and-after tank dipsticks, log daily station expenses, and manage staff attendance without paper notebooks.',
-      bullets: [
-        'Automatic check of meters vs. Cash, Orange Money & MoMo',
-        'Catch tanker delivery shortages before the truck leaves',
-        'Track attendant attendance and monthly cash accuracy',
-      ],
-      highlightLabel: 'Shift Handover',
-      highlightValue: '2 Minutes Flat',
-    },
-    ATTENDANT: {
-      badge: 'Pump Attendant',
-      title: 'Fast, simple mobile screens right at the pump island.',
-      desc: 'Attendants only see what they need to do their job—no clutter, no access to owner profits. Record closing meter readings, verify approved corporate fleet plates, ring up motor oils, and keep working even if internet drops.',
-      bullets: [
-        'Instant check for approved corporate vehicle license plates',
-        'Clear receipt totals for Cash, Mobile Money & Vouchers',
-        'Works offline and syncs automatically when signal returns',
-      ],
-      highlightLabel: 'Forecourt Ready',
-      highlightValue: 'Works Offline',
-    },
-    ACCOUNTANT: {
-      badge: 'Station Accountant',
-      title: 'Always-balanced SYSCOHADA books without manual re-typing.',
-      desc: 'Every closed shift, fuel delivery, expense, bank deposit, and salary run writes clean, balanced accounting figures automatically. Review Daily Z-Reports, VAT (19.25%), Profit & Loss, and lock finished months for audits.',
-      bullets: [
-        'Automatic Profit & Loss, Balance Sheet & Trial Balance',
-        'Track VAT (19.25%) and supplier bills cleanly in FCFA',
-        'Lock closed months so nobody can alter past figures',
-      ],
-      highlightLabel: 'Month-End Books',
-      highlightValue: 'Ready on Day 2',
-    },
-  };
-
-  const currentRoleInfo = roleShowcase[activeRoleTab];
-
   return (
-    <div className="bg-[#FAFAF8] pb-20">
-      {/* FULL-BLEED CINEMATIC CANOPY HERO */}
-      <section className="relative bg-[#0B0F17] text-white overflow-hidden">
+    <div className="bg-white pb-20">
+      {/* CLEAN ARCHITECTURAL CANOPY HERO — ZERO GLOW, CRISP CONTRAST */}
+      <section className="relative bg-[#0F172A] text-white overflow-hidden">
         <ResilientImage
           src={HERO_IMG}
-          alt="Modern OpesFuel petrol station forecourt canopy at sunset with attendants and fuel dispensers"
-          fallbackTitle="OpesFuel Modern Petrol Station Platform"
-          className="w-full h-[560px] sm:h-[620px] object-cover object-center opacity-75"
+          alt="Modern OpesFuel petrol station forecourt canopy with fuel dispensers and attendants"
+          fallbackTitle="OpesFuel Petrol Station Management"
+          className="w-full h-[500px] sm:h-[560px] object-cover object-center opacity-75"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F17] via-[#0B0F17]/65 to-[#0B0F17]/30" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0B0F17]/90 via-[#0B0F17]/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/65 to-[#0F172A]/25" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0F172A]/90 via-[#0F172A]/45 to-transparent" />
 
-        <div className="absolute inset-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col justify-between">
-          <div className="max-w-2xl space-y-5 my-auto">
-            <div className="text-xs font-mono uppercase tracking-[0.18em] text-amber-400 font-semibold">
-              Petrol Station Management · Starting at 25 000 FCFA/month
+        <div className="absolute inset-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex flex-col justify-between">
+          <div className="max-w-xl space-y-5 my-auto">
+            <div className="text-xs font-mono uppercase tracking-[0.16em] text-slate-300 font-semibold">
+              Petrol Station Management · From 25 000 FCFA / Month
             </div>
-            <h1 className="font-display text-3xl sm:text-5xl lg:text-[54px] font-extrabold leading-[1.05] tracking-tight text-white [text-wrap:balance]">
+            <h1 className="font-display text-3xl sm:text-5xl font-extrabold leading-[1.06] tracking-tight text-white">
               Every litre metered. Every franc accounted for.
             </h1>
-            <p className="text-sm sm:text-lg text-slate-200 leading-relaxed max-w-xl">
-              Stop losing cash at shift change and stop guessing what’s left in your underground tanks.
-              OpesFuel brings your pump shifts, tanker deliveries, Orange Money &amp; MTN MoMo, fleet credit,
-              staff payroll, and daily profit reports into one simple system.
+            <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
+              Know your real cash, underground fuel stock, corporate fleet balances, staff payroll, and daily
+              profit—across one station or fifty, even when internet drops.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="button"
                 onClick={onOpenConsole}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-bold shadow-lg shadow-amber-500/20 transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
               >
-                Try Live Station Workspace <ArrowRight className="w-4 h-4" />
+                Try Live Demo Station <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={() => onNavigate('contact')}
-                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-lg bg-white/10 hover:bg-white/15 backdrop-blur border border-white/20 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-lg glass-dark hover:bg-slate-900 text-white text-sm font-semibold transition-colors whitespace-nowrap"
               >
                 Book a Free Demo
               </button>
             </div>
           </div>
 
-          {/* Anchored 4-Column Proof Strip */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/15 rounded-xl overflow-hidden border border-white/15 backdrop-blur-md">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/15 rounded-xl overflow-hidden border border-white/15">
             {[
-              ['Starting Price', '25 000 FCFA / mo', 'All core station tools included'],
-              ['Cash & Mobile Money', 'Cash · Orange · MoMo', 'Checked on every pump shift'],
-              ['Tank & Stock Control', 'Dipsticks & Tank Gauges', 'Catch leaks & truck shortages'],
-              ['Accounting & Mobile', 'SYSCOHADA · Offline App', 'Works on Web, Android & iPhone'],
-            ].map(([label, val, sub]) => (
-              <div key={label} className="bg-[#0B0F17]/80 px-4 py-3.5">
-                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">{label}</div>
-                <div className="font-display text-sm sm:text-base font-bold text-white mt-0.5">{val}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5 hidden sm:block">{sub}</div>
+              ['Starting Plan', '25 000 FCFA / mo'],
+              ['Payments Verified', 'Cash · Orange · MoMo'],
+              ['Stock Control', 'Dipsticks & 15°C Gauges'],
+              ['Accounting & Mobile', 'SYSCOHADA · Offline App'],
+            ].map(([k, v]) => (
+              <div key={k} className="bg-[#0F172A]/85 backdrop-blur-md px-4 py-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">{k}</div>
+                <div className="font-display text-sm sm:text-base font-bold text-white mt-0.5">{v}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* SECTION 1: INTERACTIVE SHIFT-TO-PROFIT CALCULATOR */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-          <div className="lg:col-span-5 space-y-5">
-            <div className="text-xs font-mono uppercase tracking-[0.14em] text-amber-700 font-semibold">
-              01 · Automatic Shift-to-Profit Control
-            </div>
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-950 leading-tight">
-              Close one pump shift. Your daily cash, tank stock, and profit update instantly.
+      {/* 4 CORE PROBLEMS SOLVED — PURE WHITE, STROKE ICONS ONLY, ZERO CLUTTER */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-xl space-y-1.5">
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-950">
+              Built for the four things that protect your margin.
             </h2>
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-              Slide the litres sold below to see how OpesFuel turns a simple pump meter reading into exact
-              expected cash, underground tank stock deduction, VAT (19.25%), and true net station profit—with
-              zero manual calculations.
+            <p className="text-sm text-slate-600">
+              Simple daily control for owners, managers, attendants, and accountants.
             </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('platform')}
+            className="text-sm font-semibold text-slate-950 hover:text-amber-700"
+          >
+            Explore all features →
+          </button>
+        </div>
 
-            <div className="p-5 rounded-xl bg-white border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="font-semibold text-slate-700">Fuel Sold on Shift (Super · 840 FCFA/L)</span>
-                <span className="font-mono font-bold text-amber-700">{simLitres.toLocaleString()} L</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[
+            {
+              icon: Fuel,
+              title: 'Pump Shifts & Cash Safe',
+              desc: 'Lock opening meters, reconcile Cash, Orange Money & MoMo in 2 minutes, and track physical safe drops.',
+              page: 'platform' as PublicPage,
+            },
+            {
+              icon: Truck,
+              title: 'Tanks & Deliveries',
+              desc: 'Catch tanker delivery shortfalls on-site and compare daily physical dipsticks against book fuel stock.',
+              page: 'platform' as PublicPage,
+            },
+            {
+              icon: ShieldCheck,
+              title: 'Fleet Credit & HR Payroll',
+              desc: 'Enforce corporate vehicle plates, put overdue clients on HOLD, manage HR contracts, and deduct only verified shortages.',
+              page: 'solutions' as PublicPage,
+            },
+            {
+              icon: Smartphone,
+              title: 'Offline App & Profit Books',
+              desc: 'Auto-generate daily Z-Reports, VAT (19.25%), and SYSCOHADA books—with an offline Android & iPhone app.',
+              page: 'mobile' as PublicPage,
+            },
+          ].map((card) => {
+            const Icon = card.icon;
+            return (
+              <div
+                key={card.title}
+                className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col justify-between gap-4 hover:border-slate-400 transition-colors"
+              >
+                <div className="space-y-3">
+                  <div className="w-10 h-10 rounded-lg icon-glass flex items-center justify-center">
+                    <Icon className="w-5 h-5 text-slate-900" />
+                  </div>
+                  <h3 className="font-display text-base font-bold text-slate-950">{card.title}</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">{card.desc}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(card.page)}
+                  className="text-xs font-semibold text-slate-900 hover:text-amber-700 text-left"
+                >
+                  Learn more →
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* COMPACT LIVE SHIFT-TO-PROFIT PREVIEW */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 pb-16">
+        <div className="border border-slate-200 rounded-xl p-6 sm:p-8 bg-white grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="lg:col-span-5 space-y-4">
+            <h2 className="font-display text-2xl font-bold text-slate-950">
+              One closed shift balances your books automatically.
+            </h2>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Move the slider to see how OpesFuel calculates cash expected, underground tank deduction, VAT (19.25%), and gross profit in real time.
+            </p>
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span className="text-slate-700">Shift Sales Volume (Super · 840 FCFA/L)</span>
+                <span className="font-mono text-slate-950">{simLitres.toLocaleString()} L</span>
               </div>
               <input
                 type="range"
@@ -999,344 +1010,83 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 step={100}
                 value={simLitres}
                 onChange={(e) => setSimLitres(Number(e.target.value))}
-                aria-label="Simulate shift fuel volume in litres"
+                aria-label="Simulate shift litres"
                 className="w-full accent-amber-600 cursor-pointer"
               />
-              <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                <span>500 L</span>
-                <span>Expected Handover: {formatFcfa(simGrossFcfa)}</span>
-                <span>15 000 L</span>
-              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-7 bg-[#0F172A] text-slate-100 rounded-2xl p-6 sm:p-8 border border-slate-800 shadow-xl space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-800">
-              <div>
-                <div className="font-mono text-xs text-amber-400 font-semibold">
-                  AUTOMATIC SHIFT CLOSING SUMMARY
-                </div>
-                <div className="text-xs text-slate-400 mt-0.5">
-                  Instant check of pump meters, underground tank &amp; daily profit in exact FCFA
-                </div>
-              </div>
-              <span className="font-mono text-[11px] px-2.5 py-1 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                100% BALANCED
-              </span>
-            </div>
-
-            <div className="space-y-2.5 text-sm">
-              <div className="flex items-center justify-between py-2 border-b border-slate-800/70">
-                <span className="text-slate-300">Total Cash + Orange Money + MoMo Expected</span>
-                <span className="font-mono font-bold text-white">{formatFcfa(simGrossFcfa)}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-slate-800/70">
-                <span className="text-slate-400">Deducted From Underground Super Tank</span>
-                <span className="font-mono font-semibold text-amber-300">−{simLitres.toLocaleString()} Litres</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-slate-800/70">
-                <span className="text-slate-400">Fuel Sales Revenue (Excluding VAT)</span>
-                <span className="font-mono text-slate-200">{formatFcfa(simNetRevenue)}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-slate-800/70">
-                <span className="text-slate-400">VAT Set Aside Automatically (19.25%)</span>
-                <span className="font-mono text-slate-200">{formatFcfa(simVat)}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-slate-800/70">
-                <span className="text-slate-400">Wholesale Cost of Fuel Sold (745 FCFA/L)</span>
-                <span className="font-mono text-slate-200">−{formatFcfa(simFuelCost)}</span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-xs text-slate-400">Your Real Gross Fuel Profit on This Shift</div>
-                <div className="text-[11px] text-slate-500">Automatically added to your Daily Z-Report &amp; P&amp;L</div>
-              </div>
-              <div className="font-mono text-2xl font-bold text-emerald-400">{formatFcfa(simShiftProfit)}</div>
-            </div>
+          <div className="lg:col-span-7 overflow-x-auto border border-slate-200 rounded-lg">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3">Shift Accounting Line</th>
+                  <th className="px-4 py-3 text-right">Amount / Volume</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                <tr>
+                  <td className="px-4 py-3 font-medium text-slate-800">Cash + Orange Money + MoMo Expected</td>
+                  <td className="px-4 py-3 text-right font-mono font-bold text-slate-950">{formatFcfa(simGrossFcfa)}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-slate-600">Underground Tank Deduction</td>
+                  <td className="px-4 py-3 text-right font-mono font-semibold text-slate-800">−{simLitres.toLocaleString()} L</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-slate-600">VAT Set Aside (19.25%)</td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-700">{formatFcfa(simVat)}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-slate-600">Wholesale Cost of Fuel Sold</td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-700">−{formatFcfa(simFuelCost)}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 font-bold text-slate-950">Gross Fuel Profit on Shift</td>
+                  <td className="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-700">{formatFcfa(simShiftProfit)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      {/* SECTION 2: 3-PILLAR REAL FORECOURT VISUAL STORY */}
-      <section className="bg-white border-y border-slate-200 py-16 sm:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="max-w-2xl space-y-2">
-              <div className="text-xs font-mono uppercase tracking-[0.14em] text-amber-700 font-semibold">
-                02 · Built for Real Petrol Stations
-              </div>
-              <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-950">
-                Protect your fuel underground, at the pump, and in your bank account.
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('platform')}
-              className="text-sm font-semibold text-amber-700 hover:text-amber-800"
-            >
-              See all station features →
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <article className="rounded-2xl border border-slate-200 overflow-hidden bg-[#FAFAF8] flex flex-col">
-              <ResilientImage
-                src={DEPOT_IMG}
-                alt="Fuel depot metering pipes and underground tank delivery gauges"
-                fallbackTitle="Underground Tank & Delivery Control"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-mono text-amber-700 font-semibold">
-                    <Truck className="w-4 h-4" />
-                    <span>Tanks &amp; Deliveries</span>
-                  </div>
-                  <h3 className="font-display text-xl font-bold text-slate-950">
-                    Catch tanker shortages &amp; underground leaks early.
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Compare supplier delivery notes against before-and-after tank dips (including 15°C temperature
-                    adjustment) and track daily book vs. physical fuel stock.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('docs')}
-                  className="text-xs font-semibold text-amber-700 hover:text-amber-800 text-left pt-2"
-                >
-                  Read Tank &amp; Dipstick Guide →
-                </button>
-              </div>
-            </article>
-
-            <article className="rounded-2xl border border-slate-200 overflow-hidden bg-[#FAFAF8] flex flex-col">
-              <ResilientImage
-                src={MOBILE_IMG}
-                alt="Station manager using OpesFuel Android and iPhone app next to a fuel pump"
-                fallbackTitle="Android & iPhone App"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-mono text-amber-700 font-semibold">
-                    <Smartphone className="w-4 h-4" />
-                    <span>Android &amp; iPhone App</span>
-                  </div>
-                  <h3 className="font-display text-xl font-bold text-slate-950">
-                    Manage your station from anywhere—even when internet drops.
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Attendants close shifts and check fleet plates right at the island; owners track live daily
-                    revenue and tank levels from their phone—with full offline safety.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('mobile')}
-                  className="text-xs font-semibold text-amber-700 hover:text-amber-800 text-left pt-2"
-                >
-                  Try Interactive Mobile Preview →
-                </button>
-              </div>
-            </article>
-
-            <article className="rounded-2xl border border-slate-800 bg-[#0F172A] text-white p-6 flex flex-col justify-between gap-6">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-mono text-amber-400 font-semibold">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Credit, Payroll &amp; Anti-Fraud</span>
-                </div>
-                <h3 className="font-display text-xl font-bold">
-                  Stop bad corporate debt and run fair monthly staff payroll.
-                </h3>
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  Put overdue transport companies on HOLD with one tap, approve exact license plates, deduct only
-                  verified cash shortages at payroll, and lock finished accounting months.
-                </p>
-              </div>
-              <div className="space-y-2 pt-4 border-t border-slate-800 text-xs">
-                <div className="flex items-center justify-between text-slate-300">
-                  <span>Average Cash Loss Reduction</span>
-                  <span className="font-mono font-bold text-emerald-400">−89%</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-300">
-                  <span>Typical Payback Time</span>
-                  <span className="font-mono font-bold text-amber-400">Under 2 Weeks</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('customers')}
-                  className="pt-2 inline-block font-semibold text-amber-400 hover:text-amber-300"
-                >
-                  Read Customer Stories →
-                </button>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 3: INTERACTIVE 4-ROLE WORKSPACE SHOWCASE */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 space-y-8">
-        <div className="max-w-2xl space-y-2">
-          <div className="text-xs font-mono uppercase tracking-[0.14em] text-amber-700 font-semibold">
-            03 · Made For Everyone On Your Team
-          </div>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-950">
-            Every person sees only the tools they need—nothing more, nothing less.
-          </h2>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['OWNER', 'Station Owner'],
-              ['MANAGER', 'Forecourt Manager'],
-              ['ATTENDANT', 'Pump Attendant'],
-              ['ACCOUNTANT', 'Station Accountant'],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setActiveRoleTab(id)}
-              className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
-                activeRoleTab === id
-                  ? 'bg-slate-950 text-amber-400 border-slate-950'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-7 sm:p-9 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-8 space-y-4">
-            <div className="text-xs font-mono font-bold uppercase tracking-wider text-amber-700">
-              {currentRoleInfo.badge} View
-            </div>
-            <h3 className="font-display text-2xl sm:text-3xl font-bold text-slate-950">
-              {currentRoleInfo.title}
-            </h3>
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-              {currentRoleInfo.desc}
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              {currentRoleInfo.bullets.map((b) => (
-                <div
-                  key={b}
-                  className="p-4 rounded-xl bg-[#FAFAF8] border border-slate-200 text-xs text-slate-700 leading-relaxed flex items-start gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>{b}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="lg:col-span-4 p-6 rounded-xl bg-slate-950 text-white space-y-3">
-            <div className="text-xs font-mono uppercase tracking-wider text-slate-400">
-              {currentRoleInfo.highlightLabel}
-            </div>
-            <div className="font-display text-3xl font-extrabold text-amber-400">
-              {currentRoleInfo.highlightValue}
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Each team member receives their own personal login with strict permission boundaries.
-            </p>
-            <button
-              type="button"
-              onClick={onOpenConsole}
-              className="w-full mt-2 py-2.5 px-4 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold"
-            >
-              Preview This Role in Portal →
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 4: QUICK HELP STRIP (DOCUMENTATION + FAQ) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white border border-slate-200 rounded-2xl p-7 flex flex-col justify-between gap-4">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold text-amber-700">
-                <BookOpen className="w-4 h-4" /> Step-by-Step Documentation
-              </div>
-              <h3 className="font-display text-xl font-bold text-slate-950">
-                New to digital station management? Read our 10-chapter Station Manual.
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Simple, illustrated checklists showing how to set up tanks, close shifts, manage fleet credit, run
-                payroll, and lock monthly accounts.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('docs')}
-              className="text-sm font-semibold text-amber-700 hover:text-amber-800 text-left"
-            >
-              Open Station Documentation →
-            </button>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-7 flex flex-col justify-between gap-4">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold text-amber-700">
-                <HelpCircle className="w-4 h-4" /> Owner Questions Answered
-              </div>
-              <h3 className="font-display text-xl font-bold text-slate-950">
-                Questions about internet outages, Orange Money, hardware, or cost?
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Read plain answers to the 16 most common questions petrol station owners ask before switching from
-                paper books and Excel.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('faq')}
-              className="text-sm font-semibold text-amber-700 hover:text-amber-800 text-left"
-            >
-              Browse Frequently Asked Questions →
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 5: ARCHITECTURAL CLOSING CTA */}
+      {/* CONCISE CLOSING CTA + DIRECT DOCS / FAQ LINKS */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#0B0F17] text-white border border-slate-800 rounded-2xl p-8 sm:p-12 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="text-xs font-mono uppercase tracking-wider text-amber-400">
-              Start in Under 48 Hours · From 25 000 FCFA/month
-            </div>
+        <div className="bg-[#0F172A] text-white rounded-xl p-8 sm:p-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-xl">
             <h2 className="font-display text-2xl sm:text-3xl font-bold">
-              Take complete control of your petrol station starting this week.
+              Go live at your station in under 48 hours.
             </h2>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              No expensive pump replacements needed. Start on our managed cloud or deploy on your own private
-              server with full support from our onboarding team.
+            <p className="text-sm text-slate-300">
+              No hardware lock-in. Cloud plans from 25 000 FCFA/month or Private Server hosting.
             </p>
+            <div className="flex flex-wrap gap-4 pt-1 text-xs">
+              <button type="button" onClick={() => onNavigate('docs')} className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white underline">
+                <BookOpen className="w-3.5 h-3.5" /> Read Station Manual
+              </button>
+              <button type="button" onClick={() => onNavigate('faq')} className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white underline">
+                <HelpCircle className="w-3.5 h-3.5" /> Read Owner FAQ
+              </button>
+              <button type="button" onClick={() => onNavigate('pricing')} className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white underline">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Compare FCFA Plans
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
             <button
               type="button"
               onClick={onOpenConsole}
-              className="px-6 py-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-bold transition-colors whitespace-nowrap"
+              className="px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold whitespace-nowrap"
             >
-              Try Live Workspace
+              Try Demo Station
             </button>
             <button
               type="button"
               onClick={() => onNavigate('contact')}
-              className="px-5 py-3.5 rounded-lg border border-white/20 hover:bg-white/10 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+              className="px-5 py-3 rounded-lg border border-white/20 hover:bg-white/10 text-white text-sm font-semibold whitespace-nowrap"
             >
-              Book a Free Demo
+              Book a Demo
             </button>
           </div>
         </div>

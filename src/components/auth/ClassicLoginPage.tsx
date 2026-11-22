@@ -137,7 +137,7 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-white flex flex-col lg:flex-row">
       {/* Left Brand & Forecourt Visual Column */}
       <div className="lg:w-1/2 relative bg-slate-900 text-white flex flex-col justify-between min-h-[280px] lg:min-h-screen overflow-hidden">
         {!imgFailed ? (
@@ -225,7 +225,7 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
           </div>
 
           {pendingInviteToken && (
-            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
+            <div className="p-3 rounded-lg bg-white border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
               <UserCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
               <div>
                 <div className="font-semibold">Staff Invitation Detected</div>
@@ -363,7 +363,7 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
                           onClick={() => handleRolePreset(r)}
                           className={`p-2.5 rounded-lg border text-left transition-colors ${
                             active
-                              ? 'border-amber-600 bg-amber-50/70 text-slate-900'
+                              ? 'border-amber-600 bg-white text-slate-900'
                               : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                           } ${r === 'PLATFORM_ADMIN' ? 'col-span-2' : ''}`}
                         >
@@ -393,7 +393,7 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
                   type="button"
                   disabled={ssoBusy}
                   onClick={() => void handleAuth0Redirect('signup')}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-semibold transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-900 text-xs font-semibold transition-colors"
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-700" />
                   Step 1: Verify Email via Auth0 SSO Before Provisioning

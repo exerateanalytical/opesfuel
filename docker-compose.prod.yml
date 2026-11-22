@@ -8,6 +8,7 @@ services:
       POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
     volumes:
       - opesfuel_pgdata:/var/lib/postgresql/data
+      - ./deploy/backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-opesfuel_app} -d ${POSTGRES_DB:-opesfuel}"]
       interval: 10s
@@ -20,6 +21,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-opesfuel}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-opesfuel_app}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
@@ -31,8 +33,19 @@ services:
       OPESFUEL_ENCRYPTION_KEY: ${OPESFUEL_ENCRYPTION_KEY:?OPESFUEL_ENCRYPTION_KEY is required}
       OPESFUEL_CORS_ALLOWED_ORIGINS: ${OPESFUEL_CORS_ALLOWED_ORIGINS:?OPESFUEL_CORS_ALLOWED_ORIGINS is required}
       OPESFUEL_ALERTS_WEBHOOK_URL: ${OPESFUEL_ALERTS_WEBHOOK_URL:-}
+      OPESFUEL_MAIL_PROVIDER: ${OPESFUEL_MAIL_PROVIDER:-LOG_ONLY}
+      OPESFUEL_MAIL_API_KEY: ${OPESFUEL_MAIL_API_KEY:-}
+      OPESFUEL_MAIL_FROM: ${OPESFUEL_MAIL_FROM:-noreply@opesfuel.com}
+      OPESFUEL_PAYMENT_WEBHOOK_SECRET: ${OPESFUEL_PAYMENT_WEBHOOK_SECRET:-}
+      OPESFUEL_PAYMENT_CHECKOUT_BASE_URL: ${OPESFUEL_PAYMENT_CHECKOUT_BASE_URL:-https://pay.opesfuel.com/checkout}
     ports:
       - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health || wget -qO- http://127.0.0.1:8080/actuator/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 35s
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,9 +67,35 @@ services:
       OPESFUEL_AI_MODEL: ${OPESFUEL_AI_MODEL:-gemini-2.5-flash}
     ports:
       - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
     depends_on:
       opesfuel-backend:
         condition: service_healthy
 
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["tls"]
+    restart: unless-stopped
+    environment:
+      OPESFUEL_DOMAIN: ${OPESFUEL_DOMAIN:-app.opesfuel.com}
+      OPESFUEL_API_DOMAIN: ${OPESFUEL_API_DOMAIN:-api.opesfuel.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      opesfuel-web:
+        condition: service_healthy
+
 volumes:
   opesfuel_pgdata:
+  caddy_data:
+  caddy_config:

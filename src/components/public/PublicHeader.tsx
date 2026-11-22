@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { PublicPage } from '../../domain/types';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
 
 interface PublicHeaderProps {
@@ -49,7 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: 'platform',
         label: 'Station Management Features',
-        desc: 'Pump shifts, underground tanks, fleet credit, payroll & profit reports',
+        desc: 'Pump shifts, underground tanks, fleet credit, HR & profit reports',
         icon: Fuel,
       },
       {
@@ -147,6 +148,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
   onNavigate,
   onOpenConsole,
 }) => {
+  const { lang, toggleLang, t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<NavGroup['key'] | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -192,14 +194,14 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
           onClick={() => setOpenMenu((prev) => (prev === group.key ? null : group.key))}
           className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
             active || expanded
-              ? 'text-slate-950 bg-slate-100 font-semibold'
-              : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+              ? 'text-slate-950 font-semibold border-b-2 border-amber-600 rounded-b-none'
+              : 'text-slate-600 hover:text-slate-950'
           }`}
         >
           <span>{group.label}</span>
           <ChevronDown
             className={`w-3.5 h-3.5 transition-transform duration-150 ${
-              expanded ? 'rotate-180 text-amber-600' : 'text-slate-400'
+              expanded ? 'rotate-180 text-slate-950' : 'text-slate-400'
             }`}
           />
         </button>
@@ -209,7 +211,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
             role="menu"
             className={`absolute ${
               alignRight ? 'right-0' : 'left-0'
-            } top-full mt-2 w-[350px] rounded-2xl bg-white border border-slate-200 shadow-xl shadow-slate-900/10 p-2 z-50`}
+            } top-full mt-2 w-[350px] rounded-xl bg-white border border-slate-200 shadow-lg p-2 z-50`}
           >
             {group.items.map((item) => {
               const Icon = item.icon;
@@ -220,24 +222,18 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                   type="button"
                   role="menuitem"
                   onClick={() => handleNav(item.id)}
-                  className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors ${
-                    isCurrent
-                      ? 'bg-amber-50/90 text-slate-950'
-                      : 'hover:bg-slate-50 text-slate-800'
+                  className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-colors ${
+                    isCurrent ? 'bg-slate-50 text-slate-950' : 'hover:bg-slate-50 text-slate-800'
                   }`}
                 >
-                  <div
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                      isCurrent ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
+                  <div className="w-8 h-8 rounded-lg icon-glass flex items-center justify-center shrink-0 mt-0.5">
+                    <Icon className="w-4 h-4 text-slate-800" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-900">{item.label}</span>
+                      <span className="text-sm font-semibold text-slate-950">{item.label}</span>
                       {item.badge && (
-                        <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-700">
                           {item.badge}
                         </span>
                       )}
@@ -256,10 +252,9 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90"
+      className="sticky top-0 z-40 glass-surface border-x-0 border-t-0"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Brand Logo */}
         <button
           type="button"
           onClick={() => handleNav('home')}
@@ -268,18 +263,17 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
           <OpesFuelLogo variant="dark" size="md" />
         </button>
 
-        {/* Desktop Primary Navigation */}
         <nav aria-label="Primary navigation" className="hidden lg:flex items-center gap-1">
           <button
             type="button"
             onClick={() => handleNav('home')}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
               activePage === 'home'
-                ? 'text-slate-950 bg-slate-100 font-semibold'
-                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                ? 'text-slate-950 font-semibold border-b-2 border-amber-600'
+                : 'text-slate-600 hover:text-slate-950'
             }`}
           >
-            Home
+            {t('Home', 'Accueil')}
           </button>
 
           {renderDropdownGroup(NAV_GROUPS[0], false)}
@@ -288,34 +282,34 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
           <button
             type="button"
             onClick={() => handleNav('pricing')}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
               activePage === 'pricing'
-                ? 'text-slate-950 bg-slate-100 font-semibold'
-                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                ? 'text-slate-950 font-semibold border-b-2 border-amber-600'
+                : 'text-slate-600 hover:text-slate-950'
             }`}
           >
-            Pricing
+            {t('Pricing', 'Tarifs')}
           </button>
 
           <button
             type="button"
             onClick={() => handleNav('docs')}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
               activePage === 'docs'
-                ? 'text-slate-950 bg-slate-100 font-semibold'
-                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                ? 'text-slate-950 font-semibold border-b-2 border-amber-600'
+                : 'text-slate-600 hover:text-slate-950'
             }`}
           >
-            Documentation
+            {t('Documentation', 'Manuel')}
           </button>
 
           <button
             type="button"
             onClick={() => handleNav('faq')}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
               activePage === 'faq'
-                ? 'text-slate-950 bg-slate-100 font-semibold'
-                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                ? 'text-slate-950 font-semibold border-b-2 border-amber-600'
+                : 'text-slate-600 hover:text-slate-950'
             }`}
           >
             FAQ
@@ -324,21 +318,28 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
           {renderDropdownGroup(NAV_GROUPS[2], true)}
         </nav>
 
-        {/* Right Actions + Mobile Trigger */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={toggleLang}
+            aria-label="Toggle language"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 font-mono text-xs font-semibold text-slate-800"
+          >
+            {lang === 'en' ? 'EN | FR' : 'FR | EN'}
+          </button>
           <button
             type="button"
             onClick={onOpenConsole}
-            className="hidden sm:inline-flex items-center justify-center px-3.5 py-2 text-sm font-semibold text-slate-800 hover:text-slate-950 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+            className="hidden sm:inline-flex items-center justify-center px-3.5 py-2 text-sm font-semibold text-slate-900 border border-slate-300 bg-white hover:bg-slate-50 rounded-lg transition-colors whitespace-nowrap shrink-0"
           >
-            Sign In
+            {t('Sign In', 'Connexion')}
           </button>
           <button
             type="button"
             onClick={() => handleNav('contact')}
-            className="hidden sm:inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap shrink-0 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2"
+            className="hidden sm:inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
           >
-            Book a Demo
+            {t('Book a Demo', 'Démo')}
           </button>
 
           <button
@@ -376,7 +377,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                 onClick={() => handleNav(id)}
                 className={`px-3.5 py-2.5 rounded-lg text-sm font-semibold text-left border ${
                   activePage === id
-                    ? 'bg-amber-50 border-amber-200 text-amber-900'
+                    ? 'bg-white border-amber-200 text-amber-900'
                     : 'bg-slate-50 border-slate-200 text-slate-800'
                 }`}
               >
@@ -401,7 +402,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                       onClick={() => handleNav(item.id)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
                         active
-                          ? 'bg-amber-50 text-amber-950 font-semibold'
+                          ? 'bg-white text-amber-950 font-semibold'
                           : 'text-slate-700 hover:bg-slate-50'
                       }`}
                     >

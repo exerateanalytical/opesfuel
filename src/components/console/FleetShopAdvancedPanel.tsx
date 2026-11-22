@@ -139,7 +139,7 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
                 onClick={() => void handleToggleHold(activeAccount)}
                 className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border ${
                   activeAccount.status === 'HOLD'
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                    ? 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
                     : 'border-red-300 bg-red-50 text-red-800 hover:bg-red-100'
                 }`}
               >
@@ -166,7 +166,7 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
         </div>
 
         {statement && (
-          <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/40 space-y-2 text-xs">
+          <div className="p-4 rounded-xl border border-amber-200 bg-white space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-900">
                 Corporate Statement — {String(statement.companyName ?? '')} (NIU: {String(statement.taxId ?? '-')})

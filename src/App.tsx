@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  buildExtendedOperationsDataset,
+  ExtendedOperationsBundle,
+} from './api/demoDataset1000';
+import {
   CHART_OF_ACCOUNTS,
   computeFinancialReports,
   OpesFuelApiEngine,
@@ -21,18 +25,23 @@ import { AccountingSection } from './components/console/AccountingSection';
 import { AdminBillingSection } from './components/console/AdminBillingSection';
 import { AiAssistantSection } from './components/console/AiAssistantSection';
 import { ApiPlatformSection } from './components/console/ApiPlatformSection';
+import { CashVaultPanel } from './components/console/CashVaultPanel';
 import { ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
 import { FleetShopSection } from './components/console/FleetShopSection';
 import { ForecourtSection } from './components/console/ForecourtSection';
+import { HrManagementPanel } from './components/console/HrManagementPanel';
 import { InventorySection } from './components/console/InventorySection';
 import { OnboardingGuideModal } from './components/console/OnboardingGuideModal';
 import { OverviewSection } from './components/console/OverviewSection';
 import { PlatformAdminSection } from './components/console/PlatformAdminSection';
+import { PumpCalibrationPanel } from './components/console/PumpCalibrationPanel';
+import { SecurityAuditAndProfilePanel } from './components/console/SecurityAuditAndProfilePanel';
 import { WorkforceSection } from './components/console/WorkforceSection';
 import { MobileAppShowcase } from './components/mobile/MobileAppShowcase';
 import { PublicFooter } from './components/public/PublicFooter';
 import { PublicHeader } from './components/public/PublicHeader';
 import { PublicSite } from './components/public/PublicSite';
+import { CookiePrivacyNotice } from './components/shared/CookiePrivacyNotice';
 import { ConsoleSection, PublicPage, UserRole } from './domain/types';
 
 const PUBLIC_PAGES: PublicPage[] = [
@@ -55,6 +64,77 @@ const PUBLIC_PAGES: PublicPage[] = [
   'legal',
 ];
 
+const PUBLIC_SEO: Record<PublicPage, { title: string; description: string }> = {
+  home: {
+    title: 'OpesFuel — Petrol Station Management Software for Shifts, Tanks, Fleet & SYSCOHADA',
+    description: 'Run every pump, tank, shift, fleet account, HR contract, and SYSCOHADA journal across your petrol stations in real time.',
+  },
+  platform: {
+    title: 'Platform Capabilities — OpesFuel Petrol Station Operating System',
+    description: 'Forecourt shift reconciliation, tank dipstick variance alerts, cash safe ledger, HR & payroll, and automated accounting.',
+  },
+  solutions: {
+    title: 'Solutions for Single Stations & Multi-Site Networks — OpesFuel',
+    description: 'Tailored workflows for station owners, managers, pump attendants, and chief accountants.',
+  },
+  integrations: {
+    title: 'Integrations: Orange Money, MTN MoMo, ATG & ERP — OpesFuel',
+    description: 'Connect mobile money payments, thermal POS printers, webhooks, and external accounting systems.',
+  },
+  pricing: {
+    title: 'Transparent FCFA Pricing — OpesFuel Petrol Station SaaS',
+    description: 'Simple per-station monthly plans starting at 25,000 FCFA/month with a 14-day free trial.',
+  },
+  licensing: {
+    title: 'Enterprise & On-Premise Licensing — OpesFuel',
+    description: 'Dedicated VPS deployment, white-label branding, and multi-country enterprise station licensing.',
+  },
+  mobile: {
+    title: 'OpesFuel Mobile Companion App — Offline-First Forecourt App',
+    description: 'Record pump shifts, tank dipsticks, and fleet fuel vouchers from Android or iOS even when internet drops.',
+  },
+  docs: {
+    title: 'Station Operations & HR Documentation — OpesFuel Manual',
+    description: 'Step-by-step operating manual for petrol station owners, managers, attendants, accountants, and HR teams.',
+  },
+  faq: {
+    title: 'Frequently Asked Questions — OpesFuel Petrol Station Software',
+    description: 'Clear answers on setup, offline sync, tank reconciliation, HR & CNPS, Mobile Money, and SYSCOHADA compliance.',
+  },
+  api: {
+    title: 'Developer API & Webhooks — OpesFuel OpenAPI 3.1',
+    description: 'Integrate petrol station shifts, deliveries, and accounting journals with scoped API keys and HMAC webhooks.',
+  },
+  security: {
+    title: 'Security, Audit Trail & Multi-Tenant Isolation — OpesFuel',
+    description: 'Role-based access control, immutable reversing journals, TLS encryption, and automated daily PostgreSQL backups.',
+  },
+  customers: {
+    title: 'Customer Stories — African Petrol Station Networks on OpesFuel',
+    description: 'See how independent station owners and regional fuel marketers stop stock losses and speed up daily closing.',
+  },
+  about: {
+    title: 'About OpesFuel — Built by OpesWare for Fuel Retailers',
+    description: 'Purpose-built petrol station operations software engineered for real forecourts across Central and West Africa.',
+  },
+  resources: {
+    title: 'Guides & Station Checklists — OpesFuel Resources',
+    description: 'Daily shift handover checklists, dipstick variance playbooks, and tax compliance guides for fuel station owners.',
+  },
+  status: {
+    title: 'System Status & Uptime — OpesFuel Cloud',
+    description: 'Live operational status across OpesFuel web console, mobile sync API, and payment webhooks.',
+  },
+  contact: {
+    title: 'Book a Live Demo & Contact Sales — OpesFuel',
+    description: 'Talk with our petrol station onboarding specialists in Douala, Yaounde, or remotely.',
+  },
+  legal: {
+    title: 'Privacy Policy, Terms & Data Governance — OpesFuel',
+    description: 'Terms of service, data ownership guarantee, and privacy controls for OpesFuel SaaS.',
+  },
+};
+
 const CONSOLE_SECTIONS: ConsoleSection[] = [
   'platform-admin',
   'overview',
@@ -74,39 +154,44 @@ function parseHashRoute(hashStr = window.location.hash): {
   publicPage: PublicPage;
   consoleSection: ConsoleSection;
   inviteToken: string | null;
+  unknownHash: string | null;
 } {
   const rawOriginal = hashStr.replace(/^#\/?/, '');
   const raw = rawOriginal.toLowerCase();
   if (!raw) {
-    return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null };
+    return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null, unknownHash: null };
   }
   if (raw.startsWith('invite/')) {
     const token = rawOriginal.slice('invite/'.length).trim();
-    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: token || null };
+    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: token || null, unknownHash: null };
   }
   if (raw === 'login') {
-    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: null };
+    return { mode: 'login', publicPage: 'home', consoleSection: 'overview', inviteToken: null, unknownHash: null };
   }
   if (raw.startsWith('app/')) {
     const seg = raw.slice(4) as ConsoleSection;
     if (CONSOLE_SECTIONS.includes(seg)) {
-      return { mode: 'console', publicPage: 'home', consoleSection: seg, inviteToken: null };
+      return { mode: 'console', publicPage: 'home', consoleSection: seg, inviteToken: null, unknownHash: null };
     }
-    return { mode: 'console', publicPage: 'home', consoleSection: 'overview', inviteToken: null };
+    return { mode: 'console', publicPage: 'home', consoleSection: 'overview', inviteToken: null, unknownHash: null };
   }
   if (PUBLIC_PAGES.includes(raw as PublicPage)) {
-    return { mode: 'public', publicPage: raw as PublicPage, consoleSection: 'overview', inviteToken: null };
+    return { mode: 'public', publicPage: raw as PublicPage, consoleSection: 'overview', inviteToken: null, unknownHash: null };
   }
-  return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null };
+  return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null, unknownHash: rawOriginal };
 }
 
 export default function App() {
   const engineRef = useRef<OpesFuelApiEngine>(new OpesFuelApiEngine());
   const [store, setStore] = useState<OpesFuelStoreState>(() => engineRef.current.getSnapshot());
+  const [extOps, setExtOps] = useState<ExtendedOperationsBundle>(() =>
+    buildExtendedOperationsDataset(engineRef.current.getSnapshot().stations[0]?.id ?? 'st_plateau')
+  );
 
   const initialRoute = useMemo(() => parseHashRoute(), []);
   const [mode, setMode] = useState<'public' | 'login' | 'console'>(initialRoute.mode);
   const [publicPage, setPublicPage] = useState<PublicPage>(initialRoute.publicPage);
+  const [unknownHash, setUnknownHash] = useState<string | null>(initialRoute.unknownHash);
   const [consoleSection, setConsoleSection] = useState<ConsoleSection>(initialRoute.consoleSection);
   const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(initialRoute.inviteToken);
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => getStoredAuthSession());
@@ -121,6 +206,20 @@ export default function App() {
   const notify = useCallback((type: 'success' | 'error', message: string) => {
     setToast({ type, message });
   }, []);
+
+  // Dynamic SEO / GEO / AEO document title & meta description per page
+  useEffect(() => {
+    if (mode === 'public') {
+      const seo = PUBLIC_SEO[publicPage] ?? PUBLIC_SEO.home;
+      document.title = seo.title;
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute('content', seo.description);
+    } else if (mode === 'login') {
+      document.title = 'Sign In — OpesFuel Station Workspace';
+    } else {
+      document.title = `OpesFuel Console · ${consoleSection.toUpperCase()}`;
+    }
+  }, [mode, publicPage, consoleSection]);
 
   // Keep activeStationId valid if stations are deleted or tenant workspace is reset
   const effectiveActiveStationId = useMemo(() => {
@@ -400,6 +499,67 @@ export default function App() {
     }
   };
 
+  const currentActorEmail = authSession?.email ?? `${role.toLowerCase()}@opesfuel.cm`;
+
+  const postOptionalBackend = useCallback(
+    async (path: string, method: 'POST' | 'PATCH', body?: Record<string, unknown>) => {
+      const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+      if (!apiBase) return null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authSession?.accessToken) {
+        headers.Authorization = `Bearer ${authSession.accessToken}`;
+      }
+      try {
+        const res = await fetch(`${apiBase}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        if (res.ok) return (await res.json().catch(() => null)) as Record<string, unknown> | null;
+      } catch {
+        // fallback to optimistic local state when remote API is unavailable
+      }
+      return null;
+    },
+    [authSession?.accessToken]
+  );
+
+  const appendAudit = useCallback(
+    (action: string, entityType: string, entityId: string, summary: string, stationId = defaultStationId) => {
+      setExtOps((prev) => ({
+        ...prev,
+        auditLogs: [
+          {
+            id: `aud_${Date.now().toString(36)}`,
+            stationId,
+            actorEmail: currentActorEmail,
+            actorRole: role,
+            action,
+            entityType,
+            entityId,
+            summary,
+            createdAt: new Date().toISOString(),
+          },
+          ...prev.auditLogs,
+        ],
+      }));
+    },
+    [currentActorEmail, defaultStationId, role]
+  );
+
+  const handleSeed1000Demo = useCallback(async () => {
+    const remote = await postOptionalBackend('/api/v1/tenants/current/seed-1000-demo', 'POST');
+    const nextStore = engineRef.current.restoreSampleDemoData(role);
+    setStore(nextStore);
+    const rebuilt = buildExtendedOperationsDataset(nextStore.stations[0]?.id ?? defaultStationId);
+    setExtOps(rebuilt);
+    const totalCount = Number(remote?.totalRecords ?? rebuilt.totalDemoRecords);
+    notify(
+      'success',
+      `Seeded flagship demo petrol station with ${totalCount.toLocaleString()} balanced records across Fuel, Shifts, Tanks, Fleet, HR, Salaries, Taxes, Safe & SYSCOHADA Ledger.`
+    );
+  }, [defaultStationId, notify, postOptionalBackend, role]);
+
   if (mode === 'login') {
     return (
       <ClassicLoginPage
@@ -467,13 +627,36 @@ export default function App() {
   }
 
   if (mode === 'public') {
+    const handlePublicNavigate = (nextPage: PublicPage) => {
+      setUnknownHash(null);
+      setPublicPage(nextPage);
+    };
     return (
-      <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900">
+      <div className="min-h-screen flex flex-col bg-white text-slate-900">
         <PublicHeader
           activePage={publicPage}
-          onNavigate={setPublicPage}
+          onNavigate={handlePublicNavigate}
           onOpenConsole={openClassicLogin}
         />
+        {unknownHash && (
+          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-4">
+            <div className="rounded-xl border border-slate-300 border-l-4 border-l-amber-600 bg-white px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div>
+                <span className="font-bold text-slate-900">Page not found (#/{unknownHash}):</span>{' '}
+                <span className="text-slate-600">
+                  We redirected you to the OpesFuel homepage. Use the navigation bar or visit Station Docs.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUnknownHash(null)}
+                className="px-3 py-1 rounded border border-slate-300 font-semibold text-slate-900 hover:bg-slate-50"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
         <main className="flex-1">
           <PublicSite
             page={publicPage}
@@ -486,18 +669,24 @@ export default function App() {
             shopItems={store.shopItems}
             aiSubscription={store.tenant.aiSubscription}
             report={report}
-            onNavigate={setPublicPage}
+            onNavigate={handlePublicNavigate}
             onOpenConsole={openClassicLogin}
             onLeadSubmitted={(lead) => engineRef.current.recordPreviewLead(lead)}
           />
         </main>
         <PublicFooter
-          onNavigate={setPublicPage}
+          onNavigate={handlePublicNavigate}
           onOpenConsole={openClassicLogin}
         />
+        <CookiePrivacyNotice onNavigate={handlePublicNavigate} />
       </div>
     );
   }
+
+  const scopedStationId = effectiveActiveStationId === 'ALL' ? defaultStationId : effectiveActiveStationId;
+  const scopedPumps = store.pumps.filter((p) => effectiveActiveStationId === 'ALL' || p.stationId === effectiveActiveStationId);
+  const scopedEmployees = store.employees.filter((e) => effectiveActiveStationId === 'ALL' || e.stationId === effectiveActiveStationId);
+  const canManageOps = role === 'OWNER' || role === 'MANAGER' || role === 'PLATFORM_ADMIN';
 
   return (
     <ConsoleLayout
@@ -534,15 +723,40 @@ export default function App() {
           pumps={store.pumps}
           shifts={store.shifts}
           events={store.events}
+          priceHistory={extOps.priceHistory}
           report={report}
           onboardingCompletedCount={onboardingCompletedCount}
           onOpenOnboardingGuide={openOnboardingGuide}
-          onUpdatePrice={(stId, grade, price) =>
+          onUpdatePrice={(stId, grade, price, reason) => {
+            const oldPrice = store.stations.find((s) => s.id === stId)?.prices[grade] ?? price;
             runCommand(
               () => engineRef.current.updateFuelPrice(role, stId, grade, price),
-              `Published ${grade} price update to ${price} FCFA/L and emitted FuelPriceUpdatedEvent.`
-            )
-          }
+              `Published ${grade} price update to ${price} FCFA/L and recorded price history.`
+            );
+            setExtOps((prev) => ({
+              ...prev,
+              priceHistory: [
+                {
+                  id: `ph_${Date.now().toString(36)}`,
+                  stationId: stId,
+                  grade,
+                  oldPriceFcfa: oldPrice,
+                  newPriceFcfa: price,
+                  changedBy: currentActorEmail,
+                  reason: reason ?? 'Regulatory tariff update',
+                  changedAt: new Date().toISOString(),
+                },
+                ...prev.priceHistory,
+              ],
+            }));
+            void postOptionalBackend(`/api/v1/stations/${encodeURIComponent(stId)}/price-history`, 'POST', {
+              grade,
+              oldPriceFcfa: oldPrice,
+              newPriceFcfa: price,
+              reason: reason ?? 'Regulatory tariff update',
+            });
+            appendAudit('PRICE_UPDATED', 'STATION', stId, `${grade}: ${oldPrice} → ${price} FCFA/L`, stId);
+          }}
           onCreateStation={(input) =>
             runCommand(
               () => engineRef.current.createStation(role, input),
@@ -593,6 +807,29 @@ export default function App() {
               () => engineRef.current.deleteShift(role, shiftId),
               'Deleted shift record and reversed linked shift journal.'
             )
+          }
+          calibrationSlot={
+            <PumpCalibrationPanel
+              stationId={scopedStationId}
+              pumps={scopedPumps}
+              canManage={canManageOps}
+              calibrations={extOps.calibrations}
+              maintenance={extOps.maintenance}
+              onRecordCalibration={(item) => {
+                const rec = { ...item, id: `cal_${Date.now().toString(36)}`, testedAt: new Date().toISOString() };
+                setExtOps((prev) => ({ ...prev, calibrations: [rec, ...prev.calibrations] }));
+                void postOptionalBackend(`/api/v1/forecourt/pumps/${encodeURIComponent(item.pumpId)}/calibrations`, 'POST', item as unknown as Record<string, unknown>);
+                appendAudit('PUMP_CALIBRATION', 'PUMP', item.pumpId, `20L test (${item.testLitres} L) on ${item.pumpCode}`, item.stationId);
+                notify('success', `Recorded ${item.testLitres}L calibration on ${item.pumpCode} (returned to tank — zero shortage created).`);
+              }}
+              onRecordMaintenance={(item) => {
+                const rec = { ...item, id: `mnt_${Date.now().toString(36)}`, loggedAt: new Date().toISOString() };
+                setExtOps((prev) => ({ ...prev, maintenance: [rec, ...prev.maintenance] }));
+                void postOptionalBackend(`/api/v1/forecourt/pumps/${encodeURIComponent(item.pumpId)}/maintenance`, 'POST', item as unknown as Record<string, unknown>);
+                appendAudit('PUMP_MAINTENANCE', 'PUMP', item.pumpId, `${item.maintenanceType} on ${item.pumpCode}`, item.stationId);
+                notify('success', `Logged ${item.maintenanceType} service on ${item.pumpCode}.`);
+              }}
+            />
           }
         />
       )}
@@ -752,6 +989,56 @@ export default function App() {
             )
           }
           onNotify={notify}
+          hrSlot={
+            <HrManagementPanel
+              stationId={scopedStationId}
+              employees={scopedEmployees}
+              role={role}
+              contracts={extOps.hrContracts}
+              leaves={extOps.hrLeaves}
+              certs={extOps.hrCerts}
+              disciplinary={extOps.hrDisciplinary}
+              onCreateContract={(c) => {
+                const rec = { ...c, id: `hrc_${Date.now().toString(36)}`, status: 'ACTIVE' as const };
+                setExtOps((prev) => ({ ...prev, hrContracts: [rec, ...prev.hrContracts] }));
+                void postOptionalBackend('/api/v1/hr/contracts', 'POST', c as unknown as Record<string, unknown>);
+                appendAudit('HR_CONTRACT_CREATED', 'HR_CONTRACT', rec.id, `${c.contractType} contract for ${c.employeeName}`, c.stationId);
+                notify('success', `Saved ${c.contractType} contract & CNPS record for ${c.employeeName}.`);
+              }}
+              onCreateLeave={(l) => {
+                const rec = { ...l, id: `hrl_${Date.now().toString(36)}`, status: 'PENDING' as const };
+                setExtOps((prev) => ({ ...prev, hrLeaves: [rec, ...prev.hrLeaves] }));
+                void postOptionalBackend('/api/v1/hr/leaves', 'POST', l as unknown as Record<string, unknown>);
+                appendAudit('HR_LEAVE_REQUESTED', 'HR_LEAVE', rec.id, `${l.leaveType} (${l.daysCount}d) for ${l.employeeName}`, l.stationId);
+                notify('success', `Logged ${l.leaveType} leave request for ${l.employeeName}.`);
+              }}
+              onDecideLeave={(leaveId, status) => {
+                setExtOps((prev) => ({
+                  ...prev,
+                  hrLeaves: prev.hrLeaves.map((lv) =>
+                    lv.id === leaveId ? { ...lv, status, reviewedBy: currentActorEmail } : lv
+                  ),
+                }));
+                void postOptionalBackend(`/api/v1/hr/leaves/${encodeURIComponent(leaveId)}/decision`, 'PATCH', { status });
+                appendAudit('HR_LEAVE_DECIDED', 'HR_LEAVE', leaveId, `Leave ${leaveId} marked ${status}`);
+                notify('success', `Leave request ${status.toLowerCase()}.`);
+              }}
+              onCreateCert={(cert) => {
+                const rec = { ...cert, id: `cert_${Date.now().toString(36)}`, status: 'VALID' as const };
+                setExtOps((prev) => ({ ...prev, hrCerts: [rec, ...prev.hrCerts] }));
+                void postOptionalBackend('/api/v1/hr/certifications', 'POST', cert as unknown as Record<string, unknown>);
+                appendAudit('HSE_CERT_RECORDED', 'HR_CERT', rec.id, `${cert.certName} for ${cert.employeeName}`, cert.stationId);
+                notify('success', `Recorded HSE safety certification (${cert.certName}) for ${cert.employeeName}.`);
+              }}
+              onCreateDisciplinary={(recInput) => {
+                const rec = { ...recInput, id: `disc_${Date.now().toString(36)}`, recordedAt: new Date().toISOString() };
+                setExtOps((prev) => ({ ...prev, hrDisciplinary: [rec, ...prev.hrDisciplinary] }));
+                void postOptionalBackend('/api/v1/hr/disciplinary', 'POST', recInput as unknown as Record<string, unknown>);
+                appendAudit('HR_DISCIPLINARY_LOGGED', 'HR_DISCIPLINARY', rec.id, `${recInput.category} (${recInput.severity}) for ${recInput.employeeName}`, recInput.stationId);
+                notify('success', `Logged HR ${recInput.category} record for ${recInput.employeeName}.`);
+              }}
+            />
+          }
         />
       )}
 
@@ -790,6 +1077,32 @@ export default function App() {
             )
           }
           onNotify={notify}
+          vaultSlot={
+            <CashVaultPanel
+              stationId={scopedStationId}
+              entries={extOps.vaultEntries}
+              canRecord={role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN'}
+              onRecordEntry={(entry) => {
+                const prevBal = extOps.vaultEntries[0]?.runningBalanceFcfa ?? 0;
+                const delta =
+                  entry.entryType === 'SHIFT_DROP'
+                    ? entry.amountFcfa
+                    : entry.entryType === 'MANAGER_HANDOVER'
+                    ? 0
+                    : -entry.amountFcfa;
+                const rec = {
+                  ...entry,
+                  id: `vlt_${Date.now().toString(36)}`,
+                  runningBalanceFcfa: Math.max(0, prevBal + delta),
+                  recordedAt: new Date().toISOString(),
+                };
+                setExtOps((prev) => ({ ...prev, vaultEntries: [rec, ...prev.vaultEntries] }));
+                void postOptionalBackend('/api/v1/accounting/vault/entries', 'POST', entry as unknown as Record<string, unknown>);
+                appendAudit('VAULT_MOVEMENT', 'CASH_VAULT', rec.id, `${entry.entryType} of ${entry.amountFcfa} FCFA`, entry.stationId);
+                notify('success', `Recorded ${entry.entryType.replace(/_/g, ' ')} in Station Cash Safe.`);
+              }}
+            />
+          }
         />
       )}
 
@@ -975,6 +1288,50 @@ export default function App() {
             )
           }
           onNotify={notify}
+          auditAndProfileSlot={
+            <SecurityAuditAndProfilePanel
+              accounts={extOps.accounts}
+              auditLogs={extOps.auditLogs}
+              outboundMessages={extOps.outboundMessages}
+              totalDemoRecords={extOps.totalDemoRecords}
+              onSeed1000Demo={() => void handleSeed1000Demo()}
+              onSendOutbound={(msg) => {
+                const rec = {
+                  id: `msg_${Date.now().toString(36)}`,
+                  channel: msg.channel,
+                  recipient: msg.recipient,
+                  subject: msg.subject,
+                  bodyPreview: msg.body.slice(0, 120),
+                  status: 'SENT' as const,
+                  provider: msg.channel === 'EMAIL' ? 'SMTP_RELAY' : msg.channel === 'WHATSAPP' ? 'META_WHATSAPP' : 'AFRICASTALKING_SMS',
+                  createdAt: new Date().toISOString(),
+                };
+                setExtOps((prev) => ({ ...prev, outboundMessages: [rec, ...prev.outboundMessages] }));
+                void postOptionalBackend('/api/v1/notifications/outbound/send', 'POST', msg as unknown as Record<string, unknown>);
+                appendAudit('OUTBOUND_MESSAGE_SENT', 'NOTIFICATION', rec.id, `${msg.channel} to ${msg.recipient}: ${msg.subject}`);
+                notify('success', `Dispatched ${msg.channel} message to ${msg.recipient}.`);
+              }}
+              onUpdateProfile={(profileInput) => {
+                setExtOps((prev) => ({
+                  ...prev,
+                  accounts: prev.accounts.map((acc) =>
+                    acc.role === role
+                      ? {
+                          ...acc,
+                          fullName: profileInput.fullName,
+                          phone: profileInput.phone,
+                          preferredLanguage: profileInput.preferredLanguage,
+                          emailAlertsEnabled: profileInput.emailAlertsEnabled,
+                        }
+                      : acc
+                  ),
+                }));
+                void postOptionalBackend('/api/v1/identity/profile', 'PATCH', profileInput as unknown as Record<string, unknown>);
+                appendAudit('PROFILE_UPDATED', 'USER_ACCOUNT', role, `Updated profile & language (${profileInput.preferredLanguage.toUpperCase()})`);
+                notify('success', `Saved profile settings (${profileInput.preferredLanguage.toUpperCase()}).`);
+              }}
+            />
+          }
         />
       )}
 

@@ -1,19 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ArrowLeft,
   CheckCircle2,
+  ChevronRight,
   Circle,
-  Cpu,
+  Cloud,
+  CloudOff,
   CreditCard,
-  Database,
-  Flame,
   Fuel,
   Gauge,
   Menu,
   RefreshCw,
-  Shield,
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Trash2,
   TrendingUp,
   Wifi,
   WifiOff,
@@ -36,7 +37,7 @@ import {
   Station,
 } from '../../domain/types';
 
-export type MobileShowcaseTab = 'shifts' | 'inventory' | 'fleet' | 'reports' | 'ai' | 'setup';
+export type MobileShowcaseTab = 'shifts' | 'inventory' | 'fleet' | 'reports' | 'sync' | 'ai' | 'setup';
 
 interface OfflineQueueEntry {
   id: string;
@@ -62,7 +63,13 @@ interface MobileAppShowcaseProps {
   onOpenShift?: (stationId: string, pumpId: string, attendantId: string) => void;
   onCloseShift?: (
     shiftId: string,
-    payload: { closingMeterLitres: number; cashFcfa: number; mobileMoneyFcfa: number; cardFcfa: number; fleetCreditFcfa: number }
+    payload: {
+      closingMeterLitres: number;
+      cashFcfa: number;
+      mobileMoneyFcfa: number;
+      cardFcfa: number;
+      fleetCreditFcfa: number;
+    }
   ) => void;
   onRecordDipstick?: (tankId: string, measuredLitres: number) => void;
   onRecordVoucher?: (input: {
@@ -83,125 +90,6 @@ interface MobileAppShowcaseProps {
   onOpenConsole?: () => void;
 }
 
-const SCREEN_GUIDE: Record<
-  MobileShowcaseTab,
-  {
-    code: string;
-    title: string;
-    persona: string;
-    endpoint: string;
-    domainEvent: string;
-    accountingImpact: string;
-    stylingNotes: string[];
-    howItWorks: string[];
-  }
-> = {
-  shifts: {
-    code: '01',
-    title: 'Forecourt Shifts & Meter Reconciliation',
-    persona: 'Pump Attendant & Forecourt Manager',
-    endpoint: 'POST /api/v1/forecourt/shifts/{id}/close',
-    domainEvent: 'ShiftClosedEvent',
-    accountingImpact: 'DR 1010 Cash / 1020 MoMo · CR 4010 Revenue + 2200 VAT · DR 5010 COGS / CR 1200 Tank Asset',
-    stylingNotes: [
-      'High-contrast outdoor daylight card surface (#FFFFFF) on #F8FAFC background with 1px #E2E8F0 borders.',
-      '44px+ touch hitboxes on all inputs and primary #D97706 amber CTA buttons for rapid thumb entry beside pumps.',
-      'Numeric keypad enforcement for closing totalizer (Litres), Cash Safe (FCFA), and OM/MTN MoMo counts.',
-    ],
-    howItWorks: [
-      'Select an active shift (or open a new shift on an idle dispenser).',
-      'Enter the mechanical/digital closing totalizer reading and counted Cash + Mobile Money tenders.',
-      'When connected to Java Spring Boot, submitting immediately closes the shift, deducts tank volume, and posts balanced ledger lines.',
-      'When offline-queued mode is active, the command is stamped with a UUID Idempotency-Key and safely queued for sync.',
-    ],
-  },
-  inventory: {
-    code: '02',
-    title: 'Underground Tanks & Physical Dipsticks',
-    persona: 'Station Manager & Depot Supervisor',
-    endpoint: 'POST /api/v1/inventory/dipsticks',
-    domainEvent: 'DipstickVarianceFlaggedEvent (if |delta| > 100 L)',
-    accountingImpact: 'Updates book vs. physical tank variance status and triggers low-stock (<20%) alerts',
-    stylingNotes: [
-      'Interactive tap-to-select tank rows highlight the active tank in warm amber tint (#FFFBEB border #D97706).',
-      'Color-coded capacity fill bars & tabular Litres alignment prevent misreads during morning/evening checks.',
-      'Instant variance feedback badge highlights shrinkage exceeding 100 Litres in crimson (#DC2626).',
-    ],
-    howItWorks: [
-      'Tap any underground tank row to load its last measured physical dipstick baseline.',
-      'Enter the new calibrated stick reading in Litres and tap Record Dipstick Check.',
-      'Reconciles physical vs. book volume in real time and alerts management if variance exceeds 100 L.',
-    ],
-  },
-  fleet: {
-    code: '03',
-    title: 'Corporate Fleet Credit & Shop POS',
-    persona: 'Pump Attendant & Counter Cashier',
-    endpoint: 'POST /api/v1/fleet/vouchers & POST /api/v1/shop/sales',
-    domainEvent: 'FleetVoucherRecordedEvent / ShopSaleRecordedEvent',
-    accountingImpact: 'DR 1100 Fleet AR (or 1020 MoMo for Lubricants/LPG) · CR 4010/4020 Revenue + 2200 VAT',
-    stylingNotes: [
-      'Touch-friendly 5-grade fuel selector pills (SUPER, GASOIL, KEROSENE, LPG_BULK, HEAVY_FUEL) in high-contrast #0F172A slate.',
-      'Two clean single-purpose stacked cards separate postpaid corporate vehicle vouchers from lubricants & 12.5kg LPG counter sales.',
-    ],
-    howItWorks: [
-      'Pick a corporate fleet account, enter vehicle plate, choose any of the 5 fuel grades, and enter Litres.',
-      'Dynamic per-station grade tariff computes the exact FCFA charge and enforces corporate credit limits.',
-      'Ring up OpesLube 5L motor oils or 12.5kg domestic gas refills directly via Cash or Mobile Money.',
-    ],
-  },
-  reports: {
-    code: '04',
-    title: 'Live Owner Financial Report (FCFA)',
-    persona: 'Station Owner & Chief Accountant',
-    endpoint: 'GET /api/v1/accounting/reports?stationId={id}',
-    domainEvent: 'CQRS Live Ledger Projection',
-    accountingImpact: 'Real-time SYSCOHADA / IFRS P&L, Gross Margin, VAT Payable & Trial Balance Integrity',
-    stylingNotes: [
-      'Strict right-aligned tabular monospace typography for integer FCFA columns so hundreds of thousands and millions align vertically.',
-      'Semantic #16A34A green profit line item anchored under a 1px hairline divider.',
-    ],
-    howItWorks: [
-      'Aggregates every closed pump shift, fleet voucher, lubricant sale, delivery AP, and expense journal.',
-      'Updates automatically whenever a field attendant closes a shift or flushes queued offline transactions.',
-    ],
-  },
-  ai: {
-    code: '05',
-    title: 'Paid AI Copilot (Predictive Operations)',
-    persona: 'Station Owner & Network Operations Director',
-    endpoint: 'POST /api/v1/ai/analyze & POST /api/v1/ai/chat',
-    domainEvent: 'AiCopilotSubscriptionUpdatedEvent',
-    accountingImpact: 'Optional 25 000 FCFA/mo SaaS Add-On (Included Free on Network Enterprise)',
-    stylingNotes: [
-      'Signature deep slate (#0F172A) intelligence banner paired with #F59E0B amber Sparkles branding.',
-      'Clear activation toggle separates paid subscription gating from live forecasting & conversational advisor cards.',
-    ],
-    howItWorks: [
-      'Activate the Paid AI Copilot add-on cleanly from mobile or console.',
-      'Run 30-day FCFA revenue and underground tank stockout day predictions grounded in live station reserves.',
-      'Ask station-specific questions (e.g. which tank runs out first or how to reduce cash variance).',
-    ],
-  },
-  setup: {
-    code: '06',
-    title: 'Onboarding & Institutional Fuel Setup',
-    persona: 'Station Owner during Initial Commissioning',
-    endpoint: 'POST /api/v1/stations/{id}/onboarding-setup',
-    domainEvent: 'StationInstitutionalSetupEvent',
-    accountingImpact: 'DR 1200 Opening Fuel Inventory · CR 3010 Owner Paid-In Capital (and syncs mobile/web)',
-    stylingNotes: [
-      '5-step live progress tracker with emerald #16A34A completed checkmarks and clear numeric step labels.',
-      'Tick-box institutional fuel cards let operators check Diesel/Gasoil, Super, Kerosene, LPG Gaz, or Heavy Fuel and input Litres in seconds.',
-    ],
-    howItWorks: [
-      'Tick the fuel grades carried at the petrol station and adjust tank capacity, opening Litres, and selling FCFA/L tariff.',
-      'Include the Lubricants & 12.5kg Domestic Cooking Gas starter pack if desired.',
-      'Tap Apply & Sync Station Modules to create tanks, nozzles, and opening capital journals across Mobile and Web Console.',
-    ],
-  },
-};
-
 export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
   stations,
   activeStationId,
@@ -213,7 +101,7 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
   shopItems,
   report,
   aiSubscription,
-  transportMode = 'SPRING_BOOT_REMOTE',
+  transportMode = 'OPENAPI_PREVIEW_ADAPTER',
   onOpenShift,
   onCloseShift,
   onRecordDipstick,
@@ -223,1340 +111,1167 @@ export const MobileAppShowcase: React.FC<MobileAppShowcaseProps> = ({
   onRunInstitutionalSetup,
   onOpenConsole,
 }) => {
-  const effectiveStation =
-    stations.find((s) => s.id === activeStationId) ?? stations[0];
-  const stationId = effectiveStation?.id ?? 'st_plateau';
-
-  const stationTanks = useMemo(
-    () => tanks.filter((t) => t.stationId === stationId || activeStationId === 'ALL'),
-    [tanks, stationId, activeStationId]
+  const [selectedStationId, setSelectedStationId] = useState<string>(
+    activeStationId && activeStationId !== 'ALL' ? activeStationId : stations[0]?.id ?? ''
   );
-  const stationPumps = useMemo(
-    () => pumps.filter((p) => p.stationId === stationId || activeStationId === 'ALL'),
-    [pumps, stationId, activeStationId]
-  );
-  const stationShifts = useMemo(
-    () => shifts.filter((s) => s.stationId === stationId || activeStationId === 'ALL'),
-    [shifts, stationId, activeStationId]
-  );
-  const stationEmployees = useMemo(
-    () => employees.filter((e) => e.stationId === stationId || activeStationId === 'ALL'),
-    [employees, stationId, activeStationId]
-  );
-  const stationShop = useMemo(
-    () => shopItems.filter((i) => i.stationId === stationId || activeStationId === 'ALL'),
-    [shopItems, stationId, activeStationId]
-  );
-
-  // Mobile state
-  const [mobileRole, setMobileRole] = useState<'OWNER' | 'MANAGER' | 'ATTENDANT' | 'ACCOUNTANT'>('OWNER');
-  const [activeTab, setActiveTab] = useState<MobileShowcaseTab>('shifts');
+  const [tab, setTab] = useState<MobileShowcaseTab>('shifts');
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [isOfflineSimulated, setIsOfflineSimulated] = useState(false);
-  const [isCheckingSync, setIsCheckingSync] = useState(false);
-  const [latencyMs, setLatencyMs] = useState(14);
-  const [lastSyncedAt, setLastSyncedAt] = useState<string>(() => new Date().toISOString());
+
+  // Master -> Detail drill-down navigation IDs
+  const [detailPumpId, setDetailPumpId] = useState<string | null>(null);
+  const [detailTankId, setDetailTankId] = useState<string | null>(null);
+  const [detailFleetId, setDetailFleetId] = useState<string | null>(null);
+  const [posSubTab, setPosSubTab] = useState<'fleet' | 'shop'>('fleet');
+
+  // Offline-first synchronization queue
+  const [simulateOffline, setSimulateOffline] = useState(false);
   const [offlineQueue, setOfflineQueue] = useState<OfflineQueueEntry[]>([]);
-  const [mobileBanner, setMobileBanner] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string>(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  const [mobileToast, setMobileToast] = useState<string | null>(null);
 
-  // Local fallback demo state when mounted on Public Website without write handlers
-  const [localTanks, setLocalTanks] = useState<FuelTank[]>(stationTanks);
-  const [localAiActive, setLocalAiActive] = useState(aiSubscription.active);
-  const [localShiftClosed, setLocalShiftClosed] = useState(stationShifts.some((s) => s.status === 'CLOSED'));
+  // Pump / Shift action states
+  const [selectedAttendantId, setSelectedAttendantId] = useState(employees[0]?.id ?? '');
+  const [closeLitresDelta, setCloseLitresDelta] = useState('420');
+  const [closeCash, setCloseCash] = useState('250000');
+  const [closeMoMo, setCloseMoMo] = useState('102800');
 
-  useEffect(() => {
-    setLocalTanks(stationTanks);
-  }, [stationTanks]);
+  // Tank dipstick state
+  const [dipLitres, setDipLitres] = useState('');
 
-  useEffect(() => {
-    setLocalAiActive(aiSubscription.active);
-  }, [aiSubscription.active]);
+  // Fleet voucher state
+  const [voucherPlate, setVoucherPlate] = useState('LT-482-AK');
+  const [voucherDriver, setVoucherDriver] = useState('Jean-Luc Fotso');
+  const [voucherGrade, setVoucherGrade] = useState<FuelGrade>('GASOIL');
+  const [voucherLitres, setVoucherLitres] = useState('120');
 
-  const effectiveTanks = onRunInstitutionalSetup ? stationTanks : localTanks;
-  const effectiveAiActive = onToggleAiSubscription ? aiSubscription.active : localAiActive;
+  // Shop POS state
+  const [shopPayment, setShopPayment] = useState<'CASH' | 'MOBILE_MONEY' | 'CARD'>('CASH');
 
-  // Shifts form state
-  const openShift = stationShifts.find((s) => s.status === 'OPEN');
-  const activeOrFirstPump = openShift
-    ? stationPumps.find((p) => p.id === openShift.pumpId) ?? stationPumps[0]
-    : stationPumps[0];
-
-  const [closingMeter, setClosingMeter] = useState(() =>
-    String((openShift?.openingMeterLitres ?? activeOrFirstPump?.totalizerLitres ?? 484200) + 1220)
-  );
-  const [cashFcfa, setCashFcfa] = useState('720000');
-  const [momoFcfa, setMomoFcfa] = useState('304800');
-
-  useEffect(() => {
-    if (openShift) {
-      setClosingMeter(String(openShift.openingMeterLitres + 1220));
-    }
-  }, [openShift?.id]);
-
-  // Tanks dipstick state
-  const [dipTankId, setDipTankId] = useState(effectiveTanks[0]?.id ?? '');
-  const [dipLitres, setDipLitres] = useState(() => String(effectiveTanks[0]?.lastDipLitres ?? 24645));
-  useEffect(() => {
-    if (effectiveTanks.length > 0 && !effectiveTanks.some((t) => t.id === dipTankId)) {
-      setDipTankId(effectiveTanks[0].id);
-      setDipLitres(String(effectiveTanks[0].lastDipLitres));
-    }
-  }, [effectiveTanks, dipTankId]);
-
-  // Fleet & POS state
-  const [fleetAccountId, setFleetAccountId] = useState(fleetAccounts[0]?.id ?? 'flt_01');
-  const [fleetPlate, setFleetPlate] = useState('LT-482-AK');
-  const [fleetGrade, setFleetGrade] = useState<FuelGrade>('GASOIL');
-  const [fleetLitres, setFleetLitres] = useState('150');
-  const [shopItemId, setShopItemId] = useState(stationShop[0]?.id ?? 'sku_01');
-  const [shopQty, setShopQty] = useState('2');
-
-  // AI Copilot mobile state
-  const [aiForecastText, setAiForecastText] = useState<string | null>(null);
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiChatReply, setAiChatReply] = useState<string | null>(null);
-
-  // Institutional setup draft
-  const [setupDrafts, setSetupDrafts] = useState(() =>
-    INSTITUTIONAL_FUEL_CATALOG.map((tpl) => ({
-      selected: tpl.code === 'SUPER' || tpl.code === 'GASOIL' || tpl.code === 'KEROSENE',
-      grade: tpl.code,
-      label: tpl.label,
-      tankName: tpl.tankName,
-      capacityLitres: String(tpl.defaultCapacityLitres),
-      openingLitres: String(tpl.defaultOpeningLitres),
-      unitCostFcfa: String(tpl.defaultUnitCostFcfa),
-      sellingPriceFcfa: String(tpl.defaultSellingPriceFcfa),
-      nozzleCount: String(tpl.defaultNozzleCount),
+  // Institutional Fuel Setup drawer screen state
+  const [setupRows, setSetupRows] = useState(() =>
+    INSTITUTIONAL_FUEL_CATALOG.map((item) => ({
+      selected: item.code === 'SUPER' || item.code === 'GASOIL',
+      grade: item.code,
+      label: item.label,
+      tankName: item.tankName,
+      capacityLitres: String(item.defaultCapacityLitres),
+      openingLitres: String(item.defaultOpeningLitres),
+      unitCostFcfa: String(item.defaultUnitCostFcfa),
+      sellingPriceFcfa: String(item.defaultSellingPriceFcfa),
+      nozzleCount: String(item.defaultNozzleCount),
     }))
   );
-  const [includeLubricants, setIncludeLubricants] = useState(true);
 
-  const onboardingCompleted = [
-    effectiveTanks.length > 0,
-    stationPumps.length > 0,
-    localShiftClosed || stationShifts.some((s) => s.status === 'CLOSED'),
-    report.trialBalanceBalanced,
-    effectiveAiActive,
-  ].filter(Boolean).length;
+  useEffect(() => {
+    if (activeStationId && activeStationId !== 'ALL') {
+      setSelectedStationId(activeStationId);
+    } else if (!selectedStationId && stations[0]?.id) {
+      setSelectedStationId(stations[0].id);
+    }
+  }, [activeStationId, stations, selectedStationId]);
 
-  const isLiveConnected = !isOfflineSimulated && offlineQueue.length === 0;
+  const currentStation = useMemo(
+    () => stations.find((s) => s.id === selectedStationId) ?? stations[0],
+    [stations, selectedStationId]
+  );
 
-  const dispatchMobileCommand = (label: string, endpoint: string, execute: () => void) => {
-    if (isOfflineSimulated) {
-      const uuid =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `idem-${Math.random().toString(36).slice(2, 10)}`;
+  const stationPumps = useMemo(
+    () => pumps.filter((p) => !currentStation || p.stationId === currentStation.id),
+    [pumps, currentStation]
+  );
+  const stationTanks = useMemo(
+    () => tanks.filter((t) => !currentStation || t.stationId === currentStation.id),
+    [tanks, currentStation]
+  );
+  const stationShifts = useMemo(
+    () => shifts.filter((s) => !currentStation || s.stationId === currentStation.id),
+    [shifts, currentStation]
+  );
+  const stationEmployees = useMemo(
+    () => employees.filter((e) => !currentStation || e.stationId === currentStation.id),
+    [employees, currentStation]
+  );
+
+  const detailPump = stationPumps.find((p) => p.id === detailPumpId) ?? null;
+  const detailTank = stationTanks.find((t) => t.id === detailTankId) ?? null;
+  const detailFleet = fleetAccounts.find((f) => f.id === detailFleetId) ?? null;
+
+  const showToast = (msg: string) => {
+    setMobileToast(msg);
+    window.setTimeout(() => setMobileToast(null), 3500);
+  };
+
+  const dispatchOrQueue = (label: string, endpoint: string, execute: () => void) => {
+    const key = `idemp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    if (simulateOffline) {
       setOfflineQueue((prev) => [
-        ...prev,
         {
-          id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-          idempotencyKey: uuid,
+          id: `q_${Date.now().toString(36)}`,
+          idempotencyKey: key,
           label,
           endpoint,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           execute,
         },
+        ...prev,
       ]);
-      setMobileBanner(`Offline-Queued Mode: "${label}" cached with Idempotency-Key ${uuid.slice(0, 8)}...`);
-      return;
-    }
-
-    try {
-      execute();
-      setLastSyncedAt(new Date().toISOString());
-      setLatencyMs(9 + Math.floor(Math.random() * 14));
-      setMobileBanner(`Live Synced to Java Spring Boot: ${label}`);
-    } catch (err) {
-      setMobileBanner(err instanceof Error ? err.message : 'Unable to execute command.');
-    }
-  };
-
-  const handleFlushQueue = () => {
-    if (isOfflineSimulated) {
-      setMobileBanner('Reconnect to Java Spring Boot before flushing queued offline commands.');
-      return;
-    }
-    const count = offlineQueue.length;
-    if (count === 0) {
-      handlePingSync();
-      return;
-    }
-    for (const item of offlineQueue) {
-      try {
-        item.execute();
-      } catch {
-        // Ignore stale open shift if already closed
-      }
-    }
-    setOfflineQueue([]);
-    setLastSyncedAt(new Date().toISOString());
-    setMobileBanner(`Flushed & reconciled ${count} queued idempotent command(s) to Java Spring Boot.`);
-  };
-
-  const handlePingSync = () => {
-    setIsCheckingSync(true);
-    setTimeout(() => {
-      setIsCheckingSync(false);
-      if (!isOfflineSimulated) {
-        setLatencyMs(8 + Math.floor(Math.random() * 12));
-        setLastSyncedAt(new Date().toISOString());
-        setMobileBanner('Verified live heartbeat with Java Spring Boot API.');
-      }
-    }, 320);
-  };
-
-  const handleSubmitShift = () => {
-    const closing = Number(closingMeter) || 0;
-    const cash = Number(cashFcfa) || 0;
-    const momo = Number(momoFcfa) || 0;
-
-    if (onCloseShift && openShift) {
-      dispatchMobileCommand(`Close Shift ${openShift.pumpCode}`, `/api/v1/forecourt/shifts/${openShift.id}/close`, () => {
-        onCloseShift(openShift.id, {
-          closingMeterLitres: closing,
-          cashFcfa: cash,
-          mobileMoneyFcfa: momo,
-          cardFcfa: 0,
-          fleetCreditFcfa: 0,
-        });
-        setLocalShiftClosed(true);
-      });
-    } else if (onOpenShift && stationPumps.length > 0 && stationEmployees.length > 0) {
-      const idlePump = stationPumps.find((p) => p.status === 'IDLE') ?? stationPumps[0];
-      const att = stationEmployees.find((e) => e.role === 'ATTENDANT') ?? stationEmployees[0];
-      dispatchMobileCommand(`Open Shift ${idlePump.code}`, '/api/v1/forecourt/shifts/open', () => {
-        onOpenShift(stationId, idlePump.id, att.id);
-      });
+      showToast(`Saved offline (${key.slice(0, 12)}) — will sync when online.`);
     } else {
-      dispatchMobileCommand('Close Shift (Preview)', '/api/v1/forecourt/shifts/sh_101/close', () => {
-        setLocalShiftClosed(true);
-      });
+      execute();
+      setLastSyncedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      showToast(`Synced live: ${label}`);
     }
   };
 
-  const handleDipstickSubmit = () => {
-    const targetId = dipTankId || effectiveTanks[0]?.id;
-    const measured = Number(dipLitres) || 0;
-    if (!targetId) {
-      setMobileBanner('Select or provision an underground tank first.');
-      return;
-    }
-    dispatchMobileCommand(`Dipstick Check (${formatLitres(measured)})`, '/api/v1/inventory/dipsticks', () => {
-      if (onRecordDipstick) {
-        onRecordDipstick(targetId, measured);
-      } else {
-        setLocalTanks((prev) =>
-          prev.map((t) => {
-            if (t.id !== targetId) return t;
-            const variance = Number((measured - t.bookVolumeLitres).toFixed(2));
-            return {
-              ...t,
-              lastDipLitres: measured,
-              varianceLitres: variance,
-              status: Math.abs(variance) > 100 ? 'VARIANCE_ALERT' : t.bookVolumeLitres / t.capacityLitres < 0.2 ? 'LOW_STOCK' : 'NOMINAL',
-            };
-          })
-        );
-      }
-    });
+  const flushQueue = () => {
+    if (offlineQueue.length === 0) return;
+    const items = [...offlineQueue].reverse();
+    items.forEach((entry) => entry.execute());
+    setOfflineQueue([]);
+    setSimulateOffline(false);
+    setLastSyncedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    showToast(`Synchronized ${items.length} offline operation(s) cleanly with zero duplicates.`);
   };
 
-  const handleFleetSubmit = () => {
-    const litres = Math.max(1, Number(fleetLitres) || 0);
-    dispatchMobileCommand(`Fleet Voucher ${fleetPlate} (${fleetGrade})`, '/api/v1/fleet/vouchers', () => {
-      if (onRecordVoucher && fleetAccounts.length > 0) {
-        onRecordVoucher({
-          accountId: fleetAccountId || fleetAccounts[0].id,
-          stationId,
-          vehiclePlate: fleetPlate,
-          driverName: 'Mobile Driver',
-          grade: fleetGrade,
-          litres,
-        });
-      }
-    });
+  const switchTab = (next: MobileShowcaseTab) => {
+    setTab(next);
+    setDetailPumpId(null);
+    setDetailTankId(null);
+    setDetailFleetId(null);
+    setDrawerOpen(false);
   };
 
-  const handleShopSubmit = () => {
-    const qty = Math.max(1, Number(shopQty) || 1);
-    dispatchMobileCommand(`POS Sale (${qty}x SKU)`, '/api/v1/shop/sales', () => {
-      if (onRecordShopSale && stationShop.length > 0) {
-        onRecordShopSale(shopItemId || stationShop[0].id, qty, 'MOBILE_MONEY');
-      }
-    });
-  };
-
-  const handleToggleAi = () => {
-    const next = !effectiveAiActive;
-    dispatchMobileCommand(next ? 'Activate Paid AI Copilot' : 'Pause Paid AI Copilot', '/api/v1/ai/subscription/activate', () => {
-      if (onToggleAiSubscription) {
-        onToggleAiSubscription(next);
-      } else {
-        setLocalAiActive(next);
-      }
-    });
-  };
-
-  const handleRunAiForecast = () => {
-    const lowest = [...effectiveTanks].sort(
-      (a, b) => a.bookVolumeLitres / Math.max(1, a.capacityLitres) - b.bookVolumeLitres / Math.max(1, b.capacityLitres)
-    )[0];
-    setAiForecastText(
-      `30-Day Revenue Projection: ${formatFcfa(Math.max(4200000, report.totalRevenueFcfa * 1.12))}.\n` +
-        (lowest
-          ? `Urgent Tank Horizon: ${lowest.name} at ${formatLitres(lowest.bookVolumeLitres)} (${Math.round(
-              (lowest.bookVolumeLitres / Math.max(1, lowest.capacityLitres)) * 100
-            )}%) — recommend SCDP refill within 48h.`
-          : 'Provision tanks in Setup to generate reserve horizon curves.')
-    );
-  };
-
-  const handleAskAiAdvisor = () => {
-    const q = aiPrompt.trim();
-    if (!q) return;
-    setAiPrompt('');
-    const lowest = [...effectiveTanks].sort((a, b) => a.bookVolumeLitres - b.bookVolumeLitres)[0];
-    setAiChatReply(
-      lowest
-        ? `OpesFuel AI: Lowest reserve is ${lowest.name} (${formatLitres(lowest.bookVolumeLitres)}). Trial Balance is ${
-            report.trialBalanceBalanced ? 'Balanced (DR = CR)' : 'Pending check'
-          }. Keep cash variance under 0 FCFA by requiring OM/MoMo slip verification at shift close.`
-        : 'OpesFuel AI: Tick your institutional fuels in the Setup tab so reserve & margin coaching activates immediately.'
-    );
-  };
-
-  const handleApplySetup = () => {
-    const selected = setupDrafts.filter((d) => d.selected);
-    if (selected.length === 0) {
-      setMobileBanner('Select at least one fuel type to sync.');
-      return;
-    }
-    const selections: InstitutionalSetupSelection[] = selected.map((d) => ({
-      grade: d.grade,
-      tankName: d.tankName,
-      capacityLitres: Math.max(1000, Number(d.capacityLitres) || 20000),
-      openingLitres: Math.max(0, Number(d.openingLitres) || 0),
-      unitCostFcfa: Math.max(100, Number(d.unitCostFcfa) || 500),
-      sellingPriceFcfa: Math.max(100, Number(d.sellingPriceFcfa) || 600),
-      nozzleCount: Math.max(1, Number(d.nozzleCount) || 1),
-    }));
-
-    dispatchMobileCommand(`Sync ${selections.length} Institutional Fuels`, `/api/v1/stations/${stationId}/onboarding-setup`, () => {
-      if (onRunInstitutionalSetup) {
-        onRunInstitutionalSetup(stationId, selections, {
-          includeLubricants,
-          oilBottlesQty: 30,
-          lpgCylindersQty: 24,
-        });
-      } else {
-        setLocalTanks(
-          selections.map((s, idx) => ({
-            id: `tk_mob_${idx + 1}`,
-            stationId,
-            name: s.tankName,
-            grade: s.grade,
-            capacityLitres: s.capacityLitres,
-            bookVolumeLitres: s.openingLitres,
-            lastDipLitres: s.openingLitres,
-            varianceLitres: 0,
-            unitCostFcfa: s.unitCostFcfa,
-            status: s.openingLitres / s.capacityLitres < 0.2 ? 'LOW_STOCK' : 'NOMINAL',
-          }))
-        );
-      }
-    });
-  };
-
-  const activeGuide = SCREEN_GUIDE[activeTab];
-  const expectedShiftFcfa = openShift
-    ? Math.max(0, (Number(closingMeter) || 0) - openShift.openingMeterLitres) * openShift.unitPriceFcfa
-    : Math.max(0, (Number(closingMeter) || 0) - 484200) * (activeOrFirstPump?.unitPriceFcfa ?? 840);
-  const declaredShiftFcfa = (Number(cashFcfa) || 0) + (Number(momoFcfa) || 0);
-  const shiftVarianceFcfa = declaredShiftFcfa - expectedShiftFcfa;
+  const openShiftsCount = stationShifts.filter((s) => s.status === 'OPEN').length;
+  const todayLitres = stationShifts.reduce((sum, s) => sum + s.litresSold, 0);
 
   return (
-    <div className="space-y-8">
-      {/* Top Interactive Controls & Connectivity Toggle */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-amber-700">
-            <Smartphone className="w-4 h-4" />
-            <span>OpesFuel Mobile App for Android &amp; iPhone · Live Interactive Walkthrough</span>
+    <div className="space-y-6">
+      {/* Top Banner — Pure White + Obsidian Navy */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-11 h-11 rounded-xl icon-glass flex items-center justify-center shrink-0">
+            <Smartphone className="w-5 h-5 text-slate-900" />
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900">
-            All 6 Mobile App Screens — Styled &amp; Working Live
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-600 max-w-3xl">
-            Inspect the exact visual layout, thumb-zone styling, real-time Java Spring Boot Sync Status bar,
-            and offline idempotent queueing across every screen.
-          </p>
+          <div>
+            <div className="font-mono text-[11px] font-bold uppercase tracking-wider text-amber-700">
+              React Native Expo · Offline-First Forecourt Companion
+            </div>
+            <h2 className="font-display text-xl font-bold text-slate-950 mt-0.5">
+              OpesFuel Mobile App — Clean Master-Detail &amp; Offline Sync
+            </h2>
+            <p className="text-xs text-slate-600 mt-1 max-w-2xl">
+              Tap any pump, tank, or fleet client inside the phone below to explore dedicated detail pages, toggle Offline Mode to queue field readings with conflict-free UUID keys, and sync live to the ledger.
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            onClick={() => {
-              const next = !isOfflineSimulated;
-              setIsOfflineSimulated(next);
-              setMobileBanner(
-                next
-                  ? 'Simulated network drop: actions now queue offline with UUID Idempotency-Keys.'
-                  : 'Reconnected to Java Spring Boot server.'
-              );
-            }}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold border transition-colors min-h-[44px] whitespace-nowrap ${
-              isOfflineSimulated
-                ? 'bg-red-50 border-red-300 text-red-800 hover:bg-red-100'
-                : 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+            onClick={() => setSimulateOffline((v) => !v)}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border text-xs font-semibold transition-colors ${
+              simulateOffline
+                ? 'border-amber-600 bg-white text-amber-800'
+                : 'border-slate-300 bg-white text-slate-900 hover:bg-slate-50'
             }`}
           >
-            {isOfflineSimulated ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
-            <span>{isOfflineSimulated ? 'Restore Live Connection' : 'Simulate Offline Mode'}</span>
+            {simulateOffline ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
+            {simulateOffline ? 'Offline Mode Active' : 'Simulate Offline'}
           </button>
-
-          {offlineQueue.length > 0 && !isOfflineSimulated && (
-            <button
-              type="button"
-              onClick={handleFlushQueue}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold min-h-[44px] whitespace-nowrap"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Flush Queue ({offlineQueue.length})
-            </button>
-          )}
-
           {onOpenConsole && (
             <button
               type="button"
               onClick={onOpenConsole}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold min-h-[44px] whitespace-nowrap"
+              className="px-4 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
             >
-              Open Full Console
+              Open Full Web Console
             </button>
           )}
         </div>
       </div>
 
-      {/* Main Split: Realistic Interactive Phone Viewport + Detailed Screen Guide */}
+      {/* Main Split: Interactive Phone Frame (Left) + Clear Architecture & Controls Guide (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* LEFT: Interactive Android & iPhone Device Viewport */}
-        <div className="lg:col-span-5 flex flex-col items-center">
-          <div className="relative w-full max-w-[390px] rounded-[2.25rem] border-[6px] border-slate-900 bg-[#F8FAFC] shadow-xl overflow-hidden flex flex-col">
-            {/* Hardware Status Strip */}
-            <div className="bg-slate-900 text-white px-5 py-2 flex items-center justify-between text-[11px] font-mono">
-              <span>09:41</span>
-              <div className="w-20 h-3.5 bg-slate-800 rounded-full" />
-              <span>5G · 94%</span>
+        {/* Clean, Spacious Phone Frame */}
+        <div className="lg:col-span-5 flex justify-center">
+          <div className="relative w-full max-w-[392px] rounded-[2.25rem] border-[6px] border-[#0F172A] bg-white shadow-xl overflow-hidden flex flex-col h-[760px]">
+            {/* App Top Bar */}
+            <div className="bg-[#0F172A] text-white px-4 py-3.5 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  aria-label="Open mobile menu"
+                  className="p-2 rounded-lg hover:bg-slate-800 text-white shrink-0"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <div className="min-w-0">
+                  <div className="font-display text-sm font-bold text-white truncate">
+                    {currentStation?.name ?? 'OpesFuel Station'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 truncate">
+                    {currentStation?.city ?? 'Douala'} · Synced {lastSyncedAt}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => switchTab('sync')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-mono font-semibold shrink-0 border ${
+                  simulateOffline
+                    ? 'border-amber-500 text-amber-300 bg-slate-900'
+                    : 'border-slate-700 text-slate-200 bg-slate-800'
+                }`}
+              >
+                {simulateOffline ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />}
+                <span>{offlineQueue.length > 0 ? `${offlineQueue.length} Q` : simulateOffline ? 'OFF' : 'LIVE'}</span>
+              </button>
             </div>
 
-            {/* Slide-Over Mobile Hamburger Navigation Drawer */}
+            {/* Mobile Toast Banner */}
+            {mobileToast && (
+              <div className="px-4 py-2.5 bg-slate-900 text-white text-xs font-medium border-t border-slate-800 flex items-center justify-between gap-2 shrink-0">
+                <span className="truncate">{mobileToast}</span>
+                <button type="button" onClick={() => setMobileToast(null)} className="text-slate-400 hover:text-white">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Slide-Over Hamburger Drawer */}
             {drawerOpen && (
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Mobile app navigation drawer"
-                className="absolute inset-0 top-[30px] z-30 flex"
-              >
-                <div className="w-[82%] max-w-[300px] h-full bg-slate-900 text-slate-100 flex flex-col shadow-2xl">
-                  <div className="px-4 py-3.5 border-b border-slate-800 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-amber-600/20 border border-amber-500/40 flex items-center justify-center shrink-0">
-                        <Flame className="w-4 h-4 text-amber-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-extrabold text-white truncate">
-                          Opes<span className="text-amber-400">Fuel</span> Mobile
-                        </div>
-                        <div className="text-[10px] text-slate-400 truncate">
-                          {effectiveStation?.name ?? 'Station Plateau'}
-                        </div>
+              <div className="absolute inset-0 z-30 flex">
+                <div className="w-72 bg-[#0F172A] text-white h-full flex flex-col p-5 space-y-5 shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div>
+                      <div className="font-display text-base font-bold text-white">OpesFuel Mobile</div>
+                      <div className="text-[11px] text-slate-400">
+                        {transportMode === 'SPRING_BOOT_REMOTE' ? 'Connected to Live API' : 'Interactive Forecourt App'}
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setDrawerOpen(false)}
-                      aria-label="Close mobile menu"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+                      aria-label="Close drawer"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-5 h-5" />
                     </button>
                   </div>
 
-                  {/* Role Switcher inside Drawer */}
-                  <div className="px-4 py-3 border-b border-slate-800 space-y-1.5">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <Shield className="w-3 h-3 text-amber-400" /> Active Role
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {(['OWNER', 'MANAGER', 'ATTENDANT', 'ACCOUNTANT'] as const).map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setMobileRole(r)}
-                          className={`px-2 py-1.5 rounded text-[10px] font-mono font-bold transition-colors ${
-                            mobileRole === r
-                              ? 'bg-amber-600 text-white'
-                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                          }`}
-                        >
-                          {r}
-                        </button>
+                  {/* Station Switcher */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                      Active Petrol Station
+                    </label>
+                    <select
+                      value={currentStation?.id ?? ''}
+                      onChange={(e) => {
+                        setSelectedStationId(e.target.value);
+                        setDetailPumpId(null);
+                        setDetailTankId(null);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white"
+                    >
+                      {stations.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.city})
+                        </option>
                       ))}
-                    </div>
+                    </select>
                   </div>
 
-                  {/* Full Vertical Navigation List */}
-                  <nav aria-label="Mobile drawer links" className="flex-1 overflow-y-auto p-3 space-y-1">
-                    {(
-                      [
-                        { id: 'shifts', label: 'Shifts & Pumps', icon: Fuel, badge: openShift ? '1 OPEN' : null },
-                        { id: 'inventory', label: 'Underground Tanks', icon: Gauge, badge: `${localTanks.length}` },
-                        { id: 'fleet', label: 'Fleet Credit & POS', icon: CreditCard, badge: null },
-                        { id: 'reports', label: 'Financial Reports', icon: TrendingUp, badge: 'FCFA' },
-                        { id: 'ai', label: 'AI Copilot', icon: Sparkles, badge: effectiveAiActive ? 'ON' : 'PRO' },
-                        { id: 'setup', label: 'Station Setup', icon: Wrench, badge: `${onboardingCompleted}/5` },
-                      ] as const
-                    ).map((item) => {
+                  {/* Drawer Navigation Links */}
+                  <div className="space-y-1.5 flex-1">
+                    {[
+                      { id: 'shifts' as const, label: 'Forecourt & Shifts', icon: Fuel },
+                      { id: 'inventory' as const, label: 'Underground Tanks', icon: Gauge },
+                      { id: 'fleet' as const, label: 'Fleet Credit & Shop POS', icon: CreditCard },
+                      { id: 'reports' as const, label: 'Daily Reports & P&L', icon: TrendingUp },
+                      { id: 'sync' as const, label: `Offline Sync Queue (${offlineQueue.length})`, icon: RefreshCw },
+                      { id: 'setup' as const, label: 'Fuel Grade Setup', icon: Wrench },
+                      { id: 'ai' as const, label: 'AI Station Copilot', icon: Sparkles },
+                    ].map((item) => {
                       const Icon = item.icon;
-                      const active = activeTab === item.id;
+                      const active = tab === item.id;
                       return (
                         <button
                           key={item.id}
                           type="button"
-                          onClick={() => {
-                            setActiveTab(item.id);
-                            setDrawerOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
-                            active
-                              ? 'bg-amber-600 text-white'
-                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                          onClick={() => switchTab(item.id)}
+                          className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+                            active ? 'bg-amber-600 text-white' : 'text-slate-300 hover:bg-slate-800'
                           }`}
                         >
-                          <span className="flex items-center gap-2.5">
-                            <Icon className="w-4 h-4 shrink-0" />
-                            <span>{item.label}</span>
-                          </span>
-                          {item.badge && (
-                            <span
-                              className={`font-mono text-[10px] px-1.5 py-0.5 rounded ${
-                                active ? 'bg-white/20 text-white' : 'bg-slate-800 text-amber-300'
-                              }`}
-                            >
-                              {item.badge}
-                            </span>
-                          )}
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span>{item.label}</span>
                         </button>
                       );
                     })}
-                  </nav>
+                  </div>
 
-                  {/* Drawer Footer: Offline Queue & Connection */}
-                  <div className="p-3 border-t border-slate-800 space-y-2 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsOfflineSimulated((v) => !v);
-                        setDrawerOpen(false);
-                      }}
-                      className="w-full py-2 px-3 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 font-semibold flex items-center justify-between"
-                    >
-                      <span>{isOfflineSimulated ? 'Switch to Online Mode' : 'Test Offline Queue Mode'}</span>
-                      {isOfflineSimulated ? (
-                        <WifiOff className="w-3.5 h-3.5 text-red-400" />
-                      ) : (
-                        <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                      )}
-                    </button>
+                  <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-slate-300 shrink-0" />
+                    <span>Zero-duplicate UUID offline sync</span>
                   </div>
                 </div>
-                <div
-                  className="flex-1 bg-slate-950/55 backdrop-blur-[1px]"
-                  onClick={() => setDrawerOpen(false)}
-                />
+                <div className="flex-1 bg-slate-950/50" onClick={() => setDrawerOpen(false)} />
               </div>
             )}
 
-            {/* Clean Native Top App Bar + Compact Sync Status Bar */}
-            <div className="bg-white border-b border-slate-200">
-              <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(true)}
-                  aria-label="Open mobile navigation menu"
-                  className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 flex items-center justify-center shrink-0"
-                >
-                  <Menu className="w-4 h-4" />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-extrabold text-slate-900 leading-tight truncate">
-                    {activeTab === 'shifts'
-                      ? 'Forecourt Shifts'
-                      : activeTab === 'inventory'
-                      ? 'Underground Tanks'
-                      : activeTab === 'fleet'
-                      ? 'Fleet & Shop POS'
-                      : activeTab === 'reports'
-                      ? 'Financial Reports'
-                      : activeTab === 'ai'
-                      ? 'AI Copilot'
-                      : 'Station Setup'}
-                  </div>
-                  <div className="text-[10px] text-slate-500 truncate">
-                    {effectiveStation?.name ?? 'Station Plateau'} · {mobileRole}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={offlineQueue.length > 0 && !isOfflineSimulated ? handleFlushQueue : handlePingSync}
-                  title="Tap to sync with Java Spring Boot"
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-mono font-bold shrink-0 border ${
-                    isCheckingSync
-                      ? 'bg-amber-50 border-amber-300 text-amber-900'
-                      : isLiveConnected
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                      : 'bg-red-50 border-red-200 text-red-800'
-                  }`}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      isCheckingSync
-                        ? 'bg-amber-500 animate-pulse'
-                        : isLiveConnected
-                        ? 'bg-emerald-600'
-                        : 'bg-red-600 animate-pulse'
-                    }`}
-                  />
-                  {isCheckingSync
-                    ? 'Sync…'
-                    : isLiveConnected
-                    ? `${latencyMs}ms`
-                    : offlineQueue.length > 0
-                    ? `${offlineQueue.length} Q`
-                    : 'Offline'}
-                  <RefreshCw className={`w-2.5 h-2.5 ${isCheckingSync ? 'animate-spin' : ''}`} />
-                </button>
-              </div>
-            </div>
-
-            {/* Scrollable Mobile Viewport Body */}
-            <div className="p-3.5 space-y-3 h-[520px] overflow-y-auto">
-              {mobileBanner && (
-                <div className="p-2.5 rounded-lg bg-amber-100 border border-amber-400 text-amber-950 text-[11px] font-semibold flex items-start justify-between gap-2">
-                  <span>{mobileBanner}</span>
-                  <button
-                    type="button"
-                    onClick={() => setMobileBanner(null)}
-                    className="underline text-[10px] shrink-0"
-                  >
-                    Hide
-                  </button>
-                </div>
-              )}
-
-              {offlineQueue.length > 0 && (
-                <div className="bg-white border border-red-200 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                    <span>Offline Sync Queue ({offlineQueue.length})</span>
-                    <span className="font-mono text-[10px] text-red-700">Idempotency Protected</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    {isOfflineSimulated
-                      ? 'Waiting for Spring Boot network reconnection...'
-                      : 'Connection restored — ready to flush queue.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleFlushQueue}
-                    className="w-full py-2 rounded-md bg-slate-900 text-white text-xs font-semibold min-h-[40px]"
-                  >
-                    Sync Now
-                  </button>
-                </div>
-              )}
-
-              {/* SCREEN 1: SHIFTS */}
-              {activeTab === 'shifts' && (
-                <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
-                  <div className="text-sm font-bold text-slate-900">
-                    {openShift
-                      ? `Close Pump Shift (${openShift.pumpCode} · ${openShift.grade})`
-                      : activeOrFirstPump
-                      ? `Open / Close Shift (${activeOrFirstPump.code})`
-                      : 'Pump Shift Capture'}
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Closing Totalizer (Litres)
-                    </label>
-                    <input
-                      type="number"
-                      value={closingMeter}
-                      onChange={(e) => setClosingMeter(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs font-mono tabular-nums text-slate-900 min-h-[40px]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Cash Collected (FCFA)
-                    </label>
-                    <input
-                      type="number"
-                      value={cashFcfa}
-                      onChange={(e) => setCashFcfa(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs font-mono tabular-nums text-slate-900 min-h-[40px]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Mobile Money OM/MoMo (FCFA)
-                    </label>
-                    <input
-                      type="number"
-                      value={momoFcfa}
-                      onChange={(e) => setMomoFcfa(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs font-mono tabular-nums text-slate-900 min-h-[40px]"
-                    />
-                  </div>
-
-                  <div className="bg-slate-50 border border-slate-200 rounded-md p-2.5 flex justify-between items-center text-[11px]">
-                    <span className="text-slate-600">Expected vs Declared</span>
-                    <span
-                      className={`font-mono font-bold tabular-nums ${
-                        shiftVarianceFcfa < 0 ? 'text-red-600' : 'text-emerald-700'
-                      }`}
-                    >
-                      Var: {formatFcfa(shiftVarianceFcfa)}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleSubmitShift}
-                    className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold min-h-[44px]"
-                  >
-                    {openShift || !onCloseShift
-                      ? isOfflineSimulated
-                        ? 'Queue Shift Closure Offline'
-                        : 'Submit & Post Ledger'
-                      : 'Open Shift on Idle Pump'}
-                  </button>
-                </div>
-              )}
-
-              {/* SCREEN 2: TANKS */}
-              {activeTab === 'inventory' && (
-                <div className="space-y-3">
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2">
-                    <div className="text-sm font-bold text-slate-900">
-                      Underground Tanks ({effectiveTanks.length})
+            {/* Main Scrollable Screen Body — Pure White Canvas */}
+            <div className="flex-1 overflow-y-auto bg-white p-4 space-y-4">
+              {/* =================================================================
+                  TAB 1: SHIFTS (Master List + Pump Detail Drill-Down)
+                 ================================================================= */}
+              {tab === 'shifts' && !detailPump && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                      <div className="text-[11px] text-slate-500 font-medium">Active Shifts</div>
+                      <div className="font-mono text-xl font-bold text-slate-950 mt-1">
+                        {openShiftsCount} / {stationPumps.length}
+                      </div>
                     </div>
-                    {effectiveTanks.map((tank) => {
+                    <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                      <div className="text-[11px] text-slate-500 font-medium">Dispensed Volume</div>
+                      <div className="font-mono text-xl font-bold text-slate-950 mt-1">
+                        {formatLitres(todayLitres)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <h3 className="font-display text-sm font-bold text-slate-950">Forecourt Pumps</h3>
+                    <span className="text-[11px] text-slate-500">Tap a pump for details</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {stationPumps.map((pump) => {
+                      const activeShift = stationShifts.find((s) => s.pumpId === pump.id && s.status === 'OPEN');
+                      return (
+                        <button
+                          key={pump.id}
+                          type="button"
+                          onClick={() => {
+                            setDetailPumpId(pump.id);
+                            if (activeShift) {
+                              const expected = Math.round(420 * pump.unitPriceFcfa);
+                              setCloseLitresDelta('420');
+                              setCloseCash(String(Math.round(expected * 0.7)));
+                              setCloseMoMo(String(expected - Math.round(expected * 0.7)));
+                            }
+                          }}
+                          className="w-full text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-400 transition-colors flex items-center justify-between gap-3"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-slate-950">{pump.code}</span>
+                              <span className="text-xs text-slate-600">{gradeLabel(pump.grade)}</span>
+                            </div>
+                            <div className="text-xs text-slate-500 truncate">
+                              {activeShift ? `Attendant: ${activeShift.attendantName}` : 'Idle — Ready to open shift'}
+                            </div>
+                            <div className="font-mono text-[11px] text-slate-700">
+                              Meter: {formatLitres(pump.totalizerLitres)} · {formatFcfa(pump.unitPriceFcfa)}/L
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <span
+                              className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                                activeShift
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {activeShift ? 'OPEN' : 'IDLE'}
+                            </span>
+                            <ChevronRight className="w-4 h-4 text-slate-400" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Pump Detail Page */}
+              {tab === 'shifts' && detailPump && (() => {
+                const openShift = stationShifts.find((s) => s.pumpId === detailPump.id && s.status === 'OPEN');
+                const deltaNum = Math.max(1, Number(closeLitresDelta) || 0);
+                const closingMeterVal = detailPump.totalizerLitres + deltaNum;
+                const expectedRev = Math.round(deltaNum * detailPump.unitPriceFcfa);
+                const enteredTotal = (Number(closeCash) || 0) + (Number(closeMoMo) || 0);
+                const variance = expectedRev - enteredTotal;
+
+                return (
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => setDetailPumpId(null)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950"
+                    >
+                      <ArrowLeft className="w-4 h-4" /> Back to Pumps
+                    </button>
+
+                    <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-display text-base font-bold text-slate-950">
+                            Pump {detailPump.code}
+                          </div>
+                          <div className="text-xs text-slate-500">{gradeLabel(detailPump.grade)}</div>
+                        </div>
+                        <span
+                          className={`px-2.5 py-1 rounded font-mono text-[10px] font-bold ${
+                            openShift ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {openShift ? 'SHIFT OPEN' : 'IDLE'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100 text-xs">
+                        <div>
+                          <div className="text-slate-500">Current Totalizer</div>
+                          <div className="font-mono font-bold text-slate-950 mt-0.5">
+                            {formatLitres(detailPump.totalizerLitres)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-500">Unit Tariff</div>
+                          <div className="font-mono font-bold text-slate-950 mt-0.5">
+                            {formatFcfa(detailPump.unitPriceFcfa)} / L
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {!openShift ? (
+                      <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3.5">
+                        <div className="font-display text-sm font-bold text-slate-950">Open New Pump Shift</div>
+                        <div>
+                          <label className="opes-label">Assign Attendant</label>
+                          <select
+                            value={selectedAttendantId}
+                            onChange={(e) => setSelectedAttendantId(e.target.value)}
+                            className="opes-input"
+                          >
+                            {stationEmployees.map((emp) => (
+                              <option key={emp.id} value={emp.id}>
+                                {emp.fullName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!currentStation || !onOpenShift) return;
+                            const attId = selectedAttendantId || stationEmployees[0]?.id || 'emp_01';
+                            dispatchOrQueue(
+                              `Open Shift on ${detailPump.code}`,
+                              '/api/v1/forecourt/shifts/open',
+                              () => onOpenShift(currentStation.id, detailPump.id, attId)
+                            );
+                          }}
+                          className="w-full py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+                        >
+                          Start Shift on {detailPump.code}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3.5">
+                        <div className="font-display text-sm font-bold text-slate-950">
+                          Close &amp; Reconcile Shift ({openShift.attendantName})
+                        </div>
+                        <div>
+                          <label className="opes-label">Litres Sold This Shift</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={closeLitresDelta}
+                            onChange={(e) => setCloseLitresDelta(e.target.value)}
+                            className="opes-input font-mono"
+                          />
+                          <div className="text-[11px] font-mono text-slate-500 mt-1">
+                            Closing Meter: {formatLitres(closingMeterVal)} · Expected: {formatFcfa(expectedRev)}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="opes-label">Cash (FCFA)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={closeCash}
+                              onChange={(e) => setCloseCash(e.target.value)}
+                              className="opes-input font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="opes-label">Mobile Money</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={closeMoMo}
+                              onChange={(e) => setCloseMoMo(e.target.value)}
+                              className="opes-input font-mono"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs py-2 border-t border-slate-100">
+                          <span className="text-slate-600">Cash Variance</span>
+                          <span
+                            className={`font-mono font-bold ${
+                              variance > 0 ? 'text-red-700' : 'text-emerald-700'
+                            }`}
+                          >
+                            {variance === 0 ? '0 FCFA (Exact)' : formatFcfa(-variance)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!onCloseShift) return;
+                            dispatchOrQueue(
+                              `Close Shift ${detailPump.code} (${deltaNum} L)`,
+                              `/api/v1/forecourt/shifts/${openShift.id}/close`,
+                              () =>
+                                onCloseShift(openShift.id, {
+                                  closingMeterLitres: closingMeterVal,
+                                  cashFcfa: Number(closeCash) || 0,
+                                  mobileMoneyFcfa: Number(closeMoMo) || 0,
+                                  cardFcfa: 0,
+                                  fleetCreditFcfa: 0,
+                                })
+                            );
+                            setDetailPumpId(null);
+                          }}
+                          className="w-full py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+                        >
+                          Submit Closing Reading
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* =================================================================
+                  TAB 2: TANKS (Master List + Tank Detail Drill-Down)
+                 ================================================================= */}
+              {tab === 'inventory' && !detailTank && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-display text-sm font-bold text-slate-950">Underground Fuel Tanks</h3>
+                    <span className="text-[11px] text-slate-500">Tap to dipstick</span>
+                  </div>
+                  <div className="space-y-3">
+                    {stationTanks.map((tank) => {
                       const pct = Math.min(100, Math.round((tank.bookVolumeLitres / Math.max(1, tank.capacityLitres)) * 100));
-                      const isSelected = dipTankId === tank.id;
                       return (
                         <button
                           key={tank.id}
                           type="button"
                           onClick={() => {
-                            setDipTankId(tank.id);
-                            setDipLitres(String(tank.lastDipLitres));
+                            setDetailTankId(tank.id);
+                            setDipLitres(String(tank.bookVolumeLitres));
                           }}
-                          className={`w-full text-left p-2.5 rounded-lg border transition-colors ${
-                            isSelected ? 'border-amber-600 bg-amber-50' : 'border-slate-200 bg-slate-50 hover:bg-slate-100/70'
-                          }`}
+                          className="w-full text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-400 transition-colors space-y-2.5"
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-900 truncate">{tank.name}</span>
-                            <span className="font-mono tabular-nums text-xs font-bold text-slate-900 shrink-0">
-                              {formatLitres(tank.bookVolumeLitres)}
-                            </span>
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="font-semibold text-sm text-slate-950">{tank.name}</div>
+                              <div className="text-xs text-slate-500">{gradeLabel(tank.grade)}</div>
+                            </div>
+                            <span className="font-mono text-xs font-bold text-slate-900">{pct}%</span>
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
-                            <span>
-                              {gradeLabel(tank.grade)} · {pct}% of {formatLitres(tank.capacityLitres)}
-                            </span>
-                            <span
-                              className={`font-semibold ${
-                                tank.status === 'VARIANCE_ALERT'
-                                  ? 'text-red-600'
-                                  : tank.status === 'LOW_STOCK'
-                                  ? 'text-amber-700'
-                                  : 'text-emerald-700'
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                pct < 20 ? 'bg-red-600' : pct < 40 ? 'bg-amber-600' : 'bg-[#0F172A]'
                               }`}
-                            >
-                              {tank.status}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] font-mono text-slate-600">
+                            <span>Book: {formatLitres(tank.bookVolumeLitres)}</span>
+                            <span className={Math.abs(tank.varianceLitres) > 100 ? 'text-red-700 font-bold' : ''}>
+                              Delta: {tank.varianceLitres > 0 ? `+${tank.varianceLitres}` : tank.varianceLitres} L
                             </span>
                           </div>
                         </button>
                       );
                     })}
-                    {effectiveTanks.length === 0 && (
-                      <div className="text-xs text-slate-500 py-2">
-                        No tanks provisioned yet. Open Setup to tick fuels &amp; volumes.
+                  </div>
+                </>
+              )}
+
+              {/* Tank Detail Page */}
+              {tab === 'inventory' && detailTank && (
+                <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => setDetailTankId(null)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Tanks
+                  </button>
+
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                    <div className="font-display text-base font-bold text-slate-950">{detailTank.name}</div>
+                    <div className="grid grid-cols-2 gap-3 text-xs pt-1 border-t border-slate-100">
+                      <div>
+                        <div className="text-slate-500">Book Stock</div>
+                        <div className="font-mono font-bold text-slate-950 mt-0.5">
+                          {formatLitres(detailTank.bookVolumeLitres)}
+                        </div>
                       </div>
-                    )}
+                      <div>
+                        <div className="text-slate-500">Last Dipstick</div>
+                        <div className="font-mono font-bold text-slate-950 mt-0.5">
+                          {formatLitres(detailTank.lastDipLitres)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  {effectiveTanks.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
-                      <div className="text-sm font-bold text-slate-900">Record Physical Dipstick</div>
-                      <label className="block text-[11px] font-semibold text-slate-700">
-                        Measured Dipstick Volume (Litres)
-                      </label>
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3.5">
+                    <div className="font-display text-sm font-bold text-slate-950">Record Physical Dipstick</div>
+                    <div>
+                      <label className="opes-label">Measured Volume (Litres)</label>
                       <input
                         type="number"
+                        min={0}
                         value={dipLitres}
                         onChange={(e) => setDipLitres(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs font-mono tabular-nums min-h-[40px]"
+                        className="opes-input font-mono"
                       />
-                      <button
-                        type="button"
-                        onClick={handleDipstickSubmit}
-                        className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold min-h-[44px]"
-                      >
-                        Record Dipstick Check
-                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!onRecordDipstick) return;
+                        const val = Number(dipLitres) || 0;
+                        dispatchOrQueue(
+                          `Dipstick ${detailTank.name}: ${val} L`,
+                          `/api/v1/inventory/tanks/${detailTank.id}/dipstick`,
+                          () => onRecordDipstick(detailTank.id, val)
+                        );
+                        setDetailTankId(null);
+                      }}
+                      className="w-full py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+                    >
+                      Save Dipstick Calibration
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* =================================================================
+                  TAB 3: POS (Fleet Credit Detail + Lube & Shop POS)
+                 ================================================================= */}
+              {tab === 'fleet' && !detailFleet && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl border border-slate-200 bg-white">
+                    <button
+                      type="button"
+                      onClick={() => setPosSubTab('fleet')}
+                      className={`py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        posSubTab === 'fleet' ? 'bg-[#0F172A] text-white' : 'text-slate-600'
+                      }`}
+                    >
+                      Fleet Credit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPosSubTab('shop')}
+                      className={`py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        posSubTab === 'shop' ? 'bg-[#0F172A] text-white' : 'text-slate-600'
+                      }`}
+                    >
+                      Shop &amp; Lubes
+                    </button>
+                  </div>
+
+                  {posSubTab === 'fleet' ? (
+                    <div className="space-y-3">
+                      {fleetAccounts.map((acc) => {
+                        const pct = Math.min(100, Math.round((acc.balanceOwedFcfa / Math.max(1, acc.creditLimitFcfa)) * 100));
+                        return (
+                          <button
+                            key={acc.id}
+                            type="button"
+                            onClick={() => setDetailFleetId(acc.id)}
+                            className="w-full text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-400 transition-colors space-y-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-sm text-slate-950 truncate">{acc.companyName}</span>
+                              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                            </div>
+                            <div className="flex items-center justify-between text-xs font-mono text-slate-600">
+                              <span>Bal: {formatFcfa(acc.balanceOwedFcfa)}</span>
+                              <span>{pct}% limit</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-[#0F172A] rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-slate-700">Payment Method</span>
+                        <select
+                          value={shopPayment}
+                          onChange={(e) => setShopPayment(e.target.value as 'CASH' | 'MOBILE_MONEY' | 'CARD')}
+                          className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold"
+                        >
+                          <option value="CASH">Cash</option>
+                          <option value="MOBILE_MONEY">Mobile Money</option>
+                          <option value="CARD">Card</option>
+                        </select>
+                      </div>
+                      {shopItems.slice(0, 6).map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-semibold text-xs text-slate-950 truncate">{item.name}</div>
+                            <div className="font-mono text-[11px] text-slate-500">
+                              {formatFcfa(item.unitPriceFcfa)} · Stock: {item.stockQty}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!onRecordShopSale) return;
+                              dispatchOrQueue(
+                                `Shop Sale: 1x ${item.name}`,
+                                '/api/v1/shop/sales',
+                                () => onRecordShopSale(item.id, 1, shopPayment)
+                              );
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shrink-0"
+                          >
+                            Sell 1
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* SCREEN 3: FLEET/POS */}
-              {activeTab === 'fleet' && (
-                <div className="space-y-3">
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
-                    <div className="text-sm font-bold text-slate-900">Corporate Fleet Voucher</div>
-                    {fleetAccounts.length > 0 && (
-                      <select
-                        value={fleetAccountId}
-                        onChange={(e) => setFleetAccountId(e.target.value)}
-                        className="w-full px-2.5 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs min-h-[38px]"
-                      >
-                        {fleetAccounts.map((acc) => (
-                          <option key={acc.id} value={acc.id}>
-                            {acc.companyName}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+              {/* Fleet Account Detail Page */}
+              {tab === 'fleet' && detailFleet && (
+                <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => setDetailFleetId(null)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Fleet Accounts
+                  </button>
+
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                    <div className="font-display text-base font-bold text-slate-950">{detailFleet.companyName}</div>
+                    <div className="text-xs text-slate-500">
+                      Available Credit: {formatFcfa(Math.max(0, detailFleet.creditLimitFcfa - detailFleet.balanceOwedFcfa))}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3.5">
+                    <div className="font-display text-sm font-bold text-slate-950">Issue Fleet Fuel Voucher</div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Vehicle Plate</label>
+                      <label className="opes-label">Vehicle Plate</label>
                       <input
                         type="text"
-                        value={fleetPlate}
-                        onChange={(e) => setFleetPlate(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs font-mono min-h-[38px]"
+                        value={voucherPlate}
+                        onChange={(e) => setVoucherPlate(e.target.value)}
+                        className="opes-input font-mono"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Fuel Grade</label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(['SUPER', 'GASOIL', 'KEROSENE', 'LPG_BULK', 'HEAVY_FUEL'] as FuelGrade[]).map((g) => (
-                          <button
-                            key={g}
-                            type="button"
-                            onClick={() => setFleetGrade(g)}
-                            className={`px-2 py-1.5 rounded text-[10px] font-bold border ${
-                              fleetGrade === g
-                                ? 'bg-slate-900 border-slate-900 text-amber-400'
-                                : 'bg-slate-50 border-slate-300 text-slate-700'
-                            }`}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Dispensed Litres</label>
+                      <label className="opes-label">Driver Name</label>
                       <input
-                        type="number"
-                        value={fleetLitres}
-                        onChange={(e) => setFleetLitres(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs font-mono tabular-nums min-h-[38px]"
+                        type="text"
+                        value={voucherDriver}
+                        onChange={(e) => setVoucherDriver(e.target.value)}
+                        className="opes-input"
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleFleetSubmit}
-                      className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold min-h-[44px]"
-                    >
-                      Charge Fleet Account
-                    </button>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2">
-                    <div className="text-sm font-bold text-slate-900">Lubricants &amp; 12.5kg Gas POS</div>
-                    {stationShop.length > 0 ? (
-                      <select
-                        value={shopItemId}
-                        onChange={(e) => setShopItemId(e.target.value)}
-                        className="w-full px-2.5 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs min-h-[38px]"
-                      >
-                        {stationShop.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name} · {formatFcfa(item.unitPriceFcfa)}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="text-xs text-slate-500">OpesLube 15W40 (5L) · 18 500 FCFA</div>
-                    )}
-                    <input
-                      type="number"
-                      min={1}
-                      value={shopQty}
-                      onChange={(e) => setShopQty(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs font-mono tabular-nums min-h-[38px]"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleShopSubmit}
-                      className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold min-h-[44px]"
-                    >
-                      Record Mobile Money Sale
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* SCREEN 4: REPORTS */}
-              {activeTab === 'reports' && (
-                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2.5 text-xs">
-                  <div className="text-sm font-bold text-slate-900">Automated Financial Report (FCFA)</div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-600">Fuel &amp; Shop Revenue</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-900">
-                      {formatFcfa(report.totalRevenueFcfa)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-600">Gross Operating Margin</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-900">
-                      {formatFcfa(report.grossProfitFcfa)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-600">Operating Expenses</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-900">
-                      {formatFcfa(report.operatingExpensesFcfa)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-600">VAT Payable (19.25%)</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-900">
-                      {formatFcfa(report.vatPayableFcfa)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-slate-200 items-center">
-                    <span className="text-sm font-bold text-slate-900">Net Income</span>
-                    <span className="font-mono tabular-nums text-sm font-bold text-emerald-700">
-                      {formatFcfa(report.netIncomeFcfa)}
-                    </span>
-                  </div>
-                  <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between">
-                    <span>SYSCOHADA Double-Entry</span>
-                    <span className={report.trialBalanceBalanced ? 'text-emerald-700 font-bold' : 'text-red-600 font-bold'}>
-                      {report.trialBalanceBalanced ? 'Balanced (DR = CR)' : 'Imbalance'}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* SCREEN 5: AI COPILOT */}
-              {activeTab === 'ai' && (
-                <div className="space-y-3">
-                  <div className="bg-slate-900 text-white rounded-xl p-4 space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-400" />
-                      <span className="text-sm font-bold">OpesFuel Paid AI Copilot</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      {effectiveAiActive
-                        ? 'Active SaaS Intelligence · Tank stockout warnings, 30-day FCFA forecasts & cash variance coaching.'
-                        : '25 000 FCFA/mo Add-On (Free with Enterprise). Unlock live stockout forecasts and AI Q&A.'}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleToggleAi}
-                      className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold min-h-[44px]"
-                    >
-                      {effectiveAiActive ? 'Pause Paid AI Copilot' : 'Activate Paid AI Copilot (25 000 FCFA/mo)'}
-                    </button>
-                  </div>
-
-                  {effectiveAiActive && (
-                    <>
-                      <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2">
-                        <div className="text-xs font-bold text-slate-900">Predictive Tank &amp; Margin Analysis</div>
-                        <button
-                          type="button"
-                          onClick={handleRunAiForecast}
-                          className="w-full py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold min-h-[40px]"
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="opes-label">Fuel Grade</label>
+                        <select
+                          value={voucherGrade}
+                          onChange={(e) => setVoucherGrade(e.target.value as FuelGrade)}
+                          className="opes-input"
                         >
-                          Run AI Stockout &amp; Revenue Forecast
-                        </button>
-                        {aiForecastText && (
-                          <pre className="whitespace-pre-wrap font-sans text-[11px] text-slate-800 bg-slate-50 border border-slate-200 rounded-lg p-2.5 leading-relaxed">
-                            {aiForecastText}
-                          </pre>
-                        )}
+                          <option value="GASOIL">Diesel</option>
+                          <option value="SUPER">Super</option>
+                          <option value="KEROSENE">Kerosene</option>
+                        </select>
                       </div>
-
-                      <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2">
-                        <div className="text-xs font-bold text-slate-900">Ask OpesFuel AI Advisor</div>
+                      <div>
+                        <label className="opes-label">Litres</label>
                         <input
-                          type="text"
-                          placeholder="e.g. Which tank runs out first?"
-                          value={aiPrompt}
-                          onChange={(e) => setAiPrompt(e.target.value)}
-                          className="w-full px-3 py-2 rounded-md border border-slate-300 bg-slate-50 text-xs min-h-[38px]"
+                          type="number"
+                          min={1}
+                          value={voucherLitres}
+                          onChange={(e) => setVoucherLitres(e.target.value)}
+                          className="opes-input font-mono"
                         />
-                        <button
-                          type="button"
-                          onClick={handleAskAiAdvisor}
-                          className="w-full py-2 rounded-lg bg-amber-600 text-white text-xs font-bold min-h-[40px]"
-                        >
-                          Ask Station Advisor
-                        </button>
-                        {aiChatReply && (
-                          <div className="text-[11px] text-slate-800 bg-slate-50 border border-slate-200 rounded-lg p-2.5 leading-relaxed">
-                            {aiChatReply}
-                          </div>
-                        )}
                       </div>
-                    </>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!onRecordVoucher || !currentStation) return;
+                        dispatchOrQueue(
+                          `Fleet Voucher ${voucherPlate} (${voucherLitres} L)`,
+                          '/api/v1/fleet/vouchers',
+                          () =>
+                            onRecordVoucher({
+                              accountId: detailFleet.id,
+                              stationId: currentStation.id,
+                              vehiclePlate: voucherPlate.trim() || 'LT-482-AK',
+                              driverName: voucherDriver.trim() || 'Driver',
+                              grade: voucherGrade,
+                              litres: Number(voucherLitres) || 50,
+                            })
+                        );
+                        setDetailFleetId(null);
+                      }}
+                      className="w-full py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+                    >
+                      Post Fleet Fuel Voucher
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* =================================================================
+                  TAB 4: REPORTS (Clean Daily Financial Snapshot)
+                 ================================================================= */}
+              {tab === 'reports' && (
+                <div className="space-y-3.5">
+                  <h3 className="font-display text-sm font-bold text-slate-950">Live Station P&amp;L Snapshot</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                      <div className="text-[11px] text-slate-500">Total Revenue</div>
+                      <div className="font-mono text-sm font-bold text-slate-950 mt-1">
+                        {formatFcfa(report.totalRevenueFcfa)}
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                      <div className="text-[11px] text-slate-500">Net Profit</div>
+                      <div className="font-mono text-sm font-bold text-slate-950 mt-1">
+                        {formatFcfa(report.netIncomeFcfa)}
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                      <div className="text-[11px] text-slate-500">Cash + MoMo</div>
+                      <div className="font-mono text-sm font-bold text-slate-950 mt-1">
+                        {formatFcfa(report.cashOnHandFcfa + report.mobileMoneyClearingFcfa)}
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                      <div className="text-[11px] text-slate-500">VAT Payable</div>
+                      <div className="font-mono text-sm font-bold text-slate-950 mt-1">
+                        {formatFcfa(report.vatPayableFcfa)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-800">SYSCOHADA Trial Balance</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {report.trialBalanceBalanced ? 'BALANCED' : 'CHECK'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* =================================================================
+                  TAB 5: OFFLINE SYNC QUEUE SCREEN
+                 ================================================================= */}
+              {tab === 'sync' && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-display text-sm font-bold text-slate-950">Offline Sync Engine</div>
+                        <div className="text-[11px] text-slate-500">
+                          {simulateOffline ? 'Offline — actions queued locally' : 'Online — real-time cloud sync'}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSimulateOffline((v) => !v)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-900"
+                      >
+                        {simulateOffline ? 'Go Online' : 'Go Offline'}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={offlineQueue.length === 0}
+                      onClick={flushQueue}
+                      className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Sync All Queued Actions ({offlineQueue.length})
+                    </button>
+                  </div>
+
+                  {offlineQueue.length === 0 ? (
+                    <div className="p-6 rounded-xl border border-slate-200 bg-white text-center space-y-1.5">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-700 mx-auto" />
+                      <div className="text-xs font-semibold text-slate-900">All Forecourt Data Synchronized</div>
+                      <p className="text-[11px] text-slate-500">
+                        Toggle &ldquo;Go Offline&rdquo; above and close a shift or record a dipstick to test queued synchronization.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {offlineQueue.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-start justify-between gap-3"
+                        >
+                          <div className="min-w-0 space-y-1">
+                            <div className="text-xs font-semibold text-slate-950">{item.label}</div>
+                            <div className="font-mono text-[10px] text-slate-500 truncate">{item.endpoint}</div>
+                            <div className="font-mono text-[10px] text-amber-700">
+                              UUID: {item.idempotencyKey} · {item.createdAt}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setOfflineQueue((prev) => prev.filter((x) => x.id !== item.id))}
+                            aria-label="Discard queued item"
+                            className="p-1.5 text-slate-400 hover:text-red-600"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* SCREEN 6: SETUP */}
-              {activeTab === 'setup' && (
-                <div className="space-y-3">
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-                      <Wrench className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Onboarding Guide ({onboardingCompleted}/5)</span>
-                    </div>
-                    {[
-                      { label: '1. Institutional Fuels & Volumes', done: effectiveTanks.length > 0 },
-                      { label: '2. Forecourt Pumps & Roster', done: stationPumps.length > 0 },
-                      { label: '3. Reconcile First Shift', done: localShiftClosed || stationShifts.some((s) => s.status === 'CLOSED') },
-                      { label: '4. Audit Balanced Trial Balance', done: report.trialBalanceBalanced },
-                      { label: '5. Activate Paid AI Copilot', done: effectiveAiActive },
-                    ].map((s) => (
-                      <div key={s.label} className="flex items-center gap-2 text-[11px] text-slate-700 py-0.5">
-                        {s.done ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        ) : (
-                          <Circle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        )}
-                        <span>{s.label}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
-                    <div className="text-xs font-bold text-slate-900">Institutional Fuels &amp; Opening Volumes</div>
-                    {setupDrafts.map((row) => (
+              {/* =================================================================
+                  DRAWER SCREEN: FUEL GRADE SETUP
+                 ================================================================= */}
+              {tab === 'setup' && (
+                <div className="space-y-3.5">
+                  <div className="font-display text-sm font-bold text-slate-950">Station Fuel Setup</div>
+                  <div className="space-y-2.5">
+                    {setupRows.map((row, idx) => (
                       <div
                         key={row.grade}
-                        className={`p-2 rounded-lg border ${
-                          row.selected ? 'border-amber-500 bg-amber-50/70' : 'border-slate-200 bg-slate-50'
+                        className={`p-3.5 rounded-xl border bg-white space-y-2 ${
+                          row.selected ? 'border-slate-900' : 'border-slate-200 opacity-70'
                         }`}
                       >
                         <button
                           type="button"
                           onClick={() =>
-                            setSetupDrafts((prev) =>
-                              prev.map((r) => (r.grade === row.grade ? { ...r, selected: !r.selected } : r))
+                            setSetupRows((prev) =>
+                              prev.map((r, i) => (i === idx ? { ...r, selected: !r.selected } : r))
                             )
                           }
-                          className="w-full flex items-center gap-2 text-left text-xs font-bold text-slate-900"
+                          className="w-full flex items-center justify-between text-left"
                         >
+                          <span className="text-xs font-bold text-slate-950">{row.label}</span>
                           {row.selected ? (
-                            <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-amber-600" />
                           ) : (
-                            <Circle className="w-4 h-4 text-slate-400 shrink-0" />
+                            <Circle className="w-4 h-4 text-slate-400" />
                           )}
-                          <span>{row.label}</span>
                         </button>
                         {row.selected && (
-                          <div className="grid grid-cols-3 gap-1.5 mt-2">
+                          <div className="grid grid-cols-2 gap-2 pt-1">
                             <div>
-                              <span className="block text-[9px] text-slate-500">Cap (L)</span>
-                              <input
-                                type="number"
-                                value={row.capacityLitres}
-                                onChange={(e) =>
-                                  setSetupDrafts((prev) =>
-                                    prev.map((r) =>
-                                      r.grade === row.grade ? { ...r, capacityLitres: e.target.value } : r
-                                    )
-                                  )
-                                }
-                                className="w-full px-1.5 py-1 rounded border border-slate-300 bg-white text-[10px] font-mono"
-                              />
-                            </div>
-                            <div>
-                              <span className="block text-[9px] text-slate-500">Open (L)</span>
+                              <label className="text-[10px] text-slate-500">Opening L</label>
                               <input
                                 type="number"
                                 value={row.openingLitres}
                                 onChange={(e) =>
-                                  setSetupDrafts((prev) =>
-                                    prev.map((r) =>
-                                      r.grade === row.grade ? { ...r, openingLitres: e.target.value } : r
-                                    )
+                                  setSetupRows((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, openingLitres: e.target.value } : r))
                                   )
                                 }
-                                className="w-full px-1.5 py-1 rounded border border-slate-300 bg-white text-[10px] font-mono"
+                                className="w-full px-2.5 py-1.5 rounded border border-slate-300 text-xs font-mono"
                               />
                             </div>
                             <div>
-                              <span className="block text-[9px] text-slate-500">FCFA/L</span>
+                              <label className="text-[10px] text-slate-500">Price FCFA/L</label>
                               <input
                                 type="number"
                                 value={row.sellingPriceFcfa}
                                 onChange={(e) =>
-                                  setSetupDrafts((prev) =>
-                                    prev.map((r) =>
-                                      r.grade === row.grade ? { ...r, sellingPriceFcfa: e.target.value } : r
-                                    )
+                                  setSetupRows((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, sellingPriceFcfa: e.target.value } : r))
                                   )
                                 }
-                                className="w-full px-1.5 py-1 rounded border border-slate-300 bg-white text-[10px] font-mono"
+                                className="w-full px-2.5 py-1.5 rounded border border-slate-300 text-xs font-mono"
                               />
                             </div>
                           </div>
                         )}
                       </div>
                     ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!onRunInstitutionalSetup || !currentStation) return;
+                      const picked: InstitutionalSetupSelection[] = setupRows
+                        .filter((r) => r.selected)
+                        .map((r) => ({
+                          grade: r.grade,
+                          tankName: r.tankName,
+                          capacityLitres: Number(r.capacityLitres) || 30000,
+                          openingLitres: Number(r.openingLitres) || 10000,
+                          unitCostFcfa: Number(r.unitCostFcfa) || 700,
+                          sellingPriceFcfa: Number(r.sellingPriceFcfa) || 820,
+                          nozzleCount: Number(r.nozzleCount) || 2,
+                        }));
+                      dispatchOrQueue(
+                        `Sync ${picked.length} Fuel Grade(s)`,
+                        `/api/v1/stations/${currentStation.id}/onboarding-setup`,
+                        () => onRunInstitutionalSetup(currentStation.id, picked)
+                      );
+                    }}
+                    className="w-full py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+                  >
+                    Apply Fuel Setup
+                  </button>
+                </div>
+              )}
 
-                    <button
-                      type="button"
-                      onClick={() => setIncludeLubricants(!includeLubricants)}
-                      className="w-full flex items-center gap-2 text-left text-xs font-semibold text-slate-800 py-1"
-                    >
-                      {includeLubricants ? (
-                        <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-slate-400 shrink-0" />
-                      )}
-                      <span>Include Lubricants &amp; 12.5kg Gas Cylinders</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleApplySetup}
-                      className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold min-h-[44px]"
-                    >
-                      Apply &amp; Sync Station Modules
-                    </button>
+              {/* =================================================================
+                  DRAWER SCREEN: AI COPILOT
+                 ================================================================= */}
+              {tab === 'ai' && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-display text-sm font-bold text-slate-950">AI Station Copilot</span>
+                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
+                        {aiSubscription.active ? 'ACTIVE' : 'PRO ADD-ON'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Detects unusual dipstick shrinkage, cash shortfalls, and predicts tank restock dates before run-outs.
+                    </p>
+                    {onToggleAiSubscription && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleAiSubscription(!aiSubscription.active)}
+                        className="w-full py-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold"
+                      >
+                        {aiSubscription.active ? 'Pause AI Copilot' : 'Activate AI Copilot'}
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Native 5-Tab Mobile Bottom Navigation Bar */}
-            <div className="bg-white border-t border-slate-200">
-              <div className="grid grid-cols-5 px-1 pt-1.5 pb-1">
-                {(
-                  [
-                    { id: 'shifts', label: 'Shifts', icon: Fuel },
-                    { id: 'inventory', label: 'Tanks', icon: Gauge },
-                    { id: 'fleet', label: 'POS', icon: CreditCard },
-                    { id: 'reports', label: 'Reports', icon: TrendingUp },
-                  ] as const
-                ).map((item) => {
-                  const Icon = item.icon;
-                  const active = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setActiveTab(item.id)}
-                      className={`flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-                        active ? 'text-amber-600 bg-amber-50/70' : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(true)}
-                  className={`relative flex flex-col items-center justify-center gap-0.5 py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-                    activeTab === 'ai' || activeTab === 'setup'
-                      ? 'text-amber-600 bg-amber-50/70'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <Menu className="w-4 h-4" />
-                  <span>More</span>
-                  {offlineQueue.length > 0 && (
-                    <span className="absolute top-1 right-2.5 w-2 h-2 rounded-full bg-red-600" />
-                  )}
-                </button>
-              </div>
-              <div className="pb-1.5 pt-0.5 flex justify-center">
-                <div className="w-24 h-1 rounded-full bg-slate-300" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT: Complete 6-Screen Selector, Styling Specs & Workflow Mechanics */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* 6-Screen Quick Switch Grid */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-display text-base font-bold text-slate-900">
-                Inspect Every Mobile Screen (Click to Open on Phone)
-              </h2>
-              <span className="font-mono text-xs text-slate-500">6 Production Screens</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {(
-                [
-                  { id: 'shifts', label: '01. Shifts', sub: 'Meter & Tender Close', icon: Fuel },
-                  { id: 'inventory', label: '02. Tanks', sub: 'Reserves & Dipsticks', icon: Gauge },
-                  { id: 'fleet', label: '03. Fleet / POS', sub: 'Vouchers & Shop', icon: CreditCard },
-                  { id: 'reports', label: '04. Reports', sub: 'Automated FCFA P&L', icon: TrendingUp },
-                  { id: 'ai', label: '05. AI Copilot', sub: 'Predictive & Q&A', icon: Cpu },
-                  { id: 'setup', label: '06. Setup', sub: 'Fuels & Volumes', icon: Database },
-                ] as const
-              ).map((card) => {
-                const Icon = card.icon;
-                const selected = activeTab === card.id;
+            {/* Clean 5-Tab Fixed Bottom Navigation Bar */}
+            <div className="h-16 bg-white border-t border-slate-200 grid grid-cols-5 shrink-0">
+              {[
+                { id: 'shifts' as const, label: 'Shifts', icon: Fuel },
+                { id: 'inventory' as const, label: 'Tanks', icon: Gauge },
+                { id: 'fleet' as const, label: 'POS', icon: CreditCard },
+                { id: 'reports' as const, label: 'Reports', icon: TrendingUp },
+                { id: 'sync' as const, label: 'Sync', icon: RefreshCw },
+              ].map((item) => {
+                const Icon = item.icon;
+                const active = tab === item.id;
                 return (
                   <button
-                    key={card.id}
+                    key={item.id}
                     type="button"
-                    onClick={() => setActiveTab(card.id)}
-                    className={`p-3.5 rounded-lg border text-left transition-colors flex items-start gap-3 ${
-                      selected
-                        ? 'bg-slate-900 border-slate-900 text-white'
-                        : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100'
+                    onClick={() => switchTab(item.id)}
+                    className={`relative flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors ${
+                      active ? 'text-amber-700' : 'text-slate-500 hover:text-slate-900'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${selected ? 'text-amber-400' : 'text-amber-600'}`} />
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold truncate">{card.label}</div>
-                      <div className={`text-[11px] truncate ${selected ? 'text-slate-300' : 'text-slate-500'}`}>
-                        {card.sub}
-                      </div>
-                    </div>
+                    {active && <span className="absolute top-0 inset-x-3 h-0.5 bg-amber-600 rounded-full" />}
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                    {item.id === 'sync' && offlineQueue.length > 0 && (
+                      <span className="absolute top-1.5 right-3 min-w-[16px] h-4 px-1 rounded-full bg-amber-600 text-white font-mono text-[9px] font-bold flex items-center justify-center">
+                        {offlineQueue.length}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
+        </div>
 
-          {/* Active Screen Detailed Spec: Styling + How It Works + Spring Boot Contract */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
-              <div>
-                <div className="font-mono text-xs font-semibold text-amber-700">
-                  Screen {activeGuide.code} · {activeGuide.persona}
+        {/* Right Side: Clean UX & Workflow Overview */}
+        <div className="lg:col-span-7 space-y-5">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
+            <div>
+              <h3 className="font-display text-lg font-bold text-slate-950">
+                Built for Real Forecourts — Spacious, Uncramped &amp; Offline-First
+              </h3>
+              <p className="text-sm text-slate-600 mt-1">
+                Pump attendants and station managers work outdoors in bright sunlight and areas with patchy mobile data. Every screen uses high-contrast Obsidian Navy typography on pure white with generous tap targets.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                {
+                  title: 'Master → Detail Drill-Down',
+                  desc: 'Clean summary cards open full detail pages for every Pump Shift, Underground Tank, and Corporate Fleet client — never cramped tables on a small screen.',
+                },
+                {
+                  title: 'Conflict-Free Offline Sync Queue',
+                  desc: 'When mobile internet drops, shift closings, dipstick readings, and fleet vouchers save to AsyncStorage with unique UUID Idempotency Keys and replay automatically.',
+                },
+                {
+                  title: 'Hamburger Drawer + 5-Tab Bar',
+                  desc: 'Instant thumb access to Shifts, Tanks, POS, Reports, and Sync Queue at the bottom, with Station Switching, Fuel Setup, and AI Copilot in the slide-over drawer.',
+                },
+                {
+                  title: 'Real-Time Ledger Synchronization',
+                  desc: 'Every action posted from Android or iOS updates tank book volumes, shift variance reports, and double-entry SYSCOHADA journals immediately.',
+                },
+              ].map((card) => (
+                <div key={card.title} className="p-4 rounded-xl border border-slate-200 bg-white space-y-1.5">
+                  <div className="font-display text-sm font-bold text-slate-950">{card.title}</div>
+                  <p className="text-xs text-slate-600 leading-relaxed">{card.desc}</p>
                 </div>
-                <h3 className="font-display text-xl font-bold text-slate-900 mt-1">{activeGuide.title}</h3>
-              </div>
-              <div className="text-right font-mono text-[11px] text-slate-500">
-                <div>Transport: {transportMode === 'SPRING_BOOT_REMOTE' ? 'Java 25 Spring Boot' : 'OpenAPI 3.1 Adapter'}</div>
-                <div>Last Sync: {lastSyncedAt.slice(11, 19)} UTC</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-2.5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Visual Styling &amp; Touch Ergonomics
-                </h4>
-                <ul className="space-y-2 text-xs text-slate-700 leading-relaxed">
-                  {activeGuide.stylingNotes.map((note) => (
-                    <li key={note} className="flex items-start gap-2">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                      <span>{note}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="space-y-2.5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Step-by-Step Workflow Mechanics
-                </h4>
-                <ol className="space-y-2 text-xs text-slate-700 leading-relaxed list-decimal list-inside">
-                  {activeGuide.howItWorks.map((step) => (
-                    <li key={step}>{step}</li>
-                  ))}
-                </ol>
-              </div>
-            </div>
-
-            <div className="bg-slate-900 text-slate-200 rounded-lg p-4 space-y-2 text-xs font-mono">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-amber-400 font-semibold">Spring Boot REST Contract</span>
-                <span className="text-slate-400">Event: {activeGuide.domainEvent}</span>
-              </div>
-              <div className="text-white font-semibold break-all">{activeGuide.endpoint}</div>
-              <div className="text-slate-300 text-[11px] pt-1 border-t border-slate-800">
-                Ledger Impact: {activeGuide.accountingImpact}
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Offline-Queued Commands Inspector */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="font-display text-sm font-bold text-slate-900">
-                  Real-Time Sync Telemetry &amp; Idempotent Queue ({offlineQueue.length})
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Header connectivity monitor toggles cleanly between live Spring Boot mode and offline-queued mode
-                </p>
-              </div>
-              {offlineQueue.length > 0 && !isOfflineSimulated && (
-                <button
-                  type="button"
-                  onClick={handleFlushQueue}
-                  className="px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap"
-                >
-                  Flush {offlineQueue.length} Queued Item(s)
-                </button>
-              )}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+            <div className="font-display text-sm font-bold text-slate-950">
+              Try Offline Synchronization Live
             </div>
-
-            {offlineQueue.length > 0 ? (
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
-                {offlineQueue.map((item) => (
-                  <div key={item.id} className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div>
-                      <div className="font-semibold text-slate-900">{item.label}</div>
-                      <div className="font-mono text-[11px] text-slate-500">{item.endpoint}</div>
-                    </div>
-                    <div className="text-right font-mono text-[11px] text-amber-700">
-                      Key: {item.idempotencyKey.slice(0, 12)}...
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                No commands waiting offline. Click <strong>Simulate Offline Mode</strong> above and submit any shift,
-                dipstick, voucher, or setup form on the phone to watch commands queue with UUID idempotency keys and flush back into the station ledger.
-              </div>
-            )}
+            <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-600 leading-relaxed">
+              <li>Click <strong>Simulate Offline</strong> above (or inside the phone&rsquo;s <strong>Sync</strong> tab).</li>
+              <li>Tap any Pump in <strong>Shifts</strong> or Tank in <strong>Tanks</strong> to open its Detail page and submit a reading.</li>
+              <li>Open the <strong>Sync</strong> tab to inspect the queued operation with its unique UUID idempotency key.</li>
+              <li>Tap <strong>Sync All Queued Actions</strong> — all queued events flush directly into the station&rsquo;s live accounting ledger.</li>
+            </ol>
           </div>
         </div>
       </div>

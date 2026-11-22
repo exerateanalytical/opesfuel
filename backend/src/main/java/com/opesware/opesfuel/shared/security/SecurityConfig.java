@@ -52,7 +52,7 @@ public class SecurityConfig {
                     "/api/v1/openapi.json",
                     "/api/v1/docs/**"
                 ).permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/public/leads").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/public/leads", "/api/v1/public/webhooks/payments/**").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .anyRequest().authenticated()
             )

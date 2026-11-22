@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, CreditCard, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, CreditCard, Plus, Printer, Trash2 } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import { FleetAccount, FleetTransaction, FuelGrade, ShopItem, UserRole } from '../../domain/types';
+import { printFleetVoucherSlip } from '../../utils/thermalReceipt';
+import { FormModal } from '../shared/FormModal';
 import { FleetShopAdvancedPanel } from './FleetShopAdvancedPanel';
 
 interface FleetShopSectionProps {
@@ -71,6 +73,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
   const effectiveStation = stationId === 'ALL' ? defaultStationId : stationId;
 
   const [detailAccountId, setDetailAccountId] = useState<string | null>(null);
+  const [fleetModal, setFleetModal] = useState<'voucher' | 'settle' | null>(null);
 
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [newCompany, setNewCompany] = useState('');
@@ -188,7 +191,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg icon-glass text-slate-900 flex items-center justify-center">
                 <CreditCard className="w-5 h-5" />
               </div>
               <div>
@@ -434,113 +437,169 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
           </div>
         </div>
 
-        <div className="space-y-6">
-          {canVoucher && (
-            <form onSubmit={handleVoucher} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-              <h3 className="font-display text-base font-bold text-slate-900">Issue Fleet Voucher</h3>
+        <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col justify-between gap-4">
+          <div className="space-y-2">
+            <h3 className="font-display text-base font-bold text-slate-950">Corporate Fleet Actions</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Issue a signed corporate fuel voucher at the pump or post an incoming bank/MoMo payment against corporate receivables.
+            </p>
+          </div>
+          <div className="space-y-2.5">
+            {canVoucher && (
+              <button
+                type="button"
+                disabled={fleetAccounts.length === 0}
+                onClick={() => setFleetModal('voucher')}
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
+              >
+                <Plus className="w-4 h-4" /> Issue Fleet Fuel Voucher
+              </button>
+            )}
+            {canSettle && (
+              <button
+                type="button"
+                disabled={fleetAccounts.length === 0}
+                onClick={() => setFleetModal('settle')}
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-lg bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
+              >
+                <Plus className="w-4 h-4" /> Settle Corporate Invoice
+              </button>
+            )}
+            {fleetTransactions[0] && (
+              <button
+                type="button"
+                onClick={() => {
+                  const tx = fleetTransactions[0];
+                  const acc = fleetAccounts.find((a) => a.id === tx.accountId);
+                  printFleetVoucherSlip({
+                    stationName: 'OpesFuel Forecourt Station',
+                    voucherId: tx.id,
+                    companyName: acc?.companyName ?? 'Corporate Fleet',
+                    vehiclePlate: tx.vehiclePlate,
+                    driverName: tx.driverName,
+                    grade: tx.grade,
+                    litres: tx.litres,
+                    amountFcfa: tx.amountFcfa,
+                    createdAt: tx.createdAt,
+                  });
+                }}
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Latest 80mm Fleet Voucher
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <FormModal
+        open={fleetModal === 'voucher'}
+        title="Issue Corporate Fleet Fuel Voucher"
+        subtitle="Charges the approved vehicle plate and updates corporate balance owed."
+        onClose={() => setFleetModal(null)}
+      >
+        <form
+          onSubmit={(e) => {
+            handleVoucher(e);
+            setFleetModal(null);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="opes-label">Corporate Account</label>
               <select
                 value={accountId || fleetAccounts[0]?.id || ''}
                 onChange={(e) => setAccountId(e.target.value)}
-                disabled={fleetAccounts.length === 0}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white disabled:opacity-50"
+                className="opes-input"
+                required
               >
-                {fleetAccounts.length === 0 && <option value="">Create a fleet client first</option>}
                 {fleetAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.companyName}
-                  </option>
+                  <option key={a.id} value={a.id}>{a.companyName}</option>
                 ))}
               </select>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={plate}
-                  onChange={(e) => setPlate(e.target.value)}
-                  placeholder="Vehicle Plate"
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-                />
-                <input
-                  type="text"
-                  value={driver}
-                  onChange={(e) => setDriver(e.target.value)}
-                  placeholder="Driver Name"
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={grade}
-                  onChange={(e) => setGrade(e.target.value as FuelGrade)}
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white min-h-[40px]"
-                >
-                  {ALL_FUEL_GRADES.map((g) => (
-                    <option key={g} value={g}>
-                      {gradeLabel(g)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  value={litres}
-                  onChange={(e) => setLitres(e.target.value)}
-                  placeholder="Litres"
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={fleetAccounts.length === 0}
-                className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold"
-              >
-                Charge Fleet Account
-              </button>
-            </form>
-          )}
+            </div>
+            <div>
+              <label className="opes-label">Vehicle License Plate</label>
+              <input type="text" value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="LT-402-CM" className="opes-input font-mono" required />
+            </div>
+            <div>
+              <label className="opes-label">Driver Name</label>
+              <input type="text" value={driver} onChange={(e) => setDriver(e.target.value)} placeholder="Driver full name" className="opes-input" required />
+            </div>
+            <div>
+              <label className="opes-label">Fuel Grade</label>
+              <select value={grade} onChange={(e) => setGrade(e.target.value as FuelGrade)} className="opes-input">
+                {ALL_FUEL_GRADES.map((g) => (
+                  <option key={g} value={g}>{gradeLabel(g)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Volume (Litres)</label>
+              <input type="number" min={1} value={litres} onChange={(e) => setLitres(e.target.value)} className="opes-input font-mono" required />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setFleetModal(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">
+              Charge Fleet Account
+            </button>
+          </div>
+        </form>
+      </FormModal>
 
-          {canSettle && (
-            <form onSubmit={handleSettle} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-              <h3 className="font-display text-base font-bold text-slate-900">Settle Corporate Invoice</h3>
-              <select
-                value={settleId || fleetAccounts[0]?.id || ''}
-                onChange={(e) => setSettleId(e.target.value)}
-                disabled={fleetAccounts.length === 0}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white disabled:opacity-50"
-              >
-                {fleetAccounts.length === 0 && <option value="">No fleet accounts</option>}
+      <FormModal
+        open={fleetModal === 'settle'}
+        title="Settle Corporate Fleet Invoice"
+        subtitle="Records incoming customer payment and reduces Fleet Accounts Receivable."
+        onClose={() => setFleetModal(null)}
+      >
+        <form
+          onSubmit={(e) => {
+            handleSettle(e);
+            setFleetModal(null);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="opes-label">Corporate Account</label>
+              <select value={settleId || fleetAccounts[0]?.id || ''} onChange={(e) => setSettleId(e.target.value)} className="opes-input" required>
                 {fleetAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.companyName} ({formatFcfa(a.balanceOwedFcfa)})
-                  </option>
+                  <option key={a.id} value={a.id}>{a.companyName} ({formatFcfa(a.balanceOwedFcfa)})</option>
                 ))}
               </select>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  value={settleAmount}
-                  onChange={(e) => setSettleAmount(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-                />
-                <select
-                  value={settleMethod}
-                  onChange={(e) => setSettleMethod(e.target.value as 'BANK_TRANSFER' | 'MOBILE_MONEY' | 'CASH')}
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                >
-                  <option value="BANK_TRANSFER">Bank Transfer</option>
-                  <option value="MOBILE_MONEY">Mobile Money</option>
-                  <option value="CASH">Cash</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                disabled={fleetAccounts.length === 0}
-                className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold"
+            </div>
+            <div>
+              <label className="opes-label">Payment Amount (FCFA)</label>
+              <input type="number" min={1} value={settleAmount} onChange={(e) => setSettleAmount(e.target.value)} className="opes-input font-mono" required />
+            </div>
+            <div>
+              <label className="opes-label">Payment Method</label>
+              <select
+                value={settleMethod}
+                onChange={(e) => setSettleMethod(e.target.value as 'BANK_TRANSFER' | 'MOBILE_MONEY' | 'CASH')}
+                className="opes-input"
               >
-                Post Settlement to AR
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="MOBILE_MONEY">Mobile Money</option>
+                <option value="CASH">Cash</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setFleetModal(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold">
+              Post Settlement to AR
+            </button>
+          </div>
+        </form>
+      </FormModal>
 
       {/* Lubricants, LPG & Forecourt Shop POS */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">

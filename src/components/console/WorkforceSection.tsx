@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, Download, Edit3, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, Edit3, Plus, Trash2, Users } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction, ROLE_PROFILES } from '../../auth/auth0';
 import { formatFcfa } from '../../domain/formatters';
 import { Employee, UserRole } from '../../domain/types';
+import { FormModal } from '../shared/FormModal';
 import { WorkforcePayrollPanel } from './WorkforcePayrollPanel';
 
 interface WorkforceSectionProps {
@@ -33,6 +34,7 @@ interface WorkforceSectionProps {
   ) => void;
   onDeleteEmployee: (employeeId: string) => void;
   onNotify: (type: 'success' | 'error', message: string) => void;
+  hrSlot?: React.ReactNode;
 }
 
 export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
@@ -46,12 +48,14 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
   onUpdateEmployee,
   onDeleteEmployee,
   onNotify,
+  hrSlot,
 }) => {
   const canManage = canPerformAction(role, 'MANAGE_EMPLOYEES');
   const visibleEmployees = employees.filter((e) => stationId === 'ALL' || e.stationId === stationId);
   const effectiveStation = stationId === 'ALL' ? defaultStationId : stationId;
 
   const [detailEmployeeId, setDetailEmployeeId] = useState<string | null>(null);
+  const [showOnboardModal, setShowOnboardModal] = useState(false);
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('ATTENDANT');
@@ -167,7 +171,7 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg icon-glass text-slate-900 flex items-center justify-center">
                 <Users className="w-5 h-5" />
               </div>
               <div>
@@ -184,7 +188,7 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 onClick={() => onToggleAttendance(activeDetailEmp.id)}
                 className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-colors ${
                   activeDetailEmp.clockedIn
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    ? 'bg-white border-emerald-200 text-emerald-800'
                     : 'bg-slate-900 border-slate-900 text-white'
                 }`}
               >
@@ -238,84 +242,35 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
               Workforce Roster, Attendance &amp; Payroll Variance
             </h2>
             <p className="text-xs text-slate-500">
-              Auth0 RBAC roles, shift schedules, clock-in state, and automated shift shortage adjustments in FCFA
+              Staff accounts, shift schedules, clock-in state, and automated shift shortage adjustments in FCFA
             </p>
           </div>
-          <button
-            type="button"
-            onClick={exportPayrollCsv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 self-start sm:self-auto whitespace-nowrap"
-          >
-            <Download className="w-3.5 h-3.5" /> Export Monthly Payroll CSV
-          </button>
-        </div>
-
-        {editingEmployeeId && canManage && (
-          <form
-            onSubmit={handleEditSave}
-            className="p-4 bg-amber-50/70 border-b border-amber-200 grid grid-cols-1 sm:grid-cols-6 gap-2.5 items-end"
-          >
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="Full Name"
-              className="px-3 py-2 rounded border border-slate-300 text-xs bg-white"
-            />
-            <select
-              value={editRole}
-              onChange={(e) => setEditRole(e.target.value as UserRole)}
-              className="px-3 py-2 rounded border border-slate-300 text-xs bg-white"
-            >
-              <option value="ATTENDANT">Attendant</option>
-              <option value="MANAGER">Station Manager</option>
-              <option value="ACCOUNTANT">Accountant</option>
-            </select>
-            <input
-              type="text"
-              value={editPhone}
-              onChange={(e) => setEditPhone(e.target.value)}
-              placeholder="Phone"
-              className="px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-            />
-            <input
-              type="text"
-              value={editWindow}
-              onChange={(e) => setEditWindow(e.target.value)}
-              placeholder="Shift Window"
-              className="px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-            />
-            <input
-              type="number"
-              value={editSalary}
-              onChange={(e) => setEditSalary(e.target.value)}
-              placeholder="Salary FCFA"
-              className="px-3 py-2 rounded border border-slate-300 text-xs font-mono bg-white"
-            />
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="flex-1 py-2 px-3 rounded bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800"
-              >
-                Save
-              </button>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            {canManage && (
               <button
                 type="button"
-                onClick={() => setEditingEmployeeId(null)}
-                className="py-2 px-3 rounded border border-slate-300 bg-white text-xs font-semibold text-slate-700"
+                onClick={() => setShowOnboardModal(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-xs font-semibold text-white whitespace-nowrap"
               >
-                Cancel
+                <Plus className="w-3.5 h-3.5" /> Onboard Station Employee
               </button>
-            </div>
-          </form>
-        )}
+            )}
+            <button
+              type="button"
+              onClick={exportPayrollCsv}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 whitespace-nowrap"
+            >
+              <Download className="w-3.5 h-3.5" /> Export Monthly Payroll CSV
+            </button>
+          </div>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+            <thead className="text-xs font-semibold">
               <tr>
                 <th className="px-4 py-3">Employee</th>
-                <th className="px-4 py-3">RBAC Role</th>
+                <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Shift Window</th>
                 <th className="px-4 py-3 text-right">Base Salary</th>
                 <th className="px-4 py-3 text-right">Shift Variance</th>
@@ -324,11 +279,11 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 {canManage && <th className="px-4 py-3 text-right">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-200">
               {visibleEmployees.map((emp) => {
                 const netPay = emp.baseSalaryFcfa + emp.cumulativeVarianceFcfa;
                 return (
-                  <tr key={emp.id} className="hover:bg-slate-50/70">
+                  <tr key={emp.id}>
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -359,8 +314,8 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                         onClick={() => onToggleAttendance(emp.id)}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
                           emp.clockedIn
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
-                            : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                            ? 'bg-white border-emerald-400 text-emerald-800 hover:bg-slate-50'
+                            : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
                         {emp.clockedIn ? 'Clocked In' : 'Clock In'}
@@ -373,15 +328,19 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                             type="button"
                             onClick={() => beginEdit(emp)}
                             aria-label={`Edit ${emp.fullName}`}
-                            className="p-1.5 text-slate-400 hover:text-slate-900"
+                            className="p-1.5 text-slate-500 hover:text-slate-900"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => onDeleteEmployee(emp.id)}
+                            onClick={() => {
+                              if (window.confirm(`Remove employee "${emp.fullName}" from this station?`)) {
+                                onDeleteEmployee(emp.id);
+                              }
+                            }}
                             aria-label={`Delete ${emp.fullName}`}
-                            className="p-1.5 text-slate-400 hover:text-red-600"
+                            className="p-1.5 text-slate-500 hover:text-red-600"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -424,59 +383,143 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
         </div>
       </div>
 
-      {canManage && (
-        <form onSubmit={handleCreate} className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-          <div>
-            <h3 className="font-display text-base font-bold text-slate-900">Onboard Station Employee</h3>
-            <p className="text-xs text-slate-500">Provisions Auth0 role assignment and payroll record</p>
+      {/* Popup Modal: Onboard Station Employee */}
+      <FormModal
+        open={showOnboardModal}
+        title="Onboard Station Employee"
+        subtitle="Create a staff member profile with station role, shift schedule, and monthly base salary."
+        onClose={() => setShowOnboardModal(false)}
+      >
+        <form
+          onSubmit={(e) => {
+            handleCreate(e);
+            if (fullName.trim()) setShowOnboardModal(false);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="opes-label">Full Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Samuel Tchoupo"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="opes-input"
+                required
+              />
+            </div>
+            <div>
+              <label className="opes-label">Station Role</label>
+              <select
+                value={empRole}
+                onChange={(e) => setEmpRole(e.target.value as UserRole)}
+                className="opes-input"
+              >
+                <option value="ATTENDANT">Pump Attendant</option>
+                <option value="MANAGER">Station Manager</option>
+                <option value="ACCOUNTANT">Station Accountant</option>
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Phone / WhatsApp</label>
+              <input
+                type="text"
+                placeholder="+237 677 XXX XXX"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="opes-input font-mono"
+                required
+              />
+            </div>
+            <div>
+              <label className="opes-label">Shift Window</label>
+              <input
+                type="text"
+                placeholder="06:00 - 14:00"
+                value={shiftWindow}
+                onChange={(e) => setShiftWindow(e.target.value)}
+                className="opes-input font-mono"
+                required
+              />
+            </div>
+            <div>
+              <label className="opes-label">Monthly Base Salary (FCFA)</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="135000"
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                className="opes-input font-mono tabular-nums"
+                required
+              />
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-sm"
-            />
-            <select
-              value={empRole}
-              onChange={(e) => setEmpRole(e.target.value as UserRole)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setShowOnboardModal(false)}
+              className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700"
             >
-              <option value="ATTENDANT">Attendant</option>
-              <option value="MANAGER">Station Manager</option>
-              <option value="ACCOUNTANT">Accountant</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono"
-            />
-            <input
-              type="text"
-              placeholder="Shift Window"
-              value={shiftWindow}
-              onChange={(e) => setShiftWindow(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono"
-            />
-            <input
-              type="number"
-              placeholder="Base Salary (FCFA)"
-              value={salary}
-              onChange={(e) => setSalary(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono tabular-nums"
-            />
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              Add Employee to Station
+            </button>
           </div>
-          <button
-            type="submit"
-            className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-          >
-            Add Employee to Station
-          </button>
         </form>
-      )}
+      </FormModal>
+
+      {/* Popup Modal: Edit Employee */}
+      <FormModal
+        open={Boolean(editingEmployeeId && canManage)}
+        title="Edit Station Employee"
+        subtitle="Update role assignment, contact phone, shift schedule, or monthly salary."
+        onClose={() => setEditingEmployeeId(null)}
+      >
+        <form onSubmit={handleEditSave} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="opes-label">Full Name</label>
+              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="opes-input" required />
+            </div>
+            <div>
+              <label className="opes-label">Role</label>
+              <select value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)} className="opes-input">
+                <option value="ATTENDANT">Pump Attendant</option>
+                <option value="MANAGER">Station Manager</option>
+                <option value="ACCOUNTANT">Station Accountant</option>
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">Phone</label>
+              <input type="text" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="opes-input font-mono" required />
+            </div>
+            <div>
+              <label className="opes-label">Shift Window</label>
+              <input type="text" value={editWindow} onChange={(e) => setEditWindow(e.target.value)} className="opes-input font-mono" required />
+            </div>
+            <div>
+              <label className="opes-label">Base Salary (FCFA)</label>
+              <input type="number" value={editSalary} onChange={(e) => setEditSalary(e.target.value)} className="opes-input font-mono" required />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setEditingEmployeeId(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold">
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {hrSlot}
 
       <WorkforcePayrollPanel
         engine={engine}

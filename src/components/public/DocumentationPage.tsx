@@ -230,6 +230,40 @@ const DOC_SECTIONS: DocSection[] = [
     ],
   },
   {
+    id: 'hr-management',
+    group: 'Finance & Staff Guides',
+    title: '7. Human Resources (HR): Contracts, CNPS, Leave & HSE Safety',
+    readTime: '6 min read',
+    summary:
+      'Run compliant petrol station HR: track CDI/CDD employment contracts, CNPS social security numbers, leave approvals, mandatory fire-safety certifications, and staff conduct logs.',
+    icon: ShieldCheck,
+    steps: [
+      {
+        heading: 'Step 1 — Store Employment Contracts, Allowances & CNPS Numbers',
+        body: 'Inside Staff & Payroll → Human Resources (HR), click Add HR Contract to open the contract modal. Record whether the employee is on a CDI, CDD, or Probation contract, their CNPS number, transport/housing allowances, and next-of-kin emergency contact.',
+      },
+      {
+        heading: 'Step 2 — Manage Annual, Sick & Family Leave Requests',
+        body: 'Staff or managers click Request Leave to submit dates and total days. Managers approve or reject requests in one click so forecourt shift coverage is never left short-handed.',
+      },
+      {
+        heading: 'Step 3 — Track Mandatory Forecourt Fire & LPG Safety Certificates',
+        body: 'Petrol stations must keep fire-extinguisher, spill-response, and LPG handling certificates current. Log every employee’s HSE certificate and expiry date—OpesFuel flags upcoming renewals automatically.',
+        tip: 'Schedule annual fire-extinguisher refresher drills 30 days before any certificate expires so your station stays compliant with civil protection inspections.',
+      },
+      {
+        heading: 'Step 4 — Keep Written Conduct & Zero-Variance Commendation Logs',
+        body: 'Use Log HR Notice to record both formal warnings (recurring shortages, safety breaches) and positive commendations (30 consecutive shifts with zero cash variance) in an auditable employee history.',
+      },
+    ],
+    checklist: [
+      'Every employee has an active CDI/CDD contract and CNPS number on file',
+      'Emergency contacts are recorded for all forecourt staff',
+      'Pending leave requests are reviewed before building next week’s shift roster',
+      'All attendants hold valid fire-extinguisher & fuel-spill safety certificates',
+    ],
+  },
+  {
     id: 'accounting-reports',
     group: 'Finance & Staff Guides',
     title: '7. Profit Reports, VAT & Locking Closed Months',
@@ -457,7 +491,7 @@ export const DocumentationPage: React.FC<DocumentationPageProps> = ({
             );
           })}
 
-          <div className="p-5 rounded-xl bg-amber-50 border border-amber-200 space-y-2.5">
+          <div className="p-5 rounded-xl bg-white border border-amber-200 space-y-2.5">
             <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
               <ShieldCheck className="w-4 h-4 text-amber-700" /> Need Live Staff Training?
             </div>
@@ -485,7 +519,7 @@ export const DocumentationPage: React.FC<DocumentationPageProps> = ({
               <span className="text-slate-500">{activeDoc.readTime}</span>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-11 h-11 rounded-xl icon-glass text-slate-900 flex items-center justify-center shrink-0 mt-0.5">
                 <ActiveIcon className="w-5 h-5" />
               </div>
               <div>
@@ -505,7 +539,7 @@ export const DocumentationPage: React.FC<DocumentationPageProps> = ({
                 <h3 className="font-display text-lg font-bold text-slate-900">{step.heading}</h3>
                 <p className="text-sm text-slate-700 leading-relaxed">{step.body}</p>
                 {step.tip && (
-                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 leading-relaxed">
+                  <div className="p-4 rounded-xl bg-white border border-emerald-200 text-xs text-emerald-950 leading-relaxed">
                     <span className="font-bold">Station Best Practice:</span> {step.tip}
                   </div>
                 )}

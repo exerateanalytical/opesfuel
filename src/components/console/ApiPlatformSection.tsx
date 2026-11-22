@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Check, Copy, History, KeyRound, Pause, Play, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Check, Copy, History, KeyRound, Pause, Play, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
 import { OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { formatShortDate } from '../../domain/formatters';
 import { ApiKeyRecord, DomainEventLog, WebhookSubscription } from '../../domain/types';
+import { FormModal } from '../shared/FormModal';
 
 interface ApiPlatformSectionProps {
   engine: OpesFuelApiEngine;
@@ -37,6 +38,8 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
   onExecuteApiQuery,
   onNotify,
 }) => {
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
+  const [webhookModalOpen, setWebhookModalOpen] = useState(false);
   const [keyLabel, setKeyLabel] = useState('');
   const [webhookUrl, setWebhookUrl] = useState('https://erp.station-partner.cm/opesfuel-hook');
   const [selectedEndpoint, setSelectedEndpoint] = useState(TEST_ENDPOINTS[3].path);
@@ -72,6 +75,7 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
       }
       onNotify('success', `Provisioned scoped API key "${keyLabel.trim()}".`);
       setKeyLabel('');
+      setKeyModalOpen(false);
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to create API key.');
     }
@@ -98,6 +102,7 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
         });
       }
       onNotify('success', `Registered HMAC webhook endpoint ${webhookUrl.trim()}.`);
+      setWebhookModalOpen(false);
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Failed to register webhook.');
     }
@@ -137,7 +142,7 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
     <div className="space-y-6">
       {/* One-Time Secret Reveal Card */}
       {revealedSecret && (
-        <div className="p-5 rounded-xl border-2 border-amber-400 bg-amber-50 space-y-3">
+        <div className="p-5 rounded-xl border-2 border-amber-400 bg-white space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
               <KeyRound className="w-4 h-4 text-amber-700" />
@@ -206,25 +211,19 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
       {/* API Keys & Webhooks */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-          <div>
-            <h3 className="font-display text-base font-bold text-slate-900">Tenant API Keys</h3>
-            <p className="text-xs text-slate-500">Scoped X-API-Key credentials for ERPs &amp; Android/iPhone mobile apps</p>
-          </div>
-          <form onSubmit={(e) => void handleKeyCreate(e)} className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Integration Label (e.g. Odoo Connector)"
-              value={keyLabel}
-              onChange={(e) => setKeyLabel(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-xs"
-            />
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display text-base font-bold text-slate-900">Tenant API Keys</h3>
+              <p className="text-xs text-slate-500">Scoped X-API-Key credentials for ERPs &amp; Android/iPhone mobile apps</p>
+            </div>
             <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap"
+              type="button"
+              onClick={() => setKeyModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold whitespace-nowrap"
             >
-              Generate Key
+              <Plus className="w-3.5 h-3.5" /> Generate API Key
             </button>
-          </form>
+          </div>
           <div className="divide-y divide-slate-100 text-xs">
             {apiKeys.map((k) => (
               <div key={k.id} className="py-2.5 flex justify-between items-center gap-3">
@@ -241,7 +240,7 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
                     }
                   }}
                   aria-label={`Revoke API key ${k.label}`}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-red-200 text-red-700 hover:bg-red-50 font-semibold shrink-0"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-red-200 bg-white text-red-700 hover:bg-red-50 font-semibold shrink-0"
                 >
                   <Trash2 className="w-3 h-3" /> Revoke
                 </button>
@@ -254,25 +253,19 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-          <div>
-            <h3 className="font-display text-base font-bold text-slate-900">Domain Event Webhooks</h3>
-            <p className="text-xs text-slate-500">HMAC-SHA256 signed event delivery from Java Outbox relay</p>
-          </div>
-          <form onSubmit={(e) => void handleWebhookCreate(e)} className="flex gap-2">
-            <input
-              type="url"
-              value={webhookUrl}
-              onChange={(e) => setWebhookUrl(e.target.value)}
-              placeholder="https://your-erp.com/webhook"
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-            />
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display text-base font-bold text-slate-900">Domain Event Webhooks</h3>
+              <p className="text-xs text-slate-500">HMAC-SHA256 signed event delivery from Java Outbox relay</p>
+            </div>
             <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold whitespace-nowrap"
+              type="button"
+              onClick={() => setWebhookModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold whitespace-nowrap"
             >
-              Register
+              <Plus className="w-3.5 h-3.5" /> Register Webhook
             </button>
-          </form>
+          </div>
           <div className="divide-y divide-slate-100 text-xs">
             {webhooks.map((w) => (
               <div key={w.id} className="py-2.5 flex justify-between items-center gap-3">
@@ -284,7 +277,7 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
                   <button
                     type="button"
                     onClick={() => void inspectDeliveries(w.id)}
-                    className="inline-flex items-center gap-1 px-2 py-1.5 rounded border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold"
+                    className="inline-flex items-center gap-1 px-2 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold"
                   >
                     <History className="w-3 h-3" /> Logs
                   </button>
@@ -293,8 +286,8 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
                     onClick={() => onToggleWebhook(w.id)}
                     className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded border font-semibold ${
                       w.active
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                        : 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        ? 'border-emerald-300 bg-white text-emerald-800 hover:bg-slate-50'
+                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     {w.active ? (
@@ -328,7 +321,7 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
           </div>
 
           {selectedWebhookId && (
-            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2 text-xs">
+            <div className="p-4 rounded-lg bg-white border border-slate-200 space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-900">
                   Webhook Delivery Logs ({selectedWebhookId})
@@ -387,6 +380,80 @@ export const ApiPlatformSection: React.FC<ApiPlatformSectionProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Popup FormModal: Generate API Key */}
+      <FormModal
+        open={keyModalOpen}
+        onClose={() => setKeyModalOpen(false)}
+        title="Generate Scoped Tenant API Key"
+        subtitle="Creates a SHA-256 hashed X-API-Key credential for ERP or mobile sync integrations."
+      >
+        <form onSubmit={(e) => void handleKeyCreate(e)} className="space-y-4">
+          <div>
+            <label className="opes-label">Integration Label</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Sage Accounting Connector"
+              value={keyLabel}
+              onChange={(e) => setKeyLabel(e.target.value)}
+              className="opes-input"
+            />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setKeyModalOpen(false)}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              Generate API Key
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Popup FormModal: Register Webhook */}
+      <FormModal
+        open={webhookModalOpen}
+        onClose={() => setWebhookModalOpen(false)}
+        title="Register HTTPS Domain Event Webhook"
+        subtitle="Delivers HMAC-SHA256 signed JSON events for shifts, dipstick variances, and tanker deliveries."
+      >
+        <form onSubmit={(e) => void handleWebhookCreate(e)} className="space-y-4">
+          <div>
+            <label className="opes-label">HTTPS Receiver Endpoint URL</label>
+            <input
+              type="url"
+              required
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://your-erp.com/opesfuel-webhook"
+              className="opes-input font-mono"
+            />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setWebhookModalOpen(false)}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              Register Webhook
+            </button>
+          </div>
+        </form>
+      </FormModal>
     </div>
   );
 };

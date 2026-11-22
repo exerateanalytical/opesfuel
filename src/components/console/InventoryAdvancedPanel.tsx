@@ -248,7 +248,7 @@ export const InventoryAdvancedPanel: React.FC<InventoryAdvancedPanelProps> = ({
           </form>
 
           {atgResult && (
-            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-900">
+            <div className="p-3 rounded-lg bg-white border border-emerald-200 text-xs font-mono text-emerald-900">
               15°C Net Standard Volume:{' '}
               <strong>{formatLitres(Number(atgResult.netStandardVolume15CLitres ?? atgResult.compensatedLitres ?? 0))}</strong>{' '}
               · Variance: <strong>{formatLitres(Number(atgResult.varianceLitres ?? 0))}</strong>

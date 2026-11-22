@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, CheckCircle2, Compass, Droplets, Gauge, Smartphone, Sparkles } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Compass, Droplets, Gauge, History, Plus, Smartphone, Sparkles, Tag } from 'lucide-react';
+import { PriceHistoryItem } from '../../api/demoDataset1000';
 import { canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import {
@@ -12,6 +13,7 @@ import {
   Station,
   UserRole,
 } from '../../domain/types';
+import { FormModal } from '../shared/FormModal';
 
 interface OverviewSectionProps {
   role: UserRole;
@@ -21,10 +23,11 @@ interface OverviewSectionProps {
   pumps: Pump[];
   shifts: ShiftRecord[];
   events: DomainEventLog[];
+  priceHistory?: PriceHistoryItem[];
   report: FinancialReportBundle;
   onboardingCompletedCount: number;
   onOpenOnboardingGuide: (tab?: 'guide' | 'institutional') => void;
-  onUpdatePrice: (stationId: string, grade: FuelGrade, price: number) => void;
+  onUpdatePrice: (stationId: string, grade: FuelGrade, price: number, reason?: string) => void;
   onCreateStation: (input: {
     code: string;
     name: string;
@@ -55,6 +58,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   pumps,
   shifts,
   events,
+  priceHistory = [],
   report,
   onboardingCompletedCount,
   onOpenOnboardingGuide,
@@ -68,6 +72,8 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
 
   const [priceGrade, setPriceGrade] = useState<FuelGrade>('SUPER');
   const [priceValue, setPriceValue] = useState(String(currentStation?.prices.SUPER ?? 840));
+  const [priceReason, setPriceReason] = useState('CSPH regulatory tariff update');
+  const [showPriceModal, setShowPriceModal] = useState(false);
   const [showNewStation, setShowNewStation] = useState(false);
   const [stationForm, setStationForm] = useState({ code: '', name: '', city: '' });
 
@@ -200,7 +206,8 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const handlePriceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentStation) return;
-    onUpdatePrice(currentStation.id, priceGrade, Number(priceValue) || 0);
+    onUpdatePrice(currentStation.id, priceGrade, Number(priceValue) || 0, priceReason.trim() || 'Regulatory tariff update');
+    setShowPriceModal(false);
   };
 
   const handleStationSubmit = (e: React.FormEvent) => {
@@ -490,15 +497,15 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                 {operationalAlerts.slice(0, 3).map((al) => (
                   <div
                     key={al.id}
-                    className={`flex items-start justify-between gap-2 rounded-md border px-2.5 py-2 text-xs ${
+                    className={`flex items-start justify-between gap-2 rounded-md border border-slate-200 border-l-4 bg-white px-3 py-2 text-xs ${
                       al.severity === 'CRITICAL'
-                        ? 'bg-red-50 border-red-200 text-red-900'
-                        : 'bg-amber-50 border-amber-200 text-amber-950'
+                        ? 'border-l-red-600 text-slate-900'
+                        : 'border-l-amber-600 text-slate-900'
                     }`}
                   >
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{al.title}</div>
-                      <div className="text-[11px] opacity-85 truncate">{al.detail}</div>
+                      <div className="text-[11px] text-slate-500 truncate">{al.detail}</div>
                     </div>
                     <button
                       type="button"
@@ -507,7 +514,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                           ? onOpenOnboardingGuide('institutional')
                           : onJumpTo(al.target)
                       }
-                      className="text-[11px] font-bold underline shrink-0 whitespace-nowrap"
+                      className="text-[11px] font-bold text-amber-700 underline shrink-0 whitespace-nowrap"
                     >
                       {al.actionLabel}
                     </button>
@@ -515,7 +522,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50/70 px-3 py-2.5 text-xs text-emerald-900">
+              <div className="rounded-md border border-slate-200 border-l-4 border-l-emerald-600 bg-white px-3 py-2.5 text-xs text-slate-700">
                 Zero urgent tank, pump, or cash variance alerts detected across station modules.
               </div>
             )}
@@ -792,46 +799,13 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             {canEditPrices && (
               <button
                 type="button"
-                onClick={() => setShowNewStation((v) => !v)}
-                className="text-xs font-semibold text-amber-700 hover:text-amber-800"
+                onClick={() => setShowNewStation(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-900"
               >
-                {showNewStation ? 'Cancel' : '+ New Station'}
+                <Plus className="w-3.5 h-3.5" /> New Station
               </button>
             )}
           </div>
-
-          {showNewStation && canEditPrices && (
-            <form onSubmit={handleStationSubmit} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
-              <div className="text-xs font-semibold text-slate-900">Onboard Station (25 000 FCFA/mo Starter)</div>
-              <input
-                type="text"
-                placeholder="Code (e.g. OPF-GAR-03)"
-                value={stationForm.code}
-                onChange={(e) => setStationForm({ ...stationForm, code: e.target.value })}
-                className="w-full px-3 py-2 text-xs rounded border border-slate-300 bg-white"
-              />
-              <input
-                type="text"
-                placeholder="Station Name"
-                value={stationForm.name}
-                onChange={(e) => setStationForm({ ...stationForm, name: e.target.value })}
-                className="w-full px-3 py-2 text-xs rounded border border-slate-300 bg-white"
-              />
-              <input
-                type="text"
-                placeholder="City"
-                value={stationForm.city}
-                onChange={(e) => setStationForm({ ...stationForm, city: e.target.value })}
-                className="w-full px-3 py-2 text-xs rounded border border-slate-300 bg-white"
-              />
-              <button
-                type="submit"
-                className="w-full py-2 rounded bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800"
-              >
-                Save Station
-              </button>
-            </form>
-          )}
 
           {currentStation && (
             <div className="space-y-2 text-sm">
@@ -847,45 +821,64 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           )}
 
           {canEditPrices ? (
-            <form onSubmit={handlePriceSubmit} className="space-y-3 pt-1">
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={priceGrade}
-                  onChange={(e) => {
-                    const g = e.target.value as FuelGrade;
-                    setPriceGrade(g);
-                    if (currentStation) setPriceValue(String(currentStation.prices[g]));
-                  }}
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white min-h-[40px]"
-                >
-                  {ALL_FUEL_GRADES.map((g) => (
-                    <option key={g} value={g}>
-                      {gradeLabel(g)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min={100}
-                  value={priceValue}
-                  onChange={(e) => setPriceValue(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono tabular-nums min-h-[40px]"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-              >
-                Publish Fuel Price Update
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => setShowPriceModal(true)}
+              className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              <Tag className="w-3.5 h-3.5" /> Publish Fuel Price Update
+            </button>
           ) : (
-            <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+            <div className="text-xs text-slate-500 bg-white border border-slate-200 rounded-lg p-3">
               Only the Owner role can publish regulatory fuel price updates.
             </div>
           )}
         </div>
       </div>
+
+      {/* Fuel Price Change History Register */}
+      {priceHistory.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-900" />
+                Fuel Price Change Audit History
+              </h2>
+              <p className="text-xs text-slate-500">
+                Complete tariff audit trail showing previous rate, new rate, operator, and CSPH / regulatory reason.
+              </p>
+            </div>
+            <span className="font-mono text-xs text-slate-500">{priceHistory.length} Recorded Changes</span>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2.5">Date</th>
+                  <th className="px-4 py-2.5">Grade</th>
+                  <th className="px-4 py-2.5 text-right">Previous (FCFA/L)</th>
+                  <th className="px-4 py-2.5 text-right">New (FCFA/L)</th>
+                  <th className="px-4 py-2.5">Changed By</th>
+                  <th className="px-4 py-2.5">Reason</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {priceHistory.slice(0, 8).map((ph) => (
+                  <tr key={ph.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-2.5 font-mono text-slate-600">{formatShortDate(ph.changedAt)}</td>
+                    <td className="px-4 py-2.5 font-semibold text-slate-900">{ph.grade}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-500">{formatFcfa(ph.oldPriceFcfa)}</td>
+                    <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-950">{formatFcfa(ph.newPriceFcfa)}</td>
+                    <td className="px-4 py-2.5 text-slate-700">{ph.changedBy}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{ph.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Recent Domain Events */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
@@ -905,7 +898,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             <button
               type="button"
               onClick={() => onJumpTo('accounting')}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold"
             >
               Financial Reports
             </button>
@@ -927,6 +920,135 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Popup FormModal: Publish Fuel Price Update */}
+      <FormModal
+        open={showPriceModal}
+        onClose={() => setShowPriceModal(false)}
+        title="Publish Fuel Price Update"
+        subtitle={`Updates live pump tariff for ${currentStation?.name ?? 'Active Station'} and records audit history.`}
+      >
+        <form onSubmit={handlePriceSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Fuel Grade</label>
+              <select
+                value={priceGrade}
+                onChange={(e) => {
+                  const g = e.target.value as FuelGrade;
+                  setPriceGrade(g);
+                  if (currentStation) setPriceValue(String(currentStation.prices[g]));
+                }}
+                className="opes-input"
+              >
+                {ALL_FUEL_GRADES.map((g) => (
+                  <option key={g} value={g}>
+                    {gradeLabel(g)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="opes-label">New Retail Price (FCFA / Litre)</label>
+              <input
+                type="number"
+                min={100}
+                required
+                value={priceValue}
+                onChange={(e) => setPriceValue(e.target.value)}
+                className="opes-input font-mono"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="opes-label">Regulatory / Pricing Reason</label>
+            <input
+              type="text"
+              required
+              value={priceReason}
+              onChange={(e) => setPriceReason(e.target.value)}
+              placeholder="e.g. CSPH monthly tariff adjustment"
+              className="opes-input"
+            />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setShowPriceModal(false)}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              Publish Price Update
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Popup FormModal: Onboard New Petrol Station */}
+      <FormModal
+        open={showNewStation}
+        onClose={() => setShowNewStation(false)}
+        title="Onboard New Petrol Station"
+        subtitle="Adds a new branch to your station network on the Starter plan (25,000 FCFA/mo)."
+      >
+        <form onSubmit={handleStationSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="opes-label">Station Code</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. OPF-GAR-03"
+                value={stationForm.code}
+                onChange={(e) => setStationForm({ ...stationForm, code: e.target.value })}
+                className="opes-input font-mono"
+              />
+            </div>
+            <div>
+              <label className="opes-label">City / Town</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Garoua"
+                value={stationForm.city}
+                onChange={(e) => setStationForm({ ...stationForm, city: e.target.value })}
+                className="opes-input"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="opes-label">Station Name</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. OpesFuel Garoua Nord"
+              value={stationForm.name}
+              onChange={(e) => setStationForm({ ...stationForm, name: e.target.value })}
+              className="opes-input"
+            />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setShowNewStation(false)}
+              className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              Create Petrol Station
+            </button>
+          </div>
+        </form>
+      </FormModal>
     </div>
   );
 };

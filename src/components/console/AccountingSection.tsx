@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronRight, Download, FileSpreadsheet, FileText, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, FileSpreadsheet, FileText, Plus, Printer, Trash2 } from 'lucide-react';
 import { CHART_OF_ACCOUNTS, OpesFuelApiEngine } from '../../api/opesfuelClient';
 import { canPerformAction } from '../../auth/auth0';
 import { formatFcfa, formatShortDate } from '../../domain/formatters';
@@ -11,6 +11,7 @@ import {
   UserRole,
 } from '../../domain/types';
 import { exportAccountingExcel, exportAccountingPdf } from '../../utils/exportReports';
+import { FormModal } from '../shared/FormModal';
 import { AccountingAdvancedPanel } from './AccountingAdvancedPanel';
 
 interface AccountingSectionProps {
@@ -39,6 +40,7 @@ interface AccountingSectionProps {
   }) => void;
   onDeleteDeposit: (depositId: string) => void;
   onNotify: (type: 'success' | 'error', message: string) => void;
+  vaultSlot?: React.ReactNode;
 }
 
 export const AccountingSection: React.FC<AccountingSectionProps> = ({
@@ -55,12 +57,14 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
   onRecordDeposit,
   onDeleteDeposit,
   onNotify,
+  vaultSlot,
 }) => {
   const canPost = canPerformAction(role, 'RECORD_EXPENSE_DEPOSIT');
   const effectiveStation = stationId === 'ALL' ? defaultStationId : stationId;
 
   const [reportTab, setReportTab] = useState<'pnl' | 'balance' | 'trial' | 'cashflow' | 'journals' | 'accounts'>('pnl');
   const [selectedJournalId, setSelectedJournalId] = useState<string | null>(null);
+  const [acctModal, setAcctModal] = useState<'expense' | 'deposit' | null>(null);
 
   const [expCat, setExpCat] = useState<StationExpense['category']>('MAINTENANCE');
   const [expDesc, setExpDesc] = useState('Dispenser hose seal replacement');
@@ -529,19 +533,58 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
         )}
       </div>
 
-      {/* Expenses & Treasury Transfers */}
+      {/* Expenses & Treasury Actions — Clean Buttons Opening Popup Modals */}
       {canPost && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
-          <form onSubmit={handleExpense} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4 no-print">
+          <div>
+            <h3 className="font-display text-base font-bold text-slate-950">
+              Station Expenses &amp; Bank / Mobile Money Deposits
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Post daily operational bills or bank cash sweeps directly into your balanced SYSCOHADA ledger.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setAcctModal('expense')}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5" /> Post Operating Expense
+            </button>
+            <button
+              type="button"
+              onClick={() => setAcctModal('deposit')}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5" /> Record Bank / MoMo Deposit
+            </button>
+          </div>
+        </div>
+      )}
+
+      {vaultSlot}
+
+      <FormModal
+        open={acctModal === 'expense'}
+        title="Post Station Operating Expense"
+        subtitle="Debits 6010 Station Expenses and credits Cash Safe or Bank automatically."
+        onClose={() => setAcctModal(null)}
+      >
+        <form
+          onSubmit={(e) => {
+            handleExpense(e);
+            setAcctModal(null);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <h3 className="font-display text-base font-bold text-slate-900">Post Operating Expense</h3>
-              <p className="text-xs text-slate-500">Debits 6010 Station Expenses &amp; credits Cash Safe or Bank</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+              <label className="opes-label">Expense Category</label>
               <select
                 value={expCat}
                 onChange={(e) => setExpCat(e.target.value as StationExpense['category'])}
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                className="opes-input"
               >
                 <option value="UTILITIES">Utilities / ENEO</option>
                 <option value="MAINTENANCE">Maintenance</option>
@@ -549,86 +592,123 @@ export const AccountingSection: React.FC<AccountingSectionProps> = ({
                 <option value="SECURITY">Security</option>
                 <option value="SUPPLIES">Station Supplies</option>
               </select>
+            </div>
+            <div>
+              <label className="opes-label">Paid From</label>
               <select
                 value={expSource}
                 onChange={(e) => setExpSource(e.target.value as StationExpense['paymentSource'])}
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                className="opes-input"
               >
                 <option value="CASH_SAFE">Cash Safe (1010)</option>
                 <option value="BANK">Bank Account (1030)</option>
               </select>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="sm:col-span-2">
+              <label className="opes-label">Description</label>
               <input
                 type="text"
                 value={expDesc}
                 onChange={(e) => setExpDesc(e.target.value)}
                 placeholder="Description"
-                className="col-span-2 px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                className="opes-input"
+                required
               />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="opes-label">Amount (FCFA)</label>
               <input
                 type="number"
+                min={1}
                 value={expAmount}
                 onChange={(e) => setExpAmount(e.target.value)}
                 placeholder="FCFA"
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono tabular-nums"
+                className="opes-input font-mono tabular-nums"
+                required
               />
             </div>
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
-            >
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setAcctModal(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold">
               Post Expense to Ledger
             </button>
-          </form>
+          </div>
+        </form>
+      </FormModal>
 
-          <form onSubmit={handleDeposit} className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
+      <FormModal
+        open={acctModal === 'deposit'}
+        title="Record Bank &amp; Mobile Money Deposit"
+        subtitle="Clears Cash Safe (1010) or Mobile Money (1020) into Bank Operating Account (1030)."
+        onClose={() => setAcctModal(null)}
+      >
+        <form
+          onSubmit={(e) => {
+            handleDeposit(e);
+            setAcctModal(null);
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <h3 className="font-display text-base font-bold text-slate-900">Bank &amp; MoMo Treasury Deposit</h3>
-              <p className="text-xs text-slate-500">Clears Safe Cash (1010) or Mobile Money (1020) into Bank (1030)</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+              <label className="opes-label">Source Account</label>
               <select
                 value={depSource}
                 onChange={(e) => setDepSource(e.target.value as TreasuryDeposit['sourceAccount'])}
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white"
+                className="opes-input"
               >
                 <option value="CASH_ON_HAND">Cash Safe (1010)</option>
                 <option value="MOBILE_MONEY_CLEARING">Mobile Money (1020)</option>
               </select>
+            </div>
+            <div>
+              <label className="opes-label">Bank Name</label>
               <input
                 type="text"
                 value={depBank}
                 onChange={(e) => setDepBank(e.target.value)}
-                placeholder="Bank Name"
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                placeholder="Afriland First Bank"
+                className="opes-input"
+                required
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="opes-label">Deposit Slip Reference</label>
               <input
                 type="text"
                 value={depSlip}
                 onChange={(e) => setDepSlip(e.target.value)}
-                placeholder="Deposit Slip Ref"
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono"
-              />
-              <input
-                type="number"
-                value={depAmount}
-                onChange={(e) => setDepAmount(e.target.value)}
-                placeholder="Amount FCFA"
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono tabular-nums"
+                placeholder="SLIP-2026-001"
+                className="opes-input font-mono"
+                required
               />
             </div>
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-            >
+            <div>
+              <label className="opes-label">Amount (FCFA)</label>
+              <input
+                type="number"
+                min={1}
+                value={depAmount}
+                onChange={(e) => setDepAmount(e.target.value)}
+                placeholder="250000"
+                className="opes-input font-mono tabular-nums"
+                required
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <button type="button" onClick={() => setAcctModal(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700">
+              Cancel
+            </button>
+            <button type="submit" className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold">
               Record Treasury Deposit
             </button>
-          </form>
-        </div>
-      )}
+          </div>
+        </form>
+      </FormModal>
 
       {/* Posted Operating Expenses & Treasury Deposits History */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

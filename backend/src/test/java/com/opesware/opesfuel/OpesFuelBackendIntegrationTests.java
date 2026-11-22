@@ -90,6 +90,129 @@ class OpesFuelBackendIntegrationTests {
             MERGE INTO stations (id, tenant_id, code, name, city, currency, plan_name, monthly_fee_fcfa, vat_rate, timezone, created_at)
             KEY(id) VALUES ('st_test_1', 'ten_opes_cm', 'OPF-TST-01', 'Test Station Alpha', 'Douala', 'FCFA', 'Starter Station', 25000, 0.1925, 'Africa/Douala', CURRENT_TIMESTAMP)
             """);
+        jdbcTemplate.update("""
+            MERGE INTO stations (id, tenant_id, code, name, city, currency, plan_name, monthly_fee_fcfa, vat_rate, timezone, created_at)
+            KEY(id) VALUES ('st_plateau', 'ten_opes_cm', 'OPF-DLA-01', 'OpesFuel Bonanjo Plateau', 'Douala', 'FCFA', 'Multi-Pump Pro', 55000, 0.1925, 'Africa/Douala', CURRENT_TIMESTAMP)
+            """);
+        jdbcTemplate.update("""
+            MERGE INTO fuel_tanks (id, station_id, name, grade, capacity_litres, book_volume_litres, last_dip_litres, unit_cost_fcfa, version)
+            KEY(id) VALUES ('tk_01', 'st_plateau', 'Underground Tank T-01 (Super)', 'SUPER', 40000.00, 28000.00, 27980.00, 745, 0)
+            """);
+        jdbcTemplate.update("""
+            MERGE INTO pumps (id, station_id, tank_id, code, grade, totalizer_litres, unit_price_fcfa, status, version)
+            KEY(id) VALUES ('pmp_03', 'st_plateau', 'tk_01', 'P-03B', 'SUPER', 298120.00, 840, 'IDLE', 0)
+            """);
+        jdbcTemplate.update("""
+            MERGE INTO employees (id, station_id, full_name, role, phone, shift_window, clocked_in, base_salary_fcfa, cumulative_variance_fcfa, version)
+            KEY(id) VALUES ('emp_01', 'st_plateau', 'Samuel Tchoupo', 'ATTENDANT', '+237 655 778 899', '06:00 - 14:00', TRUE, 135000, 0, 0)
+            """);
+
+        // Flyway V7 tables for H2 ddl-auto test mode
+        jdbcTemplate.execute("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP WITH TIME ZONE");
+        jdbcTemplate.execute("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_pumps INTEGER DEFAULT 12");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS user_accounts (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, auth0_sub VARCHAR(128) NOT NULL,
+                full_name VARCHAR(160) NOT NULL, email VARCHAR(180) NOT NULL, phone VARCHAR(64),
+                role VARCHAR(32) NOT NULL, assigned_station_id VARCHAR(64), preferred_language VARCHAR(8) DEFAULT 'en',
+                email_alerts_enabled BOOLEAN DEFAULT TRUE, status VARCHAR(24) DEFAULT 'ACTIVE',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64),
+                actor_email VARCHAR(180) NOT NULL, actor_role VARCHAR(32) NOT NULL, action VARCHAR(64) NOT NULL,
+                entity_type VARCHAR(64) NOT NULL, entity_id VARCHAR(64) NOT NULL, summary CLOB NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS pump_calibrations (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64) NOT NULL,
+                pump_id VARCHAR(64) NOT NULL, tank_id VARCHAR(64) NOT NULL, test_litres NUMERIC(12,2) NOT NULL,
+                returned_to_tank BOOLEAN DEFAULT TRUE, opening_totalizer NUMERIC(14,2) NOT NULL,
+                closing_totalizer NUMERIC(14,2) NOT NULL, inspector_name VARCHAR(160) NOT NULL, notes CLOB,
+                tested_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS pump_maintenance_logs (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64) NOT NULL,
+                pump_id VARCHAR(64) NOT NULL, maintenance_type VARCHAR(64) NOT NULL, description CLOB NOT NULL,
+                cost_fcfa BIGINT DEFAULT 0, technician VARCHAR(160) NOT NULL, out_of_service BOOLEAN DEFAULT FALSE,
+                next_due_date VARCHAR(32), logged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS fuel_price_history (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64) NOT NULL,
+                grade VARCHAR(32) NOT NULL, old_price_fcfa BIGINT NOT NULL, new_price_fcfa BIGINT NOT NULL,
+                changed_by VARCHAR(160) NOT NULL, reason VARCHAR(255),
+                changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS cash_vault_entries (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64) NOT NULL,
+                entry_type VARCHAR(32) NOT NULL, amount_fcfa BIGINT NOT NULL, running_balance_fcfa BIGINT NOT NULL,
+                reference_code VARCHAR(80) NOT NULL, handed_by VARCHAR(160) NOT NULL, received_by VARCHAR(160) NOT NULL,
+                notes CLOB, recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS hr_contracts (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64) NOT NULL,
+                employee_id VARCHAR(64) NOT NULL, employee_name VARCHAR(160) NOT NULL, contract_type VARCHAR(24) NOT NULL,
+                cnps_number VARCHAR(64), base_salary_fcfa BIGINT DEFAULT 0, transport_allowance_fcfa BIGINT DEFAULT 0,
+                housing_allowance_fcfa BIGINT DEFAULT 0, emergency_contact_name VARCHAR(160),
+                emergency_contact_phone VARCHAR(64), start_date VARCHAR(32) NOT NULL, end_date VARCHAR(32),
+                status VARCHAR(24) DEFAULT 'ACTIVE', updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS hr_leave_requests (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64) NOT NULL,
+                employee_id VARCHAR(64) NOT NULL, employee_name VARCHAR(160) NOT NULL, leave_type VARCHAR(32) NOT NULL,
+                start_date VARCHAR(32) NOT NULL, end_date VARCHAR(32) NOT NULL, days_count INT DEFAULT 1,
+                reason CLOB, status VARCHAR(24) DEFAULT 'PENDING', reviewed_by VARCHAR(160),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS hr_training_certs (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64) NOT NULL,
+                employee_id VARCHAR(64) NOT NULL, employee_name VARCHAR(160) NOT NULL, cert_name VARCHAR(180) NOT NULL,
+                issuer VARCHAR(160) NOT NULL, issued_date VARCHAR(32) NOT NULL, expires_date VARCHAR(32) NOT NULL,
+                status VARCHAR(24) DEFAULT 'VALID'
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS hr_disciplinary_records (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64) NOT NULL,
+                employee_id VARCHAR(64) NOT NULL, employee_name VARCHAR(160) NOT NULL, category VARCHAR(32) NOT NULL,
+                severity VARCHAR(24) NOT NULL, summary CLOB NOT NULL, amount_fcfa BIGINT DEFAULT 0,
+                recorded_by VARCHAR(160) NOT NULL, recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS outbound_messages (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, channel VARCHAR(24) NOT NULL,
+                recipient VARCHAR(180) NOT NULL, subject VARCHAR(255) NOT NULL, body_preview CLOB NOT NULL,
+                status VARCHAR(32) NOT NULL, provider VARCHAR(64) NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS payment_transactions (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, invoice_id VARCHAR(64) NOT NULL,
+                provider VARCHAR(32) NOT NULL, external_ref VARCHAR(120) NOT NULL UNIQUE, amount_fcfa BIGINT NOT NULL,
+                currency VARCHAR(12) DEFAULT 'XAF', status VARCHAR(24) DEFAULT 'PENDING', checkout_url CLOB NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, completed_at TIMESTAMP WITH TIME ZONE
+            )""");
+
+        String[][] seedUsers = {
+            {"usr_platform_admin", "auth0|platform_admin", "Dr. Alain Mbarga", "admin@opesware.com", "PLATFORM_ADMIN"},
+            {"usr_owner_01", "auth0|owner_01", "Jean-Paul Nkomo", "owner@opesfuel.cm", "OWNER"},
+            {"usr_manager_01", "auth0|manager_01", "Clarisse Ewondo", "manager@opesfuel.cm", "MANAGER"},
+            {"usr_attendant_01", "auth0|attendant_01", "Samuel Tchoupo", "attendant@opesfuel.cm", "ATTENDANT"},
+            {"usr_accountant_01", "auth0|accountant_01", "Mireille Fotso", "accountant@opesfuel.cm", "ACCOUNTANT"}
+        };
+        for (String[] u : seedUsers) {
+            jdbcTemplate.update(
+                "MERGE INTO user_accounts (id, tenant_id, auth0_sub, full_name, email, role, preferred_language, email_alerts_enabled, status) KEY(id) VALUES (?, 'ten_opes_cm', ?, ?, ?, ?, 'en', TRUE, 'ACTIVE')",
+                u[0], u[1], u[2], u[3], u[4]
+            );
+        }
     }
 
     @Test
@@ -777,5 +900,292 @@ class OpesFuelBackendIntegrationTests {
                     """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    @Test
+    void hrSuiteContractsLeavesCertificationsAndDisciplinaryWorkflow() throws Exception {
+        mockMvc.perform(post("/api/v1/hr/contracts")
+                .with(user("hr_manager").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "employeeId":"emp_01",
+                      "employeeName":"Samuel Tchoupo",
+                      "contractType":"CDI",
+                      "cnpsNumber":"CNPS-2026-9911",
+                      "baseSalaryFcfa":165000,
+                      "transportAllowanceFcfa":25000,
+                      "housingAllowanceFcfa":35000,
+                      "emergencyContactName":"Marie Tchoupo",
+                      "emergencyContactPhone":"+237670112233",
+                      "startDate":"2026-01-01"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.contractType").value("CDI"));
+
+        MvcResult leaveRes = mockMvc.perform(post("/api/v1/hr/leaves")
+                .with(user("attendant_01").roles("ATTENDANT"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "employeeId":"emp_01",
+                      "employeeName":"Samuel Tchoupo",
+                      "leaveType":"ANNUAL",
+                      "startDate":"2026-12-01",
+                      "endDate":"2026-12-05",
+                      "daysCount":5,
+                      "reason":"Annual family rest"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("PENDING"))
+            .andReturn();
+        String leaveId = objectMapper.readTree(leaveRes.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(patch("/api/v1/hr/leaves/" + leaveId + "/decision")
+                .with(user("hr_manager").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"status":"APPROVED"}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("APPROVED"));
+
+        mockMvc.perform(post("/api/v1/hr/certifications")
+                .with(user("hr_manager").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "employeeId":"emp_01",
+                      "employeeName":"Samuel Tchoupo",
+                      "certName":"Forecourt Fire Safety Level 1",
+                      "issuer":"Cameroon Civil Protection",
+                      "issuedDate":"2026-01-10",
+                      "expiresDate":"2027-01-10"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("VALID"));
+
+        mockMvc.perform(post("/api/v1/hr/disciplinary")
+                .with(user("hr_manager").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "employeeId":"emp_01",
+                      "employeeName":"Samuel Tchoupo",
+                      "category":"COMMENDATION",
+                      "severity":"INFO",
+                      "summary":"30 consecutive shifts with zero cash shortage",
+                      "amountFcfa":0
+                    }
+                    """))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/hr/overview")
+                .with(user("owner_01").roles("OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.activeContracts", greaterThanOrEqualTo(1)))
+            .andExpect(jsonPath("$.approvedLeaves", greaterThanOrEqualTo(1)))
+            .andExpect(jsonPath("$.safetyCertifications", greaterThanOrEqualTo(1)));
+    }
+
+    @Test
+    void pumpCalibrationMaintenanceCashVaultPriceHistoryAndAuditLogWorkflow() throws Exception {
+        // 1. 20L Return-to-tank pump calibration advances totalizer cleanly
+        mockMvc.perform(post("/api/v1/forecourt/pumps/pmp_03/calibrations")
+                .with(user("mgr_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "testLitres":20.00,
+                      "returnedToTank":true,
+                      "inspectorName":"Inspector M. Ndongo",
+                      "notes":"20L calibration can verified"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.returnedToTank").value(true));
+
+        // 2. Dispenser maintenance log
+        mockMvc.perform(post("/api/v1/forecourt/pumps/pmp_03/maintenance")
+                .with(user("mgr_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "maintenanceType":"NOZZLE_REPLACEMENT",
+                      "description":"Replaced automatic shutoff nozzle & hose swivel",
+                      "costFcfa":45000,
+                      "technician":"Tech. Eric Biloa",
+                      "outOfService":false,
+                      "nextDueDate":"2027-02-01"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.costFcfa").value(45000));
+
+        // 3. Cash Safe / Vault shift drop & armored bank pickup
+        mockMvc.perform(post("/api/v1/accounting/vault/entries")
+                .with(user("mgr_01").roles("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "entryType":"SHIFT_DROP",
+                      "amountFcfa":1500000,
+                      "handedBy":"Samuel Tchoupo",
+                      "receivedBy":"Clarisse Ewondo",
+                      "notes":"Morning shift cash drop into safe #1"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.runningBalanceFcfa", greaterThanOrEqualTo(1500000)));
+
+        mockMvc.perform(post("/api/v1/accounting/vault/entries")
+                .with(user("acct_01").roles("ACCOUNTANT"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "stationId":"st_plateau",
+                      "entryType":"ARMORED_BANK_PICKUP",
+                      "amountFcfa":1000000,
+                      "handedBy":"Clarisse Ewondo",
+                      "receivedBy":"Afriland CIT Escort",
+                      "notes":"Armored bank deposit pickup"
+                    }
+                    """))
+            .andExpect(status().isOk());
+
+        // 4. Fuel price history & unified audit logs
+        mockMvc.perform(post("/api/v1/stations/st_plateau/price-history")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "grade":"SUPER",
+                      "oldPriceFcfa":840,
+                      "newPriceFcfa":850,
+                      "reason":"Official quarterly retail tariff adjustment"
+                    }
+                    """))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/audit/logs?stationId=st_plateau")
+                .with(user("owner_01").roles("OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(4))));
+    }
+
+    @Test
+    void fiveRoleAccountsProfileOutboundMailerAndPaymentGatewayWebhookWorkflow() throws Exception {
+        // Verify all 5 explicit user account types exist in tenant
+        mockMvc.perform(get("/api/v1/identity/accounts")
+                .with(user("owner_01").roles("OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(5))));
+
+        // Update user profile language to French
+        mockMvc.perform(patch("/api/v1/identity/profile")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "fullName":"Jean-Paul Nkomo",
+                      "phone":"+237699112233",
+                      "preferredLanguage":"fr",
+                      "emailAlertsEnabled":true
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.preferredLanguage").value("fr"));
+
+        // Send transactional outbound email
+        mockMvc.perform(post("/api/v1/notifications/outbound/send")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "channel":"EMAIL",
+                      "recipient":"finance@transcam.cm",
+                      "subject":"Monthly Corporate Fleet Statement",
+                      "body":"Your monthly fuel statement is ready for review."
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.channel").value("EMAIL"));
+
+        // Generate SaaS invoice -> initiate Orange Money checkout -> auto-settle via webhook
+        MvcResult invRes = mockMvc.perform(post("/api/v1/billing/invoices/generate")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"billingPeriod":"2026-12"}
+                    """))
+            .andExpect(status().isCreated())
+            .andReturn();
+        String invoiceId = objectMapper.readTree(invRes.getResponse().getContentAsString()).get("id").asText();
+
+        MvcResult chkRes = mockMvc.perform(post("/api/v1/billing/invoices/" + invoiceId + "/checkout")
+                .with(user("owner_01").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"provider":"ORANGE_MONEY","phoneNumber":"+237699112233"}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("PENDING"))
+            .andReturn();
+        String externalRef = objectMapper.readTree(chkRes.getResponse().getContentAsString()).get("externalRef").asText();
+
+        mockMvc.perform(post("/api/v1/public/webhooks/payments/orange_money")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"externalRef\":\"" + externalRef + "\",\"status\":\"PAID\",\"transactionId\":\"OM-998877\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("PAID"))
+            .andExpect(jsonPath("$.invoiceId").value(invoiceId));
+    }
+
+    @Test
+    void demoPetrolStation1000RecordsSeederAndLeadToTenantProvisioningWorkflow() throws Exception {
+        // Seed 1,000+ realistic demo station records
+        mockMvc.perform(post("/api/v1/tenants/current/seed-1000-demo")
+                .with(user("owner_01").roles("OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalSeededRecords", greaterThanOrEqualTo(1000)))
+            .andExpect(jsonPath("$.breakdown.shiftRecords").value(120))
+            .andExpect(jsonPath("$.breakdown.journalLines").value(600))
+            .andExpect(jsonPath("$.breakdown.hrContracts").value(10))
+            .andExpect(jsonPath("$.breakdown.fleetTransactions").value(60));
+
+        // 1-click Lead-to-Tenant provisioning by PLATFORM_ADMIN
+        mockMvc.perform(post("/api/v1/public/leads")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "fullName":"Awa Diallo",
+                      "stationName":"Station Corniche Dakar",
+                      "email":"awa@cornichefuel.sn",
+                      "phone":"+221771234567",
+                      "pumpCount":8,
+                      "selectedPlan":"Growth Network (55 000 FCFA/mo)"
+                    }
+                    """))
+            .andExpect(status().isCreated());
+
+        MvcResult leadsRes = mockMvc.perform(get("/api/v1/platform-admin/leads")
+                .with(user("saas_founder").roles("PLATFORM_ADMIN")))
+            .andExpect(status().isOk())
+            .andReturn();
+        String leadId = objectMapper.readTree(leadsRes.getResponse().getContentAsString()).get(0).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/platform-admin/leads/" + leadId + "/provision-tenant")
+                .with(user("saas_founder").roles("PLATFORM_ADMIN")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ACTIVE"))
+            .andExpect(jsonPath("$.tenantId", not(emptyOrNullString())));
     }
 }
