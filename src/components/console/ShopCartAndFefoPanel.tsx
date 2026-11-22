@@ -45,6 +45,10 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
 }) => {
   const [tab, setTab] = useState<'cart' | 'fefo' | 'adjustments'>('cart');
   const [modal, setModal] = useState<'batch' | 'adjustment' | null>(null);
+  const canManageStock =
+    role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT';
+  const canApproveAdjustments =
+    role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'ACCOUNTANT';
   const currentActor = `${role.toLowerCase()}@opesfuel.cm`;
 
   const [barcodeInput, setBarcodeInput] = useState('');
@@ -189,22 +193,24 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
             Scan barcodes into a counter basket, automatically pick earliest-expiry FEFO lots, and enforce maker-checker stock write-offs.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setModal('batch')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add FEFO Batch
-          </button>
-          <button
-            type="button"
-            onClick={() => setModal('adjustment')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
-          >
-            <Plus className="w-3.5 h-3.5" /> Draft Stock Adjustment
-          </button>
-        </div>
+        {canManageStock && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setModal('batch')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add FEFO Batch
+            </button>
+            <button
+              type="button"
+              onClick={() => setModal('adjustment')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5" /> Draft Stock Adjustment
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -212,7 +218,9 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
           [
             { id: 'cart', label: `Barcode POS Cart (${cart.reduce((s, c) => s + c.qty, 0)})`, icon: ShoppingCart },
             { id: 'fefo', label: `FEFO Expiry Batches (${batches.length})`, icon: Layers },
-            { id: 'adjustments', label: `Stock Adjustments (${adjustments.length})`, icon: CheckCircle2 },
+            ...(canManageStock
+              ? [{ id: 'adjustments' as const, label: `Stock Adjustments (${adjustments.length})`, icon: CheckCircle2 }]
+              : []),
           ] as const
         ).map((t) => {
           const Icon = t.icon;
@@ -351,7 +359,7 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
         </div>
       )}
 
-      {tab === 'adjustments' && (
+      {tab === 'adjustments' && canManageStock && (
         <div className="overflow-x-auto border border-slate-200 rounded-lg">
           <table className="w-full text-xs text-left">
             <thead>
@@ -383,7 +391,7 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
                         Submit
                       </button>
                     )}
-                    {a.status === 'PENDING_APPROVAL' && (
+                    {a.status === 'PENDING_APPROVAL' && canApproveAdjustments && (
                       <>
                         <button type="button" onClick={() => transitionAdjustment(a.id, 'APPROVED')} className="px-2 py-1 rounded bg-[#0F172A] text-white font-semibold">
                           Approve
@@ -393,7 +401,7 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
                         </button>
                       </>
                     )}
-                    {a.status === 'APPROVED' && (
+                    {a.status === 'APPROVED' && canApproveAdjustments && (
                       <button type="button" onClick={() => transitionAdjustment(a.id, 'POSTED')} className="px-2 py-1 rounded bg-emerald-700 text-white font-semibold">
                         Post to GL
                       </button>

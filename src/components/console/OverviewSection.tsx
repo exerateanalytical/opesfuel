@@ -17,7 +17,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { PriceHistoryItem } from '../../api/demoDataset1000';
-import { canPerformAction } from '../../auth/auth0';
+import { canAccessSection, canPerformAction } from '../../auth/auth0';
 import { ALL_FUEL_GRADES, formatFcfa, formatLitres, formatShortDate, gradeLabel } from '../../domain/formatters';
 import {
   DomainEventLog,
@@ -86,6 +86,14 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const currentStation =
     stations.find((s) => s.id === activeStationId) ?? stations[0];
   const canEditPrices = canPerformAction(role, 'MANAGE_STATIONS_PRICES');
+  const canViewFinancials = canPerformAction(role, 'VIEW_FINANCIALS');
+  const canAccessInventory = canAccessSection(role, 'inventory');
+  const canAccessForecourt = canAccessSection(role, 'forecourt');
+  const canAccessAccounting = canAccessSection(role, 'accounting');
+  const canAccessWorkforce = canAccessSection(role, 'workforce');
+  const canAccessFleet = canAccessSection(role, 'fleet');
+  const canRunSetup = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
+  const isAttendant = role === 'ATTENDANT';
 
   const [priceGrade, setPriceGrade] = useState<FuelGrade>('SUPER');
   const [priceValue, setPriceValue] = useState(String(currentStation?.prices.SUPER ?? 840));
@@ -159,30 +167,32 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   }
 
   const operationalAlerts: HealthAlert[] = [];
-  for (const t of filteredTanks) {
-    if (t.status === 'VARIANCE_ALERT' || Math.abs(t.varianceLitres) > 100) {
-      operationalAlerts.push({
-        id: `var-${t.id}`,
-        severity: 'CRITICAL',
-        title: `Dipstick Variance on ${t.name}`,
-        detail: `${t.varianceLitres > 0 ? `+${t.varianceLitres}` : t.varianceLitres} L delta vs. book stock`,
-        actionLabel: 'Audit Tank',
-        target: 'inventory',
-      });
-    }
-    const pct = t.capacityLitres > 0 ? Math.round((t.bookVolumeLitres / t.capacityLitres) * 100) : 0;
-    if (t.status === 'LOW_STOCK' || pct < 20) {
-      operationalAlerts.push({
-        id: `low-${t.id}`,
-        severity: 'URGENT',
-        title: `Low Reserve: ${t.name} (${pct}%)`,
-        detail: `${formatLitres(t.bookVolumeLitres)} remaining — schedule SCDP delivery`,
-        actionLabel: 'Raise PO',
-        target: 'inventory',
-      });
+  if (canAccessInventory) {
+    for (const t of filteredTanks) {
+      if (t.status === 'VARIANCE_ALERT' || Math.abs(t.varianceLitres) > 100) {
+        operationalAlerts.push({
+          id: `var-${t.id}`,
+          severity: 'CRITICAL',
+          title: `Dipstick Variance on ${t.name}`,
+          detail: `${t.varianceLitres > 0 ? `+${t.varianceLitres}` : t.varianceLitres} L delta vs. book stock`,
+          actionLabel: 'Audit Tank',
+          target: 'inventory',
+        });
+      }
+      const pct = t.capacityLitres > 0 ? Math.round((t.bookVolumeLitres / t.capacityLitres) * 100) : 0;
+      if (t.status === 'LOW_STOCK' || pct < 20) {
+        operationalAlerts.push({
+          id: `low-${t.id}`,
+          severity: 'URGENT',
+          title: `Low Reserve: ${t.name} (${pct}%)`,
+          detail: `${formatLitres(t.bookVolumeLitres)} remaining — schedule SCDP delivery`,
+          actionLabel: 'Raise PO',
+          target: 'inventory',
+        });
+      }
     }
   }
-  if (report.cashVarianceFcfa > 0) {
+  if (canAccessAccounting && report.cashVarianceFcfa > 0) {
     operationalAlerts.push({
       id: 'cash-var',
       severity: 'AUDIT',
@@ -192,7 +202,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       target: 'accounting',
     });
   }
-  if (!report.trialBalanceBalanced) {
+  if (canAccessAccounting && !report.trialBalanceBalanced) {
     operationalAlerts.push({
       id: 'tb-unbal',
       severity: 'CRITICAL',
@@ -202,7 +212,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       target: 'accounting',
     });
   }
-  if (filteredTanks.length === 0 || filteredPumps.length === 0) {
+  if (canRunSetup && (filteredTanks.length === 0 || filteredPumps.length === 0)) {
     operationalAlerts.push({
       id: 'setup-empty',
       severity: 'URGENT',
@@ -277,9 +287,9 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       title: 'Daily Forecourt, Tank Dipsticks & Staff Roster Control',
       summary: `${openShiftsCount} open nozzle shift(s) · ${operationalAlerts.length} operational alert(s) · Avg tank fill ${volumeFillPct}%.`,
       actions: [
-        { label: 'Forecourt Shifts', target: 'forecourt' as const, primary: true },
+        { label: 'Forecourt Shifts & Safe', target: 'forecourt' as const, primary: true },
         { label: 'Tanks & Deliveries', target: 'inventory' as const, primary: false },
-        { label: 'Staff & Payroll', target: 'workforce' as const, primary: false },
+        { label: 'Staff Roster & HR', target: 'workforce' as const, primary: false },
       ],
     },
     ATTENDANT: {
@@ -306,7 +316,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Role-Tailored Command Header for all 5 Account Types */}
+      {/* Role-Tailored Command Header for all 6 Workspace Account Types */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="font-mono text-[11px] font-bold text-amber-700 tracking-wide">
@@ -336,7 +346,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       </div>
 
       {/* Onboarding & Institutional Fuel Tick-Wizard Banner */}
-      {(role === 'OWNER' || role === 'MANAGER' || role === 'PLATFORM_ADMIN') && (
+      {canRunSetup && (
       <div className="bg-slate-900 text-white border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 font-mono text-xs text-amber-400 font-semibold">
@@ -375,7 +385,8 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       </div>
       )}
 
-      {/* Automated Station Health Monitor */}
+      {/* Automated Station Health Monitor (Hidden Tank Reserves & Financial Alerts for Attendants) */}
+      {!isAttendant && (
       <section
         aria-label="Automated Station Health Monitor"
         className="bg-white border border-slate-200 rounded-xl overflow-hidden"
@@ -421,13 +432,15 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                 <Droplets className="w-4 h-4 text-amber-600" />
                 <span>Real-Time Fuel Reserve</span>
               </div>
-              <button
-                type="button"
-                onClick={() => onJumpTo('inventory')}
-                className="text-xs font-semibold text-amber-700 hover:text-amber-800 whitespace-nowrap"
-              >
-                Tanks →
-              </button>
+              {canAccessInventory && (
+                <button
+                  type="button"
+                  onClick={() => onJumpTo('inventory')}
+                  className="text-xs font-semibold text-amber-700 hover:text-amber-800 whitespace-nowrap"
+                >
+                  Tanks →
+                </button>
+              )}
             </div>
             <div>
               <div className="flex items-baseline justify-between gap-2">
@@ -466,13 +479,15 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                 <Gauge className="w-4 h-4 text-amber-600" />
                 <span>Current Pump Shift Status</span>
               </div>
-              <button
-                type="button"
-                onClick={() => onJumpTo('forecourt')}
-                className="text-xs font-semibold text-amber-700 hover:text-amber-800 whitespace-nowrap"
-              >
-                Shifts →
-              </button>
+              {canAccessForecourt && (
+                <button
+                  type="button"
+                  onClick={() => onJumpTo('forecourt')}
+                  className="text-xs font-semibold text-amber-700 hover:text-amber-800 whitespace-nowrap"
+                >
+                  Shifts →
+                </button>
+              )}
             </div>
             <div className="flex items-baseline justify-between gap-2">
               <span className="font-mono tabular-nums text-2xl font-bold text-slate-900">
@@ -498,7 +513,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               </div>
             ) : (
               <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
-                No pump shifts currently open. Assign an attendant on Forecourt &amp; Shifts.
+                No pump shifts currently open.
               </div>
             )}
           </div>
@@ -550,67 +565,140 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               </div>
             ) : (
               <div className="rounded-md border border-slate-200 border-l-4 border-l-emerald-600 bg-white px-3 py-2.5 text-xs text-slate-700">
-                Zero urgent tank, pump, or cash variance alerts detected across station modules.
+                Zero urgent operational alerts detected for your authorized modules.
               </div>
             )}
           </div>
         </div>
       </section>
+      )}
 
-      {/* 4-column KPI Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">Net Fuel &amp; Shop Revenue</div>
-          <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
-            {formatFcfa(report.totalRevenueFcfa)}
+      {/* Role-Segmented KPI Strip: Financial Executive vs Station Manager Ops vs Attendant Island */}
+      {canViewFinancials ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Net Fuel &amp; Shop Revenue</div>
+            <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
+              {formatFcfa(report.totalRevenueFcfa)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">
+              Gross Profit: <span className="font-mono tabular-nums text-slate-800">{formatFcfa(report.grossProfitFcfa)}</span>
+            </div>
           </div>
-          <div className="text-xs text-slate-500 mt-1.5">
-            Gross Profit: <span className="font-mono tabular-nums text-slate-800">{formatFcfa(report.grossProfitFcfa)}</span>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Metered Fuel Dispensed</div>
+            <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
+              {formatLitres(totalLitresSold)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">
+              {openShiftsCount} active shift(s) · {filteredPumps.length} pumps
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Cash &amp; Mobile Money Clearing</div>
+            <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
+              {formatFcfa(report.cashOnHandFcfa + report.mobileMoneyClearingFcfa)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">
+              Bank Balance: <span className="font-mono tabular-nums text-slate-800">{formatFcfa(report.bankBalanceFcfa)}</span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Shift Cash Variance</div>
+            <div
+              className={`font-mono tabular-nums text-2xl font-bold mt-1 ${
+                report.cashVarianceFcfa > 0 ? 'text-red-600' : 'text-emerald-700'
+              }`}
+            >
+              {report.cashVarianceFcfa === 0 ? '0 FCFA' : formatFcfa(-report.cashVarianceFcfa)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">
+              Trial Balance: {report.trialBalanceBalanced ? 'Balanced (Debit = Credit)' : 'Unbalanced'}
+            </div>
           </div>
         </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">Metered Fuel Dispensed</div>
-          <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
-            {formatLitres(totalLitresSold)}
+      ) : role === 'MANAGER' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Metered Fuel Dispensed</div>
+            <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
+              {formatLitres(totalLitresSold)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">{closedShifts.length} closed shift(s) recorded</div>
           </div>
-          <div className="text-xs text-slate-500 mt-1.5">
-            {openShiftsCount} active shift(s) · {filteredPumps.length} pumps
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Active Forecourt Nozzles</div>
+            <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
+              {activePumpsCount} / {filteredPumps.length}
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">
+              {idlePumpsCount} idle · {maintenancePumpsCount} maintenance
+            </div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Underground Tank Fill Level</div>
+            <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">{volumeFillPct}%</div>
+            <div className="text-xs text-slate-500 mt-1.5">
+              {formatLitres(totalBookLitres)} across {filteredTanks.length} tank(s)
+            </div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Forecourt Shift Variance</div>
+            <div
+              className={`font-mono tabular-nums text-2xl font-bold mt-1 ${
+                report.cashVarianceFcfa > 0 ? 'text-red-600' : 'text-emerald-700'
+              }`}
+            >
+              {report.cashVarianceFcfa === 0 ? '0 FCFA' : formatFcfa(-report.cashVarianceFcfa)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">Station operational cash reconciliation</div>
           </div>
         </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">Cash &amp; Mobile Money Clearing</div>
-          <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
-            {formatFcfa(report.cashOnHandFcfa + report.mobileMoneyClearingFcfa)}
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Active Island Shifts</div>
+            <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
+              {openShiftsCount} Open
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">
+              {currentStation?.name ?? 'Assigned Station'}
+            </div>
           </div>
-          <div className="text-xs text-slate-500 mt-1.5">
-            Bank Balance: <span className="font-mono tabular-nums text-slate-800">{formatFcfa(report.bankBalanceFcfa)}</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Available Nozzles</div>
+            <div className="font-mono tabular-nums text-2xl font-bold text-slate-900 mt-1">
+              {idlePumpsCount} Idle / {filteredPumps.length} Total
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">Ready for shift assignment</div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="text-xs font-medium text-slate-500">Current Pump Tariffs</div>
+            <div className="font-mono tabular-nums text-sm font-bold text-slate-900 mt-2">
+              SUPER {formatFcfa(currentStation?.prices.SUPER ?? 840)} · GASOIL {formatFcfa(currentStation?.prices.GASOIL ?? 828)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1.5">Official CSPH regulated pump rates</div>
           </div>
         </div>
+      )}
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-xs font-medium text-slate-500">Shift Cash Variance</div>
-          <div
-            className={`font-mono tabular-nums text-2xl font-bold mt-1 ${
-              report.cashVarianceFcfa > 0 ? 'text-red-600' : 'text-emerald-700'
-            }`}
-          >
-            {report.cashVarianceFcfa === 0 ? '0 FCFA' : formatFcfa(-report.cashVarianceFcfa)}
-          </div>
-          <div className="text-xs text-slate-500 mt-1.5">
-            Trial Balance: {report.trialBalanceBalanced ? 'Balanced (Debit = Credit)' : 'Unbalanced'}
-          </div>
-        </div>
-      </div>
-
-      {/* Classic Analytics Strip: Fuel Grade Volume Breakdown + Payment Tender Mix */}
+      {/* Analytics Strip: Financial Revenue & Tender Mix ONLY for Finance/Admin; Volume-Only for Manager; Hidden for Attendant */}
+      {!isAttendant && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="font-display text-base font-bold text-slate-900">Sales Performance by Fuel Grade</h2>
-              <p className="text-xs text-slate-500">Closed-shift volume dispensed &amp; revenue contribution in FCFA</p>
+              <h2 className="font-display text-base font-bold text-slate-900">
+                {canViewFinancials ? 'Sales Performance by Fuel Grade' : 'Dispensed Volume by Fuel Grade'}
+              </h2>
+              <p className="text-xs text-slate-500">
+                {canViewFinancials
+                  ? 'Closed-shift volume dispensed & revenue contribution in FCFA'
+                  : 'Closed-shift metered fuel volume dispensed in Litres'}
+              </p>
             </div>
             <span className="font-mono text-xs text-slate-500">{filteredPumps.length} Nozzles</span>
           </div>
@@ -625,7 +713,9 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                       <span className="text-slate-500">{gs.pumps} pump(s)</span>
                     </span>
                     <span className="font-mono tabular-nums text-slate-900 font-semibold">
-                      {formatLitres(gs.litres)} ({formatFcfa(gs.revenueFcfa)})
+                      {canViewFinancials
+                        ? `${formatLitres(gs.litres)} (${formatFcfa(gs.revenueFcfa)})`
+                        : formatLitres(gs.litres)}
                     </span>
                   </div>
                   <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -650,7 +740,11 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           <div className="flex items-center justify-between gap-2">
             <div>
               <h2 className="font-display text-base font-bold text-slate-900">Forecourt Payment Tender Mix</h2>
-              <p className="text-xs text-slate-500">Settlement distribution across Cash, Mobile Money, Card &amp; Fleet</p>
+              <p className="text-xs text-slate-500">
+                {canViewFinancials
+                  ? 'Settlement distribution across Cash, Mobile Money, Card & Fleet'
+                  : 'Percentage share of shift tenders across payment channels'}
+              </p>
             </div>
             <span className="font-mono text-xs text-slate-500">{closedShifts.length} Closed Shifts</span>
           </div>
@@ -665,11 +759,17 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               return (
                 <div key={item.label} className="border border-slate-200 rounded-lg p-3 space-y-1">
                   <div className="text-xs text-slate-500">{item.label}</div>
-                  <div className="font-mono tabular-nums text-sm font-bold text-slate-900">
-                    {formatFcfa(item.value)}
-                  </div>
+                  {canViewFinancials ? (
+                    <div className="font-mono tabular-nums text-sm font-bold text-slate-900">
+                      {formatFcfa(item.value)}
+                    </div>
+                  ) : (
+                    <div className="font-mono tabular-nums text-base font-bold text-slate-900">
+                      {sharePct}%
+                    </div>
+                  )}
                   <div className="font-mono tabular-nums text-[11px] text-amber-700 font-semibold">
-                    {sharePct}% share
+                    {canViewFinancials ? `${sharePct}% share` : 'Channel share'}
                   </div>
                 </div>
               );
@@ -677,6 +777,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Main Grid: Active Dispensers + Tank Gauges + Fuel Pricing & Multi-Station */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -688,13 +789,15 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                 <h2 className="font-display text-base font-bold text-slate-900">Forecourt Dispenser Summary</h2>
                 <p className="text-xs text-slate-500">Live totalizers, assigned attendants, and active pump states</p>
               </div>
-              <button
-                type="button"
-                onClick={() => onJumpTo('forecourt')}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Open Shift Controls
-              </button>
+              {canAccessForecourt && (
+                <button
+                  type="button"
+                  onClick={() => onJumpTo('forecourt')}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Open Shift Controls
+                </button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -737,7 +840,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                   {filteredPumps.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-4 py-6 text-center text-xs text-slate-500">
-                        No forecourt dispensers provisioned yet. Open Forecourt &amp; Shifts to add pumps.
+                        No forecourt dispensers provisioned yet.
                       </td>
                     </tr>
                   )}
@@ -746,6 +849,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             </div>
           </div>
 
+          {canAccessInventory && (
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -814,6 +918,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             )}
           </div>
           </div>
+          )}
         </div>
 
         {/* Station & Regulatory Pricing Card */}
@@ -857,14 +962,14 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             </button>
           ) : (
             <div className="text-xs text-slate-500 bg-white border border-slate-200 rounded-lg p-3">
-              Only the Owner role can publish regulatory fuel price updates.
+              Only the Owner or Platform Admin can publish regulatory fuel price updates.
             </div>
           )}
         </div>
       </div>
 
-      {/* Fuel Price Change History Register */}
-      {priceHistory.length > 0 && (
+      {/* Fuel Price Change History Register (Hidden from Attendants) */}
+      {!isAttendant && priceHistory.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -909,84 +1014,109 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
 
       {/* Printable Document & Report Center + Attendant Performance Leaderboard */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <div className="xl:col-span-5 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+        <div className={`${isAttendant ? 'xl:col-span-12' : 'xl:col-span-5'} bg-white border border-slate-200 rounded-xl p-6 space-y-4`}>
           <div className="flex items-start justify-between gap-2">
             <div>
               <h2 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Printer className="w-4 h-4 text-slate-900" />
-                Station Printable Document Center
+                {isAttendant ? 'Forecourt Receipt & POS Quick Actions' : 'Station Printable Document Center'}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Instant A4 PDF reports, Excel ledgers, and 80mm thermal receipts across every module.
+                {isAttendant
+                  ? 'Jump directly to your pump shift handover, fleet voucher slip, or shop counter POS.'
+                  : 'Instant A4 PDF reports, Excel ledgers, and 80mm thermal receipts for your authorized modules.'}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={() =>
-                printDailyZReportPdf({
-                  stationName: currentStation?.name ?? 'OpesFuel Station Network',
-                  dateLabel: new Date().toISOString().slice(0, 10),
-                  shifts: filteredShifts,
-                  report,
-                })
-              }
-              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-amber-400" /> Daily Z-Report PDF
-              </span>
-              <span className="font-mono text-[10px] text-amber-300">A4</span>
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                exportShiftsExcel(filteredShifts, currentStation?.name ?? 'Network')
-              }
-              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Shifts Ledger Excel
-              </span>
-              <span className="font-mono text-[10px] text-slate-500">.xlsx</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onJumpTo('accounting')}
-              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
-            >
-              <span>SYSCOHADA P&amp;L &amp; Vault Slips</span>
-              <span className="font-mono text-[10px] text-amber-700">Open →</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onJumpTo('workforce')}
-              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
-            >
-              <span>Payslips, Payroll &amp; Contracts</span>
-              <span className="font-mono text-[10px] text-amber-700">Open →</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onJumpTo('inventory')}
-              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
-            >
-              <span>Fuel POs &amp; Tanker GRN PDFs</span>
-              <span className="font-mono text-[10px] text-amber-700">Open →</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onJumpTo('fleet')}
-              className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
-            >
-              <span>Fleet Tax Statements &amp; 80mm</span>
-              <span className="font-mono text-[10px] text-amber-700">Open →</span>
-            </button>
+            {canViewFinancials && (
+              <button
+                type="button"
+                onClick={() =>
+                  printDailyZReportPdf({
+                    stationName: currentStation?.name ?? 'OpesFuel Station Network',
+                    dateLabel: new Date().toISOString().slice(0, 10),
+                    shifts: filteredShifts,
+                    report,
+                  })
+                }
+                className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-amber-400" /> Daily Z-Report PDF
+                </span>
+                <span className="font-mono text-[10px] text-amber-300">A4</span>
+              </button>
+            )}
+            {!isAttendant && (
+              <button
+                type="button"
+                onClick={() =>
+                  exportShiftsExcel(filteredShifts, currentStation?.name ?? 'Network')
+                }
+                className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 text-xs font-semibold"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Shifts Ledger Excel
+                </span>
+                <span className="font-mono text-[10px] text-slate-500">.xlsx</span>
+              </button>
+            )}
+            {canAccessForecourt && isAttendant && (
+              <button
+                type="button"
+                onClick={() => onJumpTo('forecourt')}
+                className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+              >
+                <span>Open / Close Pump Shift &amp; 80mm Slip</span>
+                <span className="font-mono text-[10px] text-amber-300">Open →</span>
+              </button>
+            )}
+            {canAccessAccounting && (
+              <button
+                type="button"
+                onClick={() => onJumpTo('accounting')}
+                className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+              >
+                <span>SYSCOHADA P&amp;L &amp; Vault Slips</span>
+                <span className="font-mono text-[10px] text-amber-700">Open →</span>
+              </button>
+            )}
+            {canAccessWorkforce && (
+              <button
+                type="button"
+                onClick={() => onJumpTo('workforce')}
+                className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+              >
+                <span>{canPerformAction(role, 'RUN_PAYROLL') ? 'Payslips, Payroll & Contracts' : 'Staff Roster, Leave & HR'}</span>
+                <span className="font-mono text-[10px] text-amber-700">Open →</span>
+              </button>
+            )}
+            {canAccessInventory && (
+              <button
+                type="button"
+                onClick={() => onJumpTo('inventory')}
+                className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+              >
+                <span>Fuel POs &amp; Tanker GRN PDFs</span>
+                <span className="font-mono text-[10px] text-amber-700">Open →</span>
+              </button>
+            )}
+            {canAccessFleet && (
+              <button
+                type="button"
+                onClick={() => onJumpTo('fleet')}
+                className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold"
+              >
+                <span>{isAttendant ? 'Fleet Vouchers & Shop POS (80mm)' : 'Fleet Tax Statements & 80mm'}</span>
+                <span className="font-mono text-[10px] text-amber-700">Open →</span>
+              </button>
+            )}
           </div>
         </div>
 
+        {!isAttendant && (
         <div className="xl:col-span-7 bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-2">
             <div>
@@ -1065,30 +1195,36 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             </table>
           </div>
         </div>
+        )}
       </div>
 
-      {/* Recent Domain Events */}
+      {/* Recent Domain Events (Hidden from Attendants to prevent financial/payroll audit leakage) */}
+      {!isAttendant && (
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-lg font-bold text-slate-900">Recent Domain Events</h2>
-            <p className="text-xs text-slate-500">Event-driven audit trail updating tanks, payroll, and double-entry journals</p>
+            <p className="text-xs text-slate-500">Event-driven audit trail updating tanks, shifts, and double-entry journals</p>
           </div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => onJumpTo('forecourt')}
-              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
-            >
-              Open / Close Shift
-            </button>
-            <button
-              type="button"
-              onClick={() => onJumpTo('accounting')}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold"
-            >
-              Financial Reports
-            </button>
+            {canAccessForecourt && (
+              <button
+                type="button"
+                onClick={() => onJumpTo('forecourt')}
+                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+              >
+                Open / Close Shift
+              </button>
+            )}
+            {canAccessAccounting && (
+              <button
+                type="button"
+                onClick={() => onJumpTo('accounting')}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold"
+              >
+                Financial Reports
+              </button>
+            )}
           </div>
         </div>
 
@@ -1107,6 +1243,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
           ))}
         </div>
       </div>
+      )}
 
       {/* Popup FormModal: Publish Fuel Price Update */}
       <FormModal

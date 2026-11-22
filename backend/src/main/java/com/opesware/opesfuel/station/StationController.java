@@ -350,7 +350,7 @@ public class StationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_stations:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_stations:read')")
     public List<StationEntity> listStations() {
         return service.listAccessibleStations();
     }
@@ -388,7 +388,7 @@ public class StationController {
     }
 
     @GetMapping("/{stationId}/fuel-prices")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_stations:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_stations:read')")
     public List<FuelPriceEntity> listFuelPrices(@PathVariable String stationId) {
         service.requireAccessibleStation(stationId);
         return priceRepo.findByStationIdOrderByEffectiveAtDesc(stationId);

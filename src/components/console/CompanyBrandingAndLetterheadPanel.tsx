@@ -1,14 +1,17 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Award,
+  Ban,
   Building2,
   CheckCircle2,
+  ExternalLink,
   Eye,
   FileText,
   Image as ImageIcon,
   Landmark,
   Palette,
   Printer,
+  RefreshCw,
   RotateCcw,
   Save,
   ShieldCheck,
@@ -16,6 +19,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { getStoredAuthSession } from '../../auth/auth0';
 import { UserRole } from '../../domain/types';
 import {
   CompanyBrandingProfile,
@@ -34,6 +38,19 @@ import {
   printStationComplianceCertificatePdf,
 } from '../../utils/securityGuilloche';
 import { printBrandedSampleThermalReceipt } from '../../utils/thermalReceipt';
+
+interface IssuedSecurityDocRow {
+  fingerprint: string;
+  docType: string;
+  docSerial?: string;
+  organizationName: string;
+  subjectName: string;
+  issuedAt: string;
+  revoked: boolean;
+  revokedReason?: string | null;
+}
+
+const LOCAL_DOC_REGISTRY_KEY = 'opesfuel.issued_documents.v1';
 
 interface CompanyBrandingAndLetterheadPanelProps {
   role: UserRole;
@@ -70,14 +87,110 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
   onNotify,
 }) => {
   const canEdit = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
+  const canRevokeDocs = role === 'PLATFORM_ADMIN' || role === 'OWNER';
   const [tab, setTab] = useState<'identity' | 'documents' | 'preview' | 'security'>('identity');
   const [draft, setDraft] = useState<CompanyBrandingProfile>(() => getCompanyBranding(organizationName));
   const [saving, setSaving] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<LetterheadTemplateStyle>('SOVEREIGN_GUILLOCHE');
   const [customWatermark, setCustomWatermark] = useState('ORIGINAL CERTIFIED COPY');
+  const [issuedDocs, setIssuedDocs] = useState<IssuedSecurityDocRow[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
 
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const stampInputRef = useRef<HTMLInputElement | null>(null);
+
+  const loadIssuedDocuments = useCallback(async () => {
+    setLoadingDocs(true);
+    try {
+      const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').replace(/\/+$/, '');
+      if (apiBase) {
+        const session = getStoredAuthSession();
+        const headers: Record<string, string> = {};
+        if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+        const res = await fetch(`${apiBase}/api/v1/documents`, { headers });
+        if (res.ok) {
+          const rows = (await res.json()) as Array<Record<string, unknown>>;
+          setIssuedDocs(
+            rows.map((r) => ({
+              fingerprint: String(r.fingerprint ?? ''),
+              docType: String(r.docType ?? r.doc_type ?? 'SECURITY_DOC'),
+              docSerial: r.docSerial ? String(r.docSerial) : undefined,
+              organizationName: String(r.organizationName ?? r.organization_name ?? ''),
+              subjectName: String(r.subjectName ?? r.subject_name ?? ''),
+              issuedAt: String(r.issuedAt ?? r.issued_at ?? new Date().toISOString()),
+              revoked: Boolean(r.revokedAt ?? r.revoked_at ?? r.revoked),
+              revokedReason: r.revokedReason ? String(r.revokedReason) : null,
+            }))
+          );
+          return;
+        }
+      }
+      const raw = localStorage.getItem(LOCAL_DOC_REGISTRY_KEY);
+      const map = raw ? (JSON.parse(raw) as Record<string, Record<string, unknown>>) : {};
+      const list: IssuedSecurityDocRow[] = Object.values(map)
+        .map((r) => ({
+          fingerprint: String(r.fingerprint ?? ''),
+          docType: String(r.docType ?? 'SECURITY_DOC'),
+          docSerial: r.docSerial ? String(r.docSerial) : undefined,
+          organizationName: String(r.organizationName ?? ''),
+          subjectName: String(r.subjectName ?? ''),
+          issuedAt: String(r.issuedAt ?? new Date().toISOString()),
+          revoked: Boolean(r.revoked),
+          revokedReason: r.revokedReason ? String(r.revokedReason) : null,
+        }))
+        .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
+      setIssuedDocs(list);
+    } catch {
+      // ignore storage errors
+    } finally {
+      setLoadingDocs(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'security') {
+      void loadIssuedDocuments();
+    }
+  }, [tab, loadIssuedDocuments]);
+
+  const handleRevokeDocument = async (fingerprint: string) => {
+    const reason = window.prompt(`Enter revocation reason for security document ${fingerprint}:`, 'Superseded by re-issued certificate');
+    if (reason === null) return;
+    const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').replace(/\/+$/, '');
+    if (apiBase) {
+      try {
+        const session = getStoredAuthSession();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+        const res = await fetch(`${apiBase}/api/v1/documents/${encodeURIComponent(fingerprint)}/revoke`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reason: reason.trim() || 'Revoked by administrator' }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        onNotify('error', err instanceof Error ? err.message : 'Unable to revoke document on server.');
+        return;
+      }
+    }
+    try {
+      const raw = localStorage.getItem(LOCAL_DOC_REGISTRY_KEY);
+      const map = raw ? (JSON.parse(raw) as Record<string, Record<string, unknown>>) : {};
+      if (map[fingerprint.toUpperCase()]) {
+        map[fingerprint.toUpperCase()] = {
+          ...map[fingerprint.toUpperCase()],
+          revoked: true,
+          revokedAt: new Date().toISOString(),
+          revokedReason: reason.trim() || 'Revoked by administrator',
+        };
+        localStorage.setItem(LOCAL_DOC_REGISTRY_KEY, JSON.stringify(map));
+      }
+    } catch {
+      // ignore
+    }
+    onNotify('success', `Revoked security document ${fingerprint}. Public verification portal now reports REVOKED.`);
+    await loadIssuedDocuments();
+  };
 
   const updateField = <K extends keyof CompanyBrandingProfile>(key: K, value: CompanyBrandingProfile[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -987,6 +1100,7 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                       watermarkText: customWatermark,
                     });
                     onNotify('success', `Generated ${selectedStyle.replace(/_/g, ' ')} security letterhead PDF.`);
+                    void loadIssuedDocuments();
                   }}
                   className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#0F172A] text-left space-y-1 transition-colors"
                 >
@@ -1011,6 +1125,7 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                       pumpCount: 8,
                     });
                     onNotify('success', 'Generated Station Compliance & Metrology Guilloché Certificate PDF.');
+                    void loadIssuedDocuments();
                   }}
                   className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#0F172A] text-left space-y-1 transition-colors"
                 >
@@ -1034,6 +1149,7 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                       validUntil: '2028-12-31',
                     });
                     onNotify('success', 'Generated Authorized Dealer / Franchise Guilloché Certificate PDF.');
+                    void loadIssuedDocuments();
                   }}
                   className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#0F172A] text-left space-y-1 transition-colors"
                 >
@@ -1060,6 +1176,7 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                       issuedToNiu: draft.taxIdNiu,
                     });
                     onNotify('success', 'Generated Sovereign Guilloché Enterprise Software License Certificate PDF.');
+                    void loadIssuedDocuments();
                   }}
                   className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#0F172A] text-left space-y-1 transition-colors"
                 >
@@ -1072,6 +1189,94 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                   </p>
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Issued Security Documents Registry & Revocation Table */}
+          <div className="border border-slate-200 rounded-xl p-5 bg-white space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h4 className="font-display text-sm font-bold text-slate-950 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                  Issued Security Documents Registry &amp; Public Verification Control
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Every generated Guilloché letterhead, compliance certificate, dealer authorization, or license is auto-registered for public QR verification at <span className="font-mono">/#/verify/&lt;fingerprint&gt;</span>.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadIssuedDocuments()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingDocs ? 'animate-spin' : ''}`} /> Refresh Registry
+              </button>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2.5">Fingerprint</th>
+                    <th className="px-4 py-2.5">Document Type</th>
+                    <th className="px-4 py-2.5">Subject / Organization</th>
+                    <th className="px-4 py-2.5">Issued</th>
+                    <th className="px-4 py-2.5">Status</th>
+                    <th className="px-4 py-2.5 text-right">Verify / Revoke</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {issuedDocs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-5 text-center text-slate-500">
+                        Generate any Guilloché letterhead or license certificate above to register its cryptographic fingerprint here.
+                      </td>
+                    </tr>
+                  ) : (
+                    issuedDocs.slice(0, 20).map((doc) => (
+                      <tr key={doc.fingerprint} className="hover:bg-slate-50">
+                        <td className="px-4 py-2.5 font-mono font-bold text-slate-950">{doc.fingerprint}</td>
+                        <td className="px-4 py-2.5 font-mono text-slate-700">{doc.docType}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="font-semibold text-slate-900">{doc.subjectName || doc.organizationName}</div>
+                          {doc.docSerial && <div className="font-mono text-[10px] text-slate-500">{doc.docSerial}</div>}
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-slate-500">
+                          {doc.issuedAt.slice(0, 16).replace('T', ' ')}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                              doc.revoked ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {doc.revoked ? 'REVOKED' : 'VALID'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            <a
+                              href={`#/verify/${encodeURIComponent(doc.fingerprint)}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-[11px] font-semibold text-slate-800"
+                            >
+                              <ExternalLink className="w-3 h-3" /> Verify
+                            </a>
+                            {canRevokeDocs && !doc.revoked && (
+                              <button
+                                type="button"
+                                onClick={() => void handleRevokeDocument(doc.fingerprint)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-red-200 bg-white hover:bg-red-50 text-[11px] font-semibold text-red-700"
+                              >
+                                <Ban className="w-3 h-3" /> Revoke
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

@@ -80,6 +80,7 @@ function resolveRoleFromIdentifier(raw: string): UserRole | null {
 
   // Fallback heuristics for custom company staff identifiers
   if (lower.includes('superadmin') || upper.startsWith('OPF-ADM')) return 'PLATFORM_ADMIN';
+  if (lower.includes('group.cfo') || lower.includes('cfo') || upper.startsWith('OPF-CFO')) return 'GROUP_CFO';
   if (lower.includes('owner') || upper.startsWith('OPF-OWN')) return 'OWNER';
   if (lower.includes('manager') || upper.startsWith('OPF-MGR')) return 'MANAGER';
   if (lower.includes('finance') || lower.includes('acct') || upper.startsWith('OPF-ACC')) return 'ACCOUNTANT';
@@ -163,7 +164,10 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
     }
     const resolvedRole = resolveRoleFromIdentifier(identifier) ?? initialRole ?? 'OWNER';
     const targetStation =
-      resolvedRole === 'PLATFORM_ADMIN' || resolvedRole === 'OWNER'
+      resolvedRole === 'PLATFORM_ADMIN' ||
+      resolvedRole === 'GROUP_CFO' ||
+      resolvedRole === 'OWNER' ||
+      resolvedRole === 'ACCOUNTANT'
         ? 'ALL'
         : initialStationId && initialStationId !== 'ALL'
         ? initialStationId
@@ -416,14 +420,14 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
                   >
                     <span className="inline-flex items-center gap-1.5">
                       <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                      Demo Workspace Credentials (5 RBAC Roles)
+                      Demo Workspace Credentials (6 RBAC Roles)
                     </span>
                     {showDemoAccounts ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
 
                   {showDemoAccounts && (
                     <div className="mt-2.5 space-y-2">
-                      {(['PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT', 'ATTENDANT'] as UserRole[]).map((r) => {
+                      {(['PLATFORM_ADMIN', 'GROUP_CFO', 'OWNER', 'MANAGER', 'ACCOUNTANT', 'ATTENDANT'] as UserRole[]).map((r) => {
                         const p = ROLE_PROFILES[r];
                         return (
                           <div
@@ -432,7 +436,11 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
                           >
                             <div className="min-w-0">
                               <div className="font-mono font-bold text-slate-950">
-                                {r === 'PLATFORM_ADMIN' ? 'SAAS PLATFORM ADMIN' : r}
+                                {r === 'PLATFORM_ADMIN'
+                                  ? 'SAAS PLATFORM ADMIN'
+                                  : r === 'GROUP_CFO'
+                                  ? 'HOLDING GROUP CFO'
+                                  : r}
                               </div>
                               <div className="text-slate-500 truncate">
                                 {p.email} · {p.phone} · {p.memberId}

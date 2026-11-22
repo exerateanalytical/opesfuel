@@ -519,7 +519,7 @@ public class FleetController {
     }
 
     @GetMapping("/accounts")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_fleet:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_fleet:read')")
     public List<FleetAccountEntity> listFleetAccounts() {
         return service.listFleetAccounts();
     }
@@ -545,7 +545,7 @@ public class FleetController {
     }
 
     @GetMapping("/accounts/{accountId}/vehicles")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_fleet:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_fleet:read')")
     public List<FleetVehicleEntity> listVehicles(@PathVariable String accountId) {
         return service.listVehicles(accountId);
     }
@@ -565,7 +565,7 @@ public class FleetController {
     }
 
     @GetMapping("/accounts/{accountId}/statement")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_fleet:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_fleet:read')")
     public FleetStatementDto getAccountStatement(
         @PathVariable String accountId,
         @RequestParam(required = false, defaultValue = "100") int limit
@@ -574,7 +574,7 @@ public class FleetController {
     }
 
     @GetMapping("/vouchers")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_fleet:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_fleet:read')")
     public List<FleetTransactionEntity> listFleetVouchers(
         @RequestParam(required = false, defaultValue = "ALL") String stationId,
         @RequestParam(required = false, defaultValue = "50") int limit
@@ -590,7 +590,7 @@ public class FleetController {
     }
 
     @PostMapping("/accounts/{accountId}/settle")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_fleet:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_fleet:write')")
     public FleetAccountEntity settleAccount(@PathVariable String accountId, @Valid @RequestBody SettleFleetCommand cmd) {
         return service.settleAccount(accountId, cmd);
     }

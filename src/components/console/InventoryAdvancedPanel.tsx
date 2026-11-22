@@ -20,7 +20,7 @@ export const InventoryAdvancedPanel: React.FC<InventoryAdvancedPanelProps> = ({
   purchaseOrders,
   onNotify,
 }) => {
-  const canManage = role === 'OWNER' || role === 'MANAGER';
+  const canManage = role === 'OWNER' || role === 'MANAGER' || role === 'PLATFORM_ADMIN';
   const [modal, setModal] = useState<'shrink' | 'atg' | 'supplier' | null>(null);
   const [suppliers, setSuppliers] = useState<Array<Record<string, unknown>>>([]);
   const [supName, setSupName] = useState('');

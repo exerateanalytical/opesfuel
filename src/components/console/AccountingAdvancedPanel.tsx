@@ -24,8 +24,8 @@ export const AccountingAdvancedPanel: React.FC<AccountingAdvancedPanelProps> = (
   journals,
   onNotify,
 }) => {
-  const canPost = role === 'OWNER' || role === 'ACCOUNTANT' || role === 'MANAGER';
-  const canLockPeriod = role === 'OWNER' || role === 'ACCOUNTANT';
+  const canPost = role === 'OWNER' || role === 'ACCOUNTANT' || role === 'GROUP_CFO' || role === 'PLATFORM_ADMIN';
+  const canLockPeriod = role === 'OWNER' || role === 'ACCOUNTANT' || role === 'GROUP_CFO' || role === 'PLATFORM_ADMIN';
 
   const [modal, setModal] = useState<'ap' | 'vat' | 'manual' | 'period' | null>(null);
   const [activeTool, setActiveTool] = useState<'periods' | 'zreport'>('zreport');

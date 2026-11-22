@@ -378,7 +378,7 @@ public class AiIntelligenceController {
     }
 
     @GetMapping("/subscription")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_ai:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_ai:read')")
     public AiSubscriptionEntity getSubscription(@RequestParam String stationId) {
         return service.getSubscription(stationId);
     }
@@ -390,7 +390,7 @@ public class AiIntelligenceController {
     }
 
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_ai:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_ai:read')")
     public List<AiAuditLogEntity> listHistory(
         @RequestParam String stationId,
         @RequestParam(required = false, defaultValue = "30") int limit
@@ -399,13 +399,13 @@ public class AiIntelligenceController {
     }
 
     @PostMapping("/analyze")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_ai:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_ai:read')")
     public Map<String, Object> analyzeStation(@Valid @RequestBody AiAnalyzeCommand command) {
         return service.analyzeStation(command);
     }
 
     @PostMapping("/chat")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_ai:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_ai:read')")
     public Map<String, Object> chatWithAdvisor(@Valid @RequestBody AiChatCommand command) {
         return service.chatWithAdvisor(command);
     }

@@ -88,10 +88,11 @@ public class TenantAccessGuard {
         }
         if (!principal.apiKeyAuth()
             && !principal.hasRole("PLATFORM_ADMIN")
+            && !principal.hasRole("GROUP_CFO")
             && !principal.hasRole("OWNER")
             && !principal.hasRole("MANAGER")
             && !principal.hasRole("ACCOUNTANT")) {
-            throw new AccessDeniedException("Only PLATFORM_ADMIN, OWNER, MANAGER, or ACCOUNTANT may query across all stations.");
+            throw new AccessDeniedException("Only PLATFORM_ADMIN, GROUP_CFO, OWNER, MANAGER, or ACCOUNTANT may query across all stations.");
         }
     }
 

@@ -856,7 +856,7 @@ public class InventoryController {
     }
 
     @GetMapping("/tanks")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_inventory:read')")
     public List<FuelTankDto> listTanks(@RequestParam(required = false, defaultValue = "ALL") String stationId) {
         return inventoryService.listTanks(stationId);
     }
@@ -882,7 +882,7 @@ public class InventoryController {
     }
 
     @GetMapping("/purchase-orders")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_inventory:read')")
     public List<PurchaseOrderEntity> listPurchaseOrders(
         @RequestParam(required = false, defaultValue = "ALL") String stationId,
         @RequestParam(required = false, defaultValue = "50") int limit
@@ -911,7 +911,7 @@ public class InventoryController {
     }
 
     @GetMapping("/deliveries")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_inventory:read')")
     public List<TankDeliveryEntity> listDeliveries(
         @RequestParam(required = false, defaultValue = "ALL") String stationId,
         @RequestParam(required = false, defaultValue = "50") int limit
@@ -934,7 +934,7 @@ public class InventoryController {
     }
 
     @GetMapping("/dipsticks")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_inventory:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ATTENDANT','ACCOUNTANT') or hasAuthority('SCOPE_inventory:read')")
     public List<DipstickReadingEntity> listDipsticks(
         @RequestParam(required = false, defaultValue = "ALL") String stationId,
         @RequestParam(required = false, defaultValue = "50") int limit

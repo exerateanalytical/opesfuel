@@ -106,7 +106,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
             <ArrowLeft className="w-4 h-4" /> Back to Multi-Station Administration
           </button>
           <div className="flex flex-wrap items-center gap-2">
-            {role === 'OWNER' && (
+            {(role === 'OWNER' || role === 'PLATFORM_ADMIN') && (
               <button
                 type="button"
                 onClick={() => {
@@ -122,7 +122,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                 {editingStation ? 'Cancel Edit' : 'Edit Station Details'}
               </button>
             )}
-            {role === 'OWNER' && stations.length > 1 && (
+            {(role === 'OWNER' || role === 'PLATFORM_ADMIN') && stations.length > 1 && (
               <button
                 type="button"
                 onClick={() => {
@@ -166,7 +166,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
             </div>
           </div>
 
-          {editingStation && role === 'OWNER' && (
+          {editingStation && (role === 'OWNER' || role === 'PLATFORM_ADMIN') && (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -388,7 +388,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                       {formatFcfa(st.monthlyFeeFcfa)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {role === 'OWNER' && stations.length > 1 && (
+                      {(role === 'OWNER' || role === 'PLATFORM_ADMIN') && stations.length > 1 && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -590,7 +590,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
       </div>
 
       {/* SaaS Workspace Data Management */}
-      {role === 'OWNER' && (
+      {(role === 'OWNER' || role === 'PLATFORM_ADMIN') && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <h3 className="font-display text-base font-bold text-slate-900">
@@ -675,15 +675,15 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
               <ShieldCheck className="w-5 h-5 text-emerald-700" />
               <div>
                 <h3 className="font-display text-base font-bold text-slate-900">
-                  Station Role-Based Access Control (RBAC) Matrix
+                  Station Role-Based Access Control (RBAC) Matrix — All 7 Account Types
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Status: {isAuth0Configured ? 'Auth0 RS256 OIDC Production Active' : 'Workspace RBAC Policy Active'}
+                  Status: {isAuth0Configured ? 'Auth0 RS256 OIDC Production Active' : 'Workspace RBAC Policy Active'} · Plus external B2B Fleet Client Portal (ROLE_FLEET_CLIENT) at /#/fleet-portal
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {(['OWNER', 'MANAGER', 'ACCOUNTANT', 'ATTENDANT'] as UserRole[]).map((r) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(['PLATFORM_ADMIN', 'GROUP_CFO', 'OWNER', 'MANAGER', 'ACCOUNTANT', 'ATTENDANT'] as UserRole[]).map((r) => (
                 <div key={r} className="border border-slate-200 rounded-lg p-4 space-y-1.5">
                   <div className="font-mono text-xs font-bold text-amber-700">ROLE_{r}</div>
                   <div className="text-sm font-semibold text-slate-900">{ROLE_PROFILES[r].title}</div>

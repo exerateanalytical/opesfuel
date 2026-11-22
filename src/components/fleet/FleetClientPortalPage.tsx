@@ -196,10 +196,30 @@ export const FleetClientPortalPage: React.FC<FleetClientPortalPageProps> = ({ on
     URL.revokeObjectURL(url);
   };
 
-  const downloadVatStatementPdf = () => {
+  const downloadVatStatementPdf = async () => {
     const b = getCompanyBranding();
+    let statementRows = filteredFuelings.filter((f) => String(f.created_at || '').startsWith(period));
+    if (session && !session.demoMode && apiBase) {
+      try {
+        const res = await fetch(
+          `${apiBase}/api/v1/fleet-portal/statement?period=${encodeURIComponent(period)}`,
+          { headers: { 'X-Fleet-Token': session.token } }
+        );
+        if (res.ok) {
+          const data = (await res.json()) as { transactions?: Array<Record<string, unknown>> };
+          if (Array.isArray(data.transactions)) {
+            statementRows = data.transactions;
+          }
+        }
+      } catch {
+        // fallback to loaded rows
+      }
+    } else if (statementRows.length === 0) {
+      statementRows = filteredFuelings;
+    }
+
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const totalTtc = filteredFuelings.reduce((s, f) => s + Number(f.amount_fcfa || 0), 0);
+    const totalTtc = statementRows.reduce((s, f) => s + Number(f.amount_fcfa || 0), 0);
     const netHt = Math.round(totalTtc / 1.1925);
     const vat = totalTtc - netHt;
 
@@ -220,20 +240,23 @@ export const FleetClientPortalPage: React.FC<FleetClientPortalPageProps> = ({ on
     autoTable(doc, {
       startY: 46,
       head: [['Date', 'Station', 'Vehicle', 'Driver', 'Grade', 'Litres', 'Amount (FCFA)']],
-      body: filteredFuelings.map((f) => [
-        String(f.created_at || '').slice(0, 16).replace('T', ' '),
-        String(f.station_id || ''),
-        String(f.vehicle_plate || ''),
-        String(f.driver_name || ''),
-        String(f.grade || ''),
-        Number(f.litres || 0).toFixed(2),
-        formatFcfa(Number(f.amount_fcfa || 0)),
-      ]),
+      body:
+        statementRows.length > 0
+          ? statementRows.map((f) => [
+              String(f.created_at || '').slice(0, 16).replace('T', ' '),
+              String(f.station_id || ''),
+              String(f.vehicle_plate || ''),
+              String(f.driver_name || ''),
+              String(f.grade || ''),
+              Number(f.litres || 0).toFixed(2),
+              formatFcfa(Number(f.amount_fcfa || 0)),
+            ])
+          : [['-', '-', 'No fuelings recorded in selected period', '-', '-', '0.00', '0 FCFA']],
       headStyles: { fillColor: [15, 23, 42] },
       styles: { fontSize: 8.5 },
     });
     doc.save(`fleet-vat-statement-${period}.pdf`);
-    setToast({ type: 'success', message: `Downloaded VAT statement PDF for ${period}.` });
+    setToast({ type: 'success', message: `Downloaded VAT statement PDF for ${period} (${statementRows.length} fuelings).` });
   };
 
   const openEditLimit = (v: Record<string, unknown>) => {
@@ -548,7 +571,7 @@ export const FleetClientPortalPage: React.FC<FleetClientPortalPageProps> = ({ on
               </div>
               <div className="flex items-center gap-2">
                 <input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-mono" />
-                <button type="button" onClick={downloadVatStatementPdf} className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold inline-flex items-center gap-1.5">
+                <button type="button" onClick={() => void downloadVatStatementPdf()} className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold inline-flex items-center gap-1.5">
                   <Download className="w-3.5 h-3.5" /> Download VAT PDF
                 </button>
               </div>
@@ -605,7 +628,18 @@ export const FleetClientPortalPage: React.FC<FleetClientPortalPageProps> = ({ on
         targetId={session.fleetAccountId}
         endpointPath="/api/v1/fleet-portal/pay-balance"
         authHeader={{ 'X-Fleet-Token': session.token }}
-        onSettled={() => void loadPortalData()}
+        onSettled={() => {
+          if (session.demoMode || !apiBase) {
+            setDashboard((prev) => {
+              const prevBal = Number(prev.balanceOwedFcfa || 0);
+              const limit = Number(prev.creditLimitFcfa || 0);
+              const nextBal = Math.max(0, prevBal - payAmountFcfa);
+              return { ...prev, balanceOwedFcfa: nextBal, availableCreditFcfa: Math.max(0, limit - nextBal) };
+            });
+          } else {
+            void loadPortalData();
+          }
+        }}
         onNotify={(type, message) => setToast({ type, message })}
       />
     </div>

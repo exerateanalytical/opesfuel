@@ -1026,13 +1026,13 @@ public class AccountingController {
     }
 
     @GetMapping("/accounts")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
     public List<AccountEntity> listChartOfAccounts() {
         return accountRepo.findAllByOrderByCodeAsc();
     }
 
     @GetMapping("/journals")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
     public List<JournalEntryDto> listJournals(
         @RequestParam(required = false, defaultValue = "ALL") String stationId,
         @RequestParam(required = false, defaultValue = "50") int limit
@@ -1042,13 +1042,13 @@ public class AccountingController {
 
     @PostMapping("/journals/manual")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
     public JournalEntryDto postManualJournal(@Valid @RequestBody ManualJournalCommand command) {
         return accountingService.postManualJournal(command);
     }
 
     @GetMapping("/reports")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
     public FinancialReportBundleDto getReports(
         @RequestParam(required = false, defaultValue = "ALL") String stationId,
         @RequestParam(required = false) Instant from,
@@ -1058,7 +1058,7 @@ public class AccountingController {
     }
 
     @GetMapping("/expenses")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
     public List<ExpenseEntity> listExpenses(
         @RequestParam(required = false, defaultValue = "ALL") String stationId,
         @RequestParam(required = false, defaultValue = "50") int limit
@@ -1068,20 +1068,20 @@ public class AccountingController {
 
     @PostMapping("/expenses")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
     public ExpenseEntity recordExpense(@Valid @RequestBody RecordExpenseCommand command) {
         return accountingService.recordExpense(command);
     }
 
     @DeleteMapping("/expenses/{expenseId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
     public void deleteExpense(@PathVariable String expenseId) {
         accountingService.voidExpense(expenseId);
     }
 
     @GetMapping("/deposits")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
     public List<TreasuryDepositEntity> listDeposits(
         @RequestParam(required = false, defaultValue = "ALL") String stationId,
         @RequestParam(required = false, defaultValue = "50") int limit
@@ -1091,41 +1091,41 @@ public class AccountingController {
 
     @PostMapping("/deposits")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
     public TreasuryDepositEntity recordDeposit(@Valid @RequestBody RecordDepositCommand command) {
         return accountingService.recordDeposit(command);
     }
 
     @DeleteMapping("/deposits/{depositId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
     public void deleteDeposit(@PathVariable String depositId) {
         accountingService.voidDeposit(depositId);
     }
 
     @PostMapping("/ap-payments")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
     public Map<String, Object> recordApPayment(@Valid @RequestBody RecordApPaymentCommand command) {
         return accountingService.recordSupplierApPayment(command);
     }
 
     @PostMapping("/vat-remittances")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
     public Map<String, Object> recordVatRemittance(@Valid @RequestBody RecordVatRemittanceCommand command) {
         return accountingService.recordVatRemittance(command);
     }
 
     @GetMapping("/periods")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','MANAGER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:read')")
     public List<FiscalPeriodEntity> listFiscalPeriods(@RequestParam(required = false, defaultValue = "ALL") String stationId) {
         return accountingService.listFiscalPeriods(stationId);
     }
 
     @PostMapping("/periods/close")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('OWNER','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
+    @PreAuthorize("hasAnyRole('OWNER','GROUP_CFO','ACCOUNTANT') or hasAuthority('SCOPE_accounting:write')")
     public FiscalPeriodEntity closeFiscalPeriod(@Valid @RequestBody CloseFiscalPeriodCommand command) {
         return accountingService.closeFiscalPeriod(command);
     }

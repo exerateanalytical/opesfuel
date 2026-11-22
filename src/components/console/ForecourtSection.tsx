@@ -787,13 +787,15 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
             <h3 className="font-display text-base font-bold text-slate-900">Shift Handover Ledger</h3>
             <p className="text-xs text-slate-500">Click any shift row for complete meter &amp; tender reconciliation details</p>
           </div>
-          <button
-            type="button"
-            onClick={() => exportShiftsExcel(visibleShifts, stationId === 'ALL' ? 'Network' : stationId)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold whitespace-nowrap"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Export Shifts Excel (.xlsx)
-          </button>
+          {role !== 'ATTENDANT' && (
+            <button
+              type="button"
+              onClick={() => exportShiftsExcel(visibleShifts, stationId === 'ALL' ? 'Network' : stationId)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold whitespace-nowrap"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" /> Export Shifts Excel (.xlsx)
+            </button>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -807,7 +809,7 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
                 <th className="px-4 py-3 text-right">Declared (FCFA)</th>
                 <th className="px-4 py-3 text-right">Variance</th>
                 <th className="px-4 py-3">Status</th>
-                {canManage && <th className="px-4 py-3 text-right">Actions</th>}
+                <th className="px-4 py-3 text-right">Slip / Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -847,38 +849,38 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
                         <span className="text-slate-600">Closed</span>
                       )}
                     </td>
-                    {canManage && (
-                      <td className="px-4 py-3 text-right whitespace-nowrap space-x-1">
-                        {s.status === 'CLOSED' && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              printShiftThermalSlip({
-                                stationName: 'OpesFuel Forecourt Station',
-                                shiftId: s.id,
-                                pumpCode: s.pumpCode,
-                                grade: s.grade,
-                                attendantName: s.attendantName,
-                                openingMeter: s.openingMeterLitres,
-                                closingMeter: s.closingMeterLitres ?? s.openingMeterLitres,
-                                litresDispensed: s.litresSold,
-                                unitPriceFcfa: s.unitPriceFcfa,
-                                expectedFcfa: s.expectedRevenueFcfa,
-                                cashFcfa: s.cashFcfa,
-                                mobileMoneyFcfa: s.mobileMoneyFcfa,
-                                cardFcfa: s.cardFcfa,
-                                fleetCreditFcfa: s.fleetCreditFcfa,
-                                varianceFcfa: s.varianceFcfa,
-                                closedAt: s.closedAt ?? s.openedAt,
-                              })
-                            }
-                            title="Print 80mm Shift Handover Slip"
-                            aria-label={`Print 80mm slip for shift ${s.id}`}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 transition-colors"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                    <td className="px-4 py-3 text-right whitespace-nowrap space-x-1">
+                      {s.status === 'CLOSED' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            printShiftThermalSlip({
+                              stationName: 'OpesFuel Forecourt Station',
+                              shiftId: s.id,
+                              pumpCode: s.pumpCode,
+                              grade: s.grade,
+                              attendantName: s.attendantName,
+                              openingMeter: s.openingMeterLitres,
+                              closingMeter: s.closingMeterLitres ?? s.openingMeterLitres,
+                              litresDispensed: s.litresSold,
+                              unitPriceFcfa: s.unitPriceFcfa,
+                              expectedFcfa: s.expectedRevenueFcfa,
+                              cashFcfa: s.cashFcfa,
+                              mobileMoneyFcfa: s.mobileMoneyFcfa,
+                              cardFcfa: s.cardFcfa,
+                              fleetCreditFcfa: s.fleetCreditFcfa,
+                              varianceFcfa: s.varianceFcfa,
+                              closedAt: s.closedAt ?? s.openedAt,
+                            })
+                          }
+                          title="Print 80mm Shift Handover Slip"
+                          aria-label={`Print 80mm slip for shift ${s.id}`}
+                          className="p-1.5 text-slate-500 hover:text-slate-900 transition-colors"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {canManage && (
                         <button
                           type="button"
                           onClick={() => {
@@ -891,14 +893,14 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      </td>
-                    )}
+                      )}
+                    </td>
                   </tr>
                 );
               })}
               {visibleShifts.length === 0 && (
                 <tr>
-                  <td colSpan={canManage ? 9 : 8} className="px-4 py-6 text-center text-xs text-slate-500">
+                  <td colSpan={9} className="px-4 py-6 text-center text-xs text-slate-500">
                     No shifts recorded for this station scope.
                   </td>
                 </tr>
@@ -908,7 +910,7 @@ export const ForecourtSection: React.FC<ForecourtSectionProps> = ({
         </div>
       </div>
 
-      {calibrationSlot}
+      {role !== 'ATTENDANT' && calibrationSlot}
     </div>
   );
 };

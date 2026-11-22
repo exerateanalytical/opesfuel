@@ -52,6 +52,7 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
   hrSlot,
 }) => {
   const canManage = canPerformAction(role, 'MANAGE_EMPLOYEES');
+  const canRunPayroll = canPerformAction(role, 'RUN_PAYROLL');
   const visibleEmployees = employees.filter((e) => stationId === 'ALL' || e.stationId === stationId);
   const effectiveStation = stationId === 'ALL' ? defaultStationId : stationId;
 
@@ -144,19 +145,21 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
             <ArrowLeft className="w-4 h-4" /> Back to Staff &amp; Payroll Roster
           </button>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                printEmployeePayslipPdf({
-                  stationName: stationId === 'ALL' ? 'OpesFuel Station' : stationId,
-                  periodLabel: new Date().toISOString().slice(0, 7),
-                  employee: activeDetailEmp,
-                })
-              }
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
-            >
-              <Printer className="w-3.5 h-3.5" /> Print Payslip PDF
-            </button>
+            {canRunPayroll && (
+              <button
+                type="button"
+                onClick={() =>
+                  printEmployeePayslipPdf({
+                    stationName: stationId === 'ALL' ? 'OpesFuel Station' : stationId,
+                    periodLabel: new Date().toISOString().slice(0, 7),
+                    employee: activeDetailEmp,
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Payslip PDF
+              </button>
+            )}
             {canManage && (
               <>
                 <button
@@ -214,12 +217,14 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="text-xs text-slate-500">Monthly Base Salary</div>
-              <div className="font-mono tabular-nums text-lg font-bold text-slate-900 mt-1">
-                {formatFcfa(activeDetailEmp.baseSalaryFcfa)}
+            {canRunPayroll && (
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="text-xs text-slate-500">Monthly Base Salary</div>
+                <div className="font-mono tabular-nums text-lg font-bold text-slate-900 mt-1">
+                  {formatFcfa(activeDetailEmp.baseSalaryFcfa)}
+                </div>
               </div>
-            </div>
+            )}
             <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
               <div className="text-xs text-slate-500">Cumulative Shift Variance</div>
               <div
@@ -230,12 +235,14 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 {formatFcfa(activeDetailEmp.cumulativeVarianceFcfa)}
               </div>
             </div>
-            <div className="p-4 rounded-lg bg-slate-900 text-white">
-              <div className="text-xs text-slate-300">Net Disbursable Payroll</div>
-              <div className="font-mono tabular-nums text-lg font-bold text-amber-400 mt-1">
-                {formatFcfa(netPayFcfa)}
+            {canRunPayroll && (
+              <div className="p-4 rounded-lg bg-slate-900 text-white">
+                <div className="text-xs text-slate-300">Net Disbursable Payroll</div>
+                <div className="font-mono tabular-nums text-lg font-bold text-amber-400 mt-1">
+                  {formatFcfa(netPayFcfa)}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="p-4 rounded-lg border border-slate-200 space-y-1.5">
@@ -255,10 +262,12 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-lg font-bold text-slate-900">
-              Workforce Roster, Attendance &amp; Payroll Variance
+              {canRunPayroll ? 'Workforce Roster, Attendance & Payroll Variance' : 'Station Staff Roster & Shift Attendance'}
             </h2>
             <p className="text-xs text-slate-500">
-              Staff accounts, shift schedules, clock-in state, and automated shift shortage adjustments in FCFA
+              {canRunPayroll
+                ? 'Staff accounts, shift schedules, clock-in state, and automated shift shortage adjustments in FCFA'
+                : 'Manage station rosters, shift schedules, and daily clock-in attendance (payroll disbursements restricted to Owner & Accountant)'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 self-start sm:self-auto">
@@ -271,26 +280,30 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 <Plus className="w-3.5 h-3.5" /> Onboard Station Employee
               </button>
             )}
-            <button
-              type="button"
-              onClick={() =>
-                printPayrollRegisterPdf({
-                  stationName: stationId === 'ALL' ? 'OpesFuel Station Network' : stationId,
-                  periodLabel: new Date().toISOString().slice(0, 7),
-                  employees: visibleEmployees,
-                })
-              }
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-xs font-semibold text-white whitespace-nowrap"
-            >
-              <FileText className="w-3.5 h-3.5" /> Print Payroll Register PDF
-            </button>
-            <button
-              type="button"
-              onClick={exportPayrollCsv}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 whitespace-nowrap"
-            >
-              <Download className="w-3.5 h-3.5" /> Payroll CSV
-            </button>
+            {canRunPayroll && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    printPayrollRegisterPdf({
+                      stationName: stationId === 'ALL' ? 'OpesFuel Station Network' : stationId,
+                      periodLabel: new Date().toISOString().slice(0, 7),
+                      employees: visibleEmployees,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-xs font-semibold text-white whitespace-nowrap"
+                >
+                  <FileText className="w-3.5 h-3.5" /> Print Payroll Register PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={exportPayrollCsv}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 whitespace-nowrap"
+                >
+                  <Download className="w-3.5 h-3.5" /> Payroll CSV
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -301,11 +314,11 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 <th className="px-4 py-3">Employee</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Shift Window</th>
-                <th className="px-4 py-3 text-right">Base Salary</th>
+                {canRunPayroll && <th className="px-4 py-3 text-right">Base Salary</th>}
                 <th className="px-4 py-3 text-right">Shift Variance</th>
-                <th className="px-4 py-3 text-right">Net Payroll</th>
+                {canRunPayroll && <th className="px-4 py-3 text-right">Net Payroll</th>}
                 <th className="px-4 py-3">Attendance</th>
-                <th className="px-4 py-3 text-right">Payslip &amp; Actions</th>
+                <th className="px-4 py-3 text-right">{canRunPayroll ? 'Payslip & Actions' : 'Actions'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -326,7 +339,9 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                     </td>
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-700">{emp.role}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-600">{emp.shiftWindow}</td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums">{formatFcfa(emp.baseSalaryFcfa)}</td>
+                    {canRunPayroll && (
+                      <td className="px-4 py-3 text-right font-mono tabular-nums">{formatFcfa(emp.baseSalaryFcfa)}</td>
+                    )}
                     <td
                       className={`px-4 py-3 text-right font-mono tabular-nums font-semibold ${
                         emp.cumulativeVarianceFcfa < 0 ? 'text-red-600' : 'text-emerald-700'
@@ -334,9 +349,11 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                     >
                       {formatFcfa(emp.cumulativeVarianceFcfa)}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums font-bold text-slate-900">
-                      {formatFcfa(netPay)}
-                    </td>
+                    {canRunPayroll && (
+                      <td className="px-4 py-3 text-right font-mono tabular-nums font-bold text-slate-900">
+                        {formatFcfa(netPay)}
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -352,20 +369,22 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            printEmployeePayslipPdf({
-                              stationName: stationId === 'ALL' ? 'OpesFuel Station' : stationId,
-                              periodLabel: new Date().toISOString().slice(0, 7),
-                              employee: emp,
-                            })
-                          }
-                          title={`Print Monthly Payslip PDF for ${emp.fullName}`}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
-                        >
-                          <Printer className="w-3 h-3" /> Payslip PDF
-                        </button>
+                        {canRunPayroll && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              printEmployeePayslipPdf({
+                                stationName: stationId === 'ALL' ? 'OpesFuel Station' : stationId,
+                                periodLabel: new Date().toISOString().slice(0, 7),
+                                employee: emp,
+                              })
+                            }
+                            title={`Print Monthly Payslip PDF for ${emp.fullName}`}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+                          >
+                            <Printer className="w-3 h-3" /> Payslip PDF
+                          </button>
+                        )}
                         {canManage && (
                           <>
                             <button
@@ -397,12 +416,13 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
               })}
               {visibleEmployees.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-xs text-slate-500">
+                  <td colSpan={canRunPayroll ? 8 : 6} className="px-4 py-6 text-center text-xs text-slate-500">
                     No employees onboarded for this station scope yet.
                   </td>
                 </tr>
               )}
             </tbody>
+            {canRunPayroll && (
             <tfoot className="bg-slate-50 border-t border-slate-200 text-xs font-semibold text-slate-900">
               <tr>
                 <td colSpan={3} className="px-4 py-3">
@@ -419,11 +439,12 @@ export const WorkforceSection: React.FC<WorkforceSectionProps> = ({
                 <td className="px-4 py-3 text-right font-mono tabular-nums font-bold">
                   {formatFcfa(totalNetPayrollFcfa)}
                 </td>
-                <td colSpan={canManage ? 2 : 1} className="px-4 py-3 text-slate-500 font-normal">
+                <td colSpan={2} className="px-4 py-3 text-slate-500 font-normal">
                   Net Disbursable
                 </td>
               </tr>
             </tfoot>
+            )}
           </table>
         </div>
       </div>

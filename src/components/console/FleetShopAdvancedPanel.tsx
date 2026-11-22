@@ -20,7 +20,12 @@ export const FleetShopAdvancedPanel: React.FC<FleetShopAdvancedPanelProps> = ({
   fleetAccounts,
   onNotify,
 }) => {
-  const canManage = role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT';
+  const canManage =
+    role === 'OWNER' ||
+    role === 'MANAGER' ||
+    role === 'ACCOUNTANT' ||
+    role === 'GROUP_CFO' ||
+    role === 'PLATFORM_ADMIN';
   const [selectedAccountId, setSelectedAccountId] = useState(fleetAccounts[0]?.id ?? '');
   const activeAccountId = selectedAccountId || fleetAccounts[0]?.id || '';
   const activeAccount = fleetAccounts.find((a) => a.id === activeAccountId);

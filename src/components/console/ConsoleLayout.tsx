@@ -150,8 +150,12 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
   const preferredMobileIds: ConsoleSection[] =
     role === 'PLATFORM_ADMIN'
       ? ['platform-admin', 'overview', 'admin', 'api-platform']
+      : role === 'GROUP_CFO'
+      ? ['overview', 'accounting', 'inventory', 'ai-assistant']
       : role === 'ACCOUNTANT'
       ? ['overview', 'accounting', 'fleet', 'workforce']
+      : role === 'MANAGER'
+      ? ['overview', 'forecourt', 'inventory', 'workforce']
       : role === 'ATTENDANT'
       ? ['overview', 'forecourt', 'fleet', 'mobile-app']
       : ['overview', 'forecourt', 'inventory', 'accounting'];
@@ -160,6 +164,11 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
     .filter((item): item is (typeof NAV_ITEMS)[number] => Boolean(item && canAccessSection(role, item.id)));
 
   const branding = useCompanyBranding(tenant.organizationName);
+  const canSeeSetupGuide = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
+
+  useEffect(() => {
+    setProfileName(authSession?.mode === 'AUTH0_OIDC' ? authSession.userName : profile.name);
+  }, [authSession, profile.name]);
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-900 text-slate-200">
@@ -233,20 +242,22 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
           );
         })}
 
-        <button
-          type="button"
-          onClick={() => {
-            setSidebarOpen(false);
-            onOpenOnboardingGuide();
-          }}
-          className="w-full mt-3 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-700 bg-slate-800/70 hover:bg-slate-800 text-xs font-semibold text-amber-300 min-h-[44px]"
-        >
-          <span className="flex items-center gap-2.5">
-            <Compass className="w-4 h-4 shrink-0" />
-            <span>Setup Guide</span>
-          </span>
-          <span className="font-mono text-[11px]">{onboardingCompletedCount}/5</span>
-        </button>
+        {canSeeSetupGuide && (
+          <button
+            type="button"
+            onClick={() => {
+              setSidebarOpen(false);
+              onOpenOnboardingGuide();
+            }}
+            className="w-full mt-3 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg border border-slate-700 bg-slate-800/70 hover:bg-slate-800 text-xs font-semibold text-amber-300 min-h-[44px]"
+          >
+            <span className="flex items-center gap-2.5">
+              <Compass className="w-4 h-4 shrink-0" />
+              <span>Setup Guide</span>
+            </span>
+            <span className="font-mono text-[11px]">{onboardingCompletedCount}/5</span>
+          </button>
+        )}
       </div>
 
       <div className="p-4 border-t border-slate-800 space-y-3">
@@ -444,7 +455,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
                 onChange={(e) => onChangeStation(e.target.value)}
                 className="px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-900 min-h-[36px] max-w-[155px] sm:max-w-[210px]"
               >
-                {(role === 'OWNER' || role === 'PLATFORM_ADMIN' || role === 'ACCOUNTANT') && (
+                {(role === 'OWNER' || role === 'PLATFORM_ADMIN' || role === 'ACCOUNTANT' || role === 'GROUP_CFO') && (
                   <option value="ALL">All Stations ({stations.length})</option>
                 )}
                 {stations.map((s) => (
@@ -506,7 +517,7 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
             >
               <UserCircle2 className="w-4 h-4 text-slate-700 shrink-0" />
               <span className="hidden md:inline font-mono text-[11px] text-slate-900">
-                {role === 'PLATFORM_ADMIN' ? 'SAAS ADMIN' : role}
+                {role === 'PLATFORM_ADMIN' ? 'SAAS ADMIN' : role === 'GROUP_CFO' ? 'GROUP CFO' : role}
               </span>
             </button>
           </div>

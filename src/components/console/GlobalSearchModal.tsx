@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Download, FileText, Search, X } from 'lucide-react';
 import { AuditLogItem } from '../../api/demoDataset1000';
+import { canAccessSection, canPerformAction } from '../../auth/auth0';
 import { formatFcfa, formatLitres } from '../../domain/formatters';
 import {
   Employee,
@@ -12,6 +13,7 @@ import {
   PurchaseOrder,
   ShiftRecord,
   ShopItem,
+  UserRole,
 } from '../../domain/types';
 import { printAuditEvidencePackPdf } from '../../utils/documentTemplates';
 
@@ -35,6 +37,7 @@ interface SearchResultItem {
 interface GlobalSearchModalProps {
   open: boolean;
   onClose: () => void;
+  role: UserRole;
   organizationName: string;
   stationScope: string;
   pumps: Pump[];
@@ -53,6 +56,7 @@ interface GlobalSearchModalProps {
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   open,
   onClose,
+  role,
   organizationName,
   stationScope,
   pumps,
@@ -68,6 +72,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   onNavigateSection,
 }) => {
   const [query, setQuery] = useState('');
+  const canViewPayroll = canPerformAction(role, 'RUN_PAYROLL');
+  const canExportAuditEvidence = canPerformAction(role, 'VIEW_FINANCIALS');
+  const canSettleFleet = canPerformAction(role, 'SETTLE_FLEET');
 
   useEffect(() => {
     if (!open) return;
@@ -80,80 +87,94 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
   const index = useMemo<SearchResultItem[]>(() => {
     const items: SearchResultItem[] = [];
-    for (const p of pumps) {
-      items.push({
-        id: `pump-${p.id}`,
-        category: 'PUMP',
-        title: `${p.code} (${p.grade})`,
-        subtitle: `Totalizer ${formatLitres(p.totalizerLitres)} · ${formatFcfa(p.unitPriceFcfa)}/L · ${p.status}`,
-        section: 'forecourt',
-      });
+    if (canAccessSection(role, 'forecourt')) {
+      for (const p of pumps) {
+        items.push({
+          id: `pump-${p.id}`,
+          category: 'PUMP',
+          title: `${p.code} (${p.grade})`,
+          subtitle: `Totalizer ${formatLitres(p.totalizerLitres)} · ${formatFcfa(p.unitPriceFcfa)}/L · ${p.status}`,
+          section: 'forecourt',
+        });
+      }
+      for (const s of shifts.slice(0, 40)) {
+        items.push({
+          id: `shift-${s.id}`,
+          category: 'SHIFT',
+          title: `${s.id} · ${s.pumpCode} (${s.attendantName})`,
+          subtitle: `${formatLitres(s.litresSold)} sold · ${s.status}`,
+          section: 'forecourt',
+        });
+      }
     }
-    for (const t of tanks) {
-      items.push({
-        id: `tank-${t.id}`,
-        category: 'TANK',
-        title: t.name,
-        subtitle: `${t.grade} · Book ${formatLitres(t.bookVolumeLitres)} / ${formatLitres(t.capacityLitres)} · ${t.status}`,
-        section: 'inventory',
-      });
+    if (canAccessSection(role, 'inventory')) {
+      for (const t of tanks) {
+        items.push({
+          id: `tank-${t.id}`,
+          category: 'TANK',
+          title: t.name,
+          subtitle: `${t.grade} · Book ${formatLitres(t.bookVolumeLitres)} / ${formatLitres(t.capacityLitres)} · ${t.status}`,
+          section: 'inventory',
+        });
+      }
+      for (const po of purchaseOrders) {
+        items.push({
+          id: `po-${po.id}`,
+          category: 'PO',
+          title: `${po.id} · ${po.supplierName}`,
+          subtitle: `${po.grade} · ${formatLitres(po.orderedLitres)} · ${po.status}`,
+          section: 'inventory',
+        });
+      }
     }
-    for (const s of shifts.slice(0, 40)) {
-      items.push({
-        id: `shift-${s.id}`,
-        category: 'SHIFT',
-        title: `${s.id} · ${s.pumpCode} (${s.attendantName})`,
-        subtitle: `${formatLitres(s.litresSold)} sold · Expected ${formatFcfa(s.expectedRevenueFcfa)} · ${s.status}`,
-        section: 'forecourt',
-      });
+    if (canAccessSection(role, 'workforce')) {
+      for (const e of employees) {
+        items.push({
+          id: `emp-${e.id}`,
+          category: 'EMPLOYEE',
+          title: `${e.fullName} (${e.role})`,
+          subtitle: canViewPayroll
+            ? `${e.phone} · Base ${formatFcfa(e.baseSalaryFcfa)} · Shift ${e.shiftWindow}`
+            : `${e.phone} · Shift ${e.shiftWindow}`,
+          section: 'workforce',
+        });
+      }
     }
-    for (const e of employees) {
-      items.push({
-        id: `emp-${e.id}`,
-        category: 'EMPLOYEE',
-        title: `${e.fullName} (${e.role})`,
-        subtitle: `${e.phone} · Base ${formatFcfa(e.baseSalaryFcfa)} · Shift ${e.shiftWindow}`,
-        section: 'workforce',
-      });
+    if (canAccessSection(role, 'fleet')) {
+      for (const f of fleetAccounts) {
+        items.push({
+          id: `fleet-${f.id}`,
+          category: 'FLEET',
+          title: f.companyName,
+          subtitle: canSettleFleet
+            ? `NIU ${f.taxId} · Balance ${formatFcfa(f.balanceOwedFcfa)} / Limit ${formatFcfa(f.creditLimitFcfa)}`
+            : `Corporate Fleet Account · Status ${f.status}`,
+          section: 'fleet',
+        });
+      }
+      for (const i of shopItems) {
+        items.push({
+          id: `sku-${i.id}`,
+          category: 'SHOP SKU',
+          title: `${i.sku} — ${i.name}`,
+          subtitle: `${i.category} · Stock ${i.stockQty} · ${formatFcfa(i.unitPriceFcfa)}`,
+          section: 'fleet',
+        });
+      }
     }
-    for (const f of fleetAccounts) {
-      items.push({
-        id: `fleet-${f.id}`,
-        category: 'FLEET',
-        title: f.companyName,
-        subtitle: `NIU ${f.taxId} · Balance ${formatFcfa(f.balanceOwedFcfa)} / Limit ${formatFcfa(f.creditLimitFcfa)}`,
-        section: 'fleet',
-      });
-    }
-    for (const i of shopItems) {
-      items.push({
-        id: `sku-${i.id}`,
-        category: 'SHOP SKU',
-        title: `${i.sku} — ${i.name}`,
-        subtitle: `${i.category} · Stock ${i.stockQty} · ${formatFcfa(i.unitPriceFcfa)}`,
-        section: 'fleet',
-      });
-    }
-    for (const po of purchaseOrders) {
-      items.push({
-        id: `po-${po.id}`,
-        category: 'PO',
-        title: `${po.id} · ${po.supplierName}`,
-        subtitle: `${po.grade} · ${formatLitres(po.orderedLitres)} · ${po.status}`,
-        section: 'inventory',
-      });
-    }
-    for (const j of journals.slice(0, 30)) {
-      items.push({
-        id: `jr-${j.id}`,
-        category: 'JOURNAL',
-        title: `${j.reference} — ${j.description}`,
-        subtitle: `${j.sourceEvent} · ${j.lines.length} double-entry lines`,
-        section: 'accounting',
-      });
+    if (canAccessSection(role, 'accounting')) {
+      for (const j of journals.slice(0, 30)) {
+        items.push({
+          id: `jr-${j.id}`,
+          category: 'JOURNAL',
+          title: `${j.reference} — ${j.description}`,
+          subtitle: `${j.sourceEvent} · ${j.lines.length} double-entry lines`,
+          section: 'accounting',
+        });
+      }
     }
     return items;
-  }, [employees, fleetAccounts, journals, pumps, purchaseOrders, shifts, shopItems, tanks]);
+  }, [canSettleFleet, canViewPayroll, employees, fleetAccounts, journals, pumps, purchaseOrders, role, shifts, shopItems, tanks]);
 
   if (!open) return null;
 
@@ -163,6 +184,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     : index.slice(0, 12);
 
   const exportAuditJson = () => {
+    if (!canExportAuditEvidence) return;
     const payload = {
       exportedAt: new Date().toISOString(),
       organizationName,
@@ -202,7 +224,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search shifts, pumps, tanks, employees, fleet NIU, POs, or journal vouchers..."
+            placeholder={
+              role === 'ATTENDANT'
+                ? 'Search assigned pumps, shifts, fleet plates, or shop SKUs...'
+                : 'Search authorized pumps, tanks, shifts, employees, fleet NIU, POs, or journals...'
+            }
             className="w-full text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
           />
           <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700" aria-label="Close global search">
@@ -235,43 +261,45 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           ))}
           {matches.length === 0 && (
             <div className="px-4 py-8 text-center text-xs text-slate-500">
-              No station records matched &ldquo;{query}&rdquo;.
+              No authorized station records matched &ldquo;{query}&rdquo;.
             </div>
           )}
         </div>
 
         <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-slate-500 font-mono">M56 Universal Search &amp; Audit Evidence</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                printAuditEvidencePackPdf({
-                  organizationName,
-                  stationScope,
-                  summaryRows: [
-                    ['Total Fuel & Shop Revenue', formatFcfa(report.totalRevenueFcfa)],
-                    ['Net Profit (Current Period)', formatFcfa(report.netIncomeFcfa)],
-                    ['VAT Payable (19.25%)', formatFcfa(report.vatPayableFcfa)],
-                    ['Trial Balance Integrity', report.trialBalanceBalanced ? 'BALANCED' : 'REVIEW'],
-                    ['Indexed Pumps / Tanks / Shifts', `${pumps.length} / ${tanks.length} / ${shifts.length}`],
-                    ['Immutable Audit Log Entries', String(auditLogs.length)],
-                  ],
-                  recentAuditLogs: auditLogs,
-                })
-              }
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-[#0F172A] hover:bg-slate-800 text-white text-[11px] font-semibold"
-            >
-              <FileText className="w-3 h-3 text-amber-400" /> Audit Evidence PDF
-            </button>
-            <button
-              type="button"
-              onClick={exportAuditJson}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
-            >
-              <Download className="w-3 h-3" /> Evidence JSON
-            </button>
-          </div>
+          <span className="text-slate-500 font-mono">RBAC-Scoped Search · Role: {role}</span>
+          {canExportAuditEvidence && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  printAuditEvidencePackPdf({
+                    organizationName,
+                    stationScope,
+                    summaryRows: [
+                      ['Total Fuel & Shop Revenue', formatFcfa(report.totalRevenueFcfa)],
+                      ['Net Profit (Current Period)', formatFcfa(report.netIncomeFcfa)],
+                      ['VAT Payable (19.25%)', formatFcfa(report.vatPayableFcfa)],
+                      ['Trial Balance Integrity', report.trialBalanceBalanced ? 'BALANCED' : 'REVIEW'],
+                      ['Indexed Pumps / Tanks / Shifts', `${pumps.length} / ${tanks.length} / ${shifts.length}`],
+                      ['Immutable Audit Log Entries', String(auditLogs.length)],
+                    ],
+                    recentAuditLogs: auditLogs,
+                  })
+                }
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-[#0F172A] hover:bg-slate-800 text-white text-[11px] font-semibold"
+              >
+                <FileText className="w-3 h-3 text-amber-400" /> Audit Evidence PDF
+              </button>
+              <button
+                type="button"
+                onClick={exportAuditJson}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-[11px] font-semibold"
+              >
+                <Download className="w-3 h-3" /> Evidence JSON
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

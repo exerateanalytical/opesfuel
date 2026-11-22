@@ -28,7 +28,9 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
   const [invoices, setInvoices] = useState<Array<Record<string, unknown>>>([]);
   const [invites, setInvites] = useState<Array<Record<string, unknown>>>([]);
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
+  const [momoTxns, setMomoTxns] = useState<Array<Record<string, unknown>>>([]);
   const [loading, setLoading] = useState(false);
+  const canManageBilling = role === 'OWNER' || role === 'PLATFORM_ADMIN';
 
   const [periodLabel, setPeriodLabel] = useState(() => new Date().toISOString().slice(0, 7));
 
@@ -56,16 +58,23 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, invRes, staffInvRes, meRes] = await Promise.all([
+      const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').replace(/\/+$/, '');
+      const [sumRes, invRes, staffInvRes, meRes, momoRes] = await Promise.all([
         engine.fetchBillingSummary().catch(() => null),
         engine.listBillingInvoices().catch(() => []),
         engine.listStaffInvites().catch(() => []),
         engine.fetchAuthenticatedProfile().catch(() => null),
+        apiBase
+          ? fetch(`${apiBase}/api/v1/payments/momo`)
+              .then((r) => (r.ok ? r.json() : []))
+              .catch(() => [])
+          : Promise.resolve([]),
       ]);
       setSummary(sumRes);
       setInvoices(Array.isArray(invRes) ? invRes : []);
       setInvites(Array.isArray(staffInvRes) ? staffInvRes : []);
       setProfile(meRes);
+      setMomoTxns(Array.isArray(momoRes) ? (momoRes as Array<Record<string, unknown>>) : []);
     } finally {
       setLoading(false);
     }
@@ -235,7 +244,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
               onChange={(e) => setPeriodLabel(e.target.value)}
               className="px-2.5 py-2 rounded-lg border border-slate-300 text-xs font-mono bg-white"
             />
-            {role === 'OWNER' && (
+            {canManageBilling && (
               <button
                 type="button"
                 onClick={() => void handleGenerateInvoice()}
@@ -360,7 +369,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                           >
                             <Printer className="w-3 h-3" /> PDF
                           </button>
-                          {remaining > 0 && role === 'OWNER' && (
+                          {remaining > 0 && canManageBilling && (
                             <>
                               <button
                                 type="button"
@@ -400,6 +409,87 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
         </div>
       </div>
 
+      {/* Cameroon MTN MoMo & Orange Money Settlement Ledger */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-amber-600" />
+              Cameroon MTN MoMo &amp; Orange Money Transaction Ledger
+            </h3>
+            <p className="text-xs text-slate-500">
+              Real-time gateway collection &amp; WebPay audit trail from <span className="font-mono">GET /api/v1/payments/momo</span>.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadAll()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Sync Gateway Log
+          </button>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr>
+                <th className="px-4 py-2.5">Reference</th>
+                <th className="px-4 py-2.5">Provider</th>
+                <th className="px-4 py-2.5">Payer MSISDN</th>
+                <th className="px-4 py-2.5">Target</th>
+                <th className="px-4 py-2.5 text-right">Amount (XAF)</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">Created</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {momoTxns.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-5 text-center text-slate-500">
+                    No MTN MoMo or Orange Money transactions recorded yet. Initiate a payment on any invoice above or configure live credentials in Tab 4 (API &amp; Payment Gateways).
+                  </td>
+                </tr>
+              ) : (
+                momoTxns.slice(0, 20).map((tx, idx) => {
+                  const st = String(tx.status ?? 'PENDING');
+                  return (
+                    <tr key={String(tx.id ?? tx.externalReference ?? idx)} className="hover:bg-slate-50">
+                      <td className="px-4 py-2.5 font-mono font-semibold text-slate-900">
+                        {String(tx.externalReference ?? tx.id ?? '-')}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-slate-700">{String(tx.provider ?? '-')}</td>
+                      <td className="px-4 py-2.5 font-mono text-slate-700">{String(tx.payerMsisdn ?? '-')}</td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        {String(tx.targetType ?? 'SAAS_INVOICE')} · <span className="font-mono">{String(tx.targetId ?? '-')}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-950">
+                        {formatFcfa(Number(tx.amountXaf ?? tx.amountFcfa ?? 0))}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                            st === 'SUCCESSFUL'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : st === 'FAILED' || st === 'EXPIRED'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {st}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-slate-500">
+                        {tx.createdAt ? formatShortDate(String(tx.createdAt)) : '-'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Team Invitations & Authenticated Identity Profile */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
@@ -410,7 +500,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                 Staff Invitations &amp; Account Linking
               </h3>
               <p className="text-xs text-slate-500">
-                Issue 7-day invitation tokens to onboard station managers, attendants, and accountants.
+                Issue 7-day invitation tokens to onboard holding CFOs, station managers, attendants, and accountants.
               </p>
             </div>
             <button
@@ -673,6 +763,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
                 <option value="MANAGER">Station Manager</option>
                 <option value="ATTENDANT">Forecourt Attendant</option>
                 <option value="ACCOUNTANT">Chief Accountant</option>
+                <option value="GROUP_CFO">Holding Group CFO</option>
                 <option value="OWNER">Network Owner</option>
               </select>
             </div>

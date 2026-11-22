@@ -22,7 +22,7 @@ export const WorkforcePayrollPanel: React.FC<WorkforcePayrollPanelProps> = ({
   employees,
   onNotify,
 }) => {
-  const canRunPayroll = role === 'OWNER' || role === 'ACCOUNTANT' || role === 'MANAGER';
+  const canRunPayroll = role === 'OWNER' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN';
   const [payrollModalOpen, setPayrollModalOpen] = useState(false);
   const [periodLabel, setPeriodLabel] = useState(() => new Date().toISOString().slice(0, 7));
   const [paymentSource, setPaymentSource] = useState<'CASH_SAFE' | 'BANK'>('BANK');

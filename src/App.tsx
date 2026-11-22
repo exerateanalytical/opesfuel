@@ -267,12 +267,14 @@ export default function App() {
     }
   }, [mode, publicPage, consoleSection]);
 
-  // Keep activeStationId valid if stations are deleted or tenant workspace is reset
+  // Keep activeStationId valid and enforce single-station scoping for ATTENDANT / MANAGER
+  const canQueryAllStations =
+    role === 'PLATFORM_ADMIN' || role === 'GROUP_CFO' || role === 'OWNER' || role === 'ACCOUNTANT';
   const effectiveActiveStationId = useMemo(() => {
-    if (activeStationId === 'ALL') return 'ALL';
-    if (store.stations.some((s) => s.id === activeStationId)) return activeStationId;
+    if (activeStationId === 'ALL' && canQueryAllStations) return 'ALL';
+    if (activeStationId !== 'ALL' && store.stations.some((s) => s.id === activeStationId)) return activeStationId;
     return store.stations[0]?.id ?? 'ALL';
-  }, [activeStationId, store.stations]);
+  }, [activeStationId, canQueryAllStations, store.stations]);
 
   const defaultStationId = store.stations[0]?.id ?? 'st_plateau';
 
@@ -383,6 +385,18 @@ export default function App() {
     }
   }, [mode, authSession]);
 
+  // Strict RBAC route guard: prevent direct hash navigation to forbidden sections
+  useEffect(() => {
+    if (mode === 'console' && !canAccessSection(role, consoleSection)) {
+      const fallback: ConsoleSection = role === 'PLATFORM_ADMIN' ? 'platform-admin' : 'overview';
+      setConsoleSection(fallback);
+      setToast({
+        type: 'error',
+        message: `Access denied for role ${role}: "${consoleSection}" is restricted.`,
+      });
+    }
+  }, [mode, role, consoleSection]);
+
   // Auto-dismiss success toasts after 5 seconds (keep error toasts visible until dismissed)
   useEffect(() => {
     if (!toast || toast.type !== 'success') return;
@@ -431,14 +445,22 @@ export default function App() {
         setMode(parsed.mode);
       }
       setPublicPage(parsed.publicPage);
-      setConsoleSection(parsed.consoleSection);
+      if (parsed.mode === 'console' && !canAccessSection(role, parsed.consoleSection)) {
+        setConsoleSection(role === 'PLATFORM_ADMIN' ? 'platform-admin' : 'overview');
+        setToast({
+          type: 'error',
+          message: `Access denied for role ${role}: "${parsed.consoleSection}" is restricted.`,
+        });
+      } else {
+        setConsoleSection(parsed.consoleSection);
+      }
       setPendingInviteToken(parsed.inviteToken);
       setVerifyCode(parsed.verifyCode);
       setLoyaltyToken(parsed.loyaltyToken);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, [authSession]);
+  }, [authSession, role]);
 
   const report = useMemo(
     () => computeFinancialReports(store, effectiveActiveStationId),
@@ -866,7 +888,8 @@ export default function App() {
         />
       )}
 
-      {consoleSection === 'forecourt' && (
+      {consoleSection === 'forecourt' && canAccessSection(role, 'forecourt') && (
+        <div className="space-y-6">
         <ForecourtSection
           role={role}
           stationId={effectiveActiveStationId}
@@ -930,9 +953,37 @@ export default function App() {
             />
           }
         />
+        {role === 'MANAGER' && (
+          <CashVaultPanel
+            stationId={scopedStationId}
+            stationName={scopedStationName}
+            entries={extOps.vaultEntries}
+            canRecord
+            onRecordEntry={(entry) => {
+              const prevBal = extOps.vaultEntries[0]?.runningBalanceFcfa ?? 0;
+              const delta =
+                entry.entryType === 'SHIFT_DROP'
+                  ? entry.amountFcfa
+                  : entry.entryType === 'MANAGER_HANDOVER'
+                  ? 0
+                  : -entry.amountFcfa;
+              const rec = {
+                ...entry,
+                id: `vlt_${Date.now().toString(36)}`,
+                runningBalanceFcfa: Math.max(0, prevBal + delta),
+                recordedAt: new Date().toISOString(),
+              };
+              setExtOps((prev) => ({ ...prev, vaultEntries: [rec, ...prev.vaultEntries] }));
+              void postOptionalBackend('/api/v1/accounting/vault/entries', 'POST', entry as unknown as Record<string, unknown>);
+              appendAudit('VAULT_MOVEMENT', 'CASH_VAULT', rec.id, `${entry.entryType} of ${entry.amountFcfa} FCFA`, entry.stationId);
+              notify('success', `Recorded ${entry.entryType.replace(/_/g, ' ')} in Station Cash Safe.`);
+            }}
+          />
+        )}
+        </div>
       )}
 
-      {consoleSection === 'inventory' && (
+      {consoleSection === 'inventory' && canAccessSection(role, 'inventory') && (
         <div className="space-y-6">
           <InventorySection
             engine={engineRef.current}
@@ -1012,7 +1063,7 @@ export default function App() {
         </div>
       )}
 
-      {consoleSection === 'fleet' && (
+      {consoleSection === 'fleet' && canAccessSection(role, 'fleet') && (
         <FleetShopSection
           engine={engineRef.current}
           role={role}
@@ -1073,7 +1124,7 @@ export default function App() {
         />
       )}
 
-      {consoleSection === 'workforce' && (
+      {consoleSection === 'workforce' && canAccessSection(role, 'workforce') && (
         <WorkforceSection
           engine={engineRef.current}
           role={role}
@@ -1170,7 +1221,7 @@ export default function App() {
         />
       )}
 
-      {consoleSection === 'accounting' && (
+      {consoleSection === 'accounting' && canAccessSection(role, 'accounting') && (
         <AccountingSection
           engine={engineRef.current}
           role={role}
@@ -1212,7 +1263,7 @@ export default function App() {
                 stationId={scopedStationId}
                 stationName={scopedStationName}
                 entries={extOps.vaultEntries}
-                canRecord={role === 'OWNER' || role === 'MANAGER' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN'}
+                canRecord={role === 'OWNER' || role === 'ACCOUNTANT' || role === 'GROUP_CFO' || role === 'PLATFORM_ADMIN'}
                 onRecordEntry={(entry) => {
                   const prevBal = extOps.vaultEntries[0]?.runningBalanceFcfa ?? 0;
                   const delta =
@@ -1276,17 +1327,19 @@ export default function App() {
                   notify('success', `Approval request ${status.toLowerCase()}.`);
                 }}
               />
-              <HoldingConsolidationPanel
-                role={role}
-                onPostBackend={postOptionalBackend}
-                onNotify={notify}
-              />
+              {(role === 'PLATFORM_ADMIN' || role === 'GROUP_CFO' || role === 'OWNER' || role === 'ACCOUNTANT') && (
+                <HoldingConsolidationPanel
+                  role={role}
+                  onPostBackend={postOptionalBackend}
+                  onNotify={notify}
+                />
+              )}
             </div>
           }
         />
       )}
 
-      {consoleSection === 'hse-fraud' && (
+      {consoleSection === 'hse-fraud' && canAccessSection(role, 'hse-fraud') && (
         <HseFraudQcSection
           role={role}
           stationId={scopedStationId}
@@ -1357,7 +1410,7 @@ export default function App() {
         />
       )}
 
-      {consoleSection === 'enterprise-ops' && (
+      {consoleSection === 'enterprise-ops' && canAccessSection(role, 'enterprise-ops') && (
         <EnterpriseOperationsSection
           role={role}
           stationId={scopedStationId}
@@ -1452,7 +1505,7 @@ export default function App() {
           }
         />
       )}
-      {consoleSection === 'enterprise-ops' && (
+      {consoleSection === 'enterprise-ops' && canAccessSection(role, 'enterprise-ops') && (
         <div className="space-y-6 mt-6">
           <MaintenanceCmmsPanel
             role={role}
@@ -1470,7 +1523,7 @@ export default function App() {
         </div>
       )}
 
-      {consoleSection === 'ai-assistant' && (
+      {consoleSection === 'ai-assistant' && canAccessSection(role, 'ai-assistant') && (
         <AiAssistantSection
           engine={engineRef.current}
           accessToken={authSession?.accessToken ?? null}
@@ -1497,7 +1550,7 @@ export default function App() {
         />
       )}
 
-      {consoleSection === 'mobile-app' && (
+      {consoleSection === 'mobile-app' && canAccessSection(role, 'mobile-app') && (
         <MobileAppShowcase
           stations={store.stations}
           activeStationId={effectiveActiveStationId}
@@ -1555,7 +1608,7 @@ export default function App() {
         />
       )}
 
-      {consoleSection === 'api-platform' && (
+      {consoleSection === 'api-platform' && canAccessSection(role, 'api-platform') && (
         <div className="space-y-6">
           <ApiPlatformSection
             engine={engineRef.current}
@@ -1605,7 +1658,7 @@ export default function App() {
         </div>
       )}
 
-      {consoleSection === 'admin' && (
+      {consoleSection === 'admin' && canAccessSection(role, 'admin') && (
         <AdminBillingSection
           engine={engineRef.current}
           tenant={store.tenant}
@@ -1763,6 +1816,7 @@ export default function App() {
       <GlobalSearchModal
         open={globalSearchOpen}
         onClose={() => setGlobalSearchOpen(false)}
+        role={role}
         organizationName={store.tenant.organizationName}
         stationScope={scopedStationName}
         pumps={store.pumps}

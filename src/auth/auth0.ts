@@ -103,7 +103,11 @@ export function canAccessSection(role: UserRole, section: ConsoleSection): boole
     case 'OWNER':
       return true;
     case 'MANAGER':
-      return section !== 'api-platform' && section !== 'admin';
+      return (
+        section !== 'api-platform' &&
+        section !== 'admin' &&
+        section !== 'accounting'
+      );
     case 'ATTENDANT':
       return (
         section === 'overview' ||
@@ -131,6 +135,8 @@ export function canPerformAction(
     | 'RECORD_DELIVERY'
     | 'RECORD_DIPSTICK'
     | 'MANAGE_EMPLOYEES'
+    | 'RUN_PAYROLL'
+    | 'VIEW_FINANCIALS'
     | 'SETTLE_FLEET'
     | 'RECORD_EXPENSE_DEPOSIT'
     | 'MANAGE_API_PLATFORM'
@@ -145,6 +151,10 @@ export function canPerformAction(
     case 'MANAGE_STATIONS_PRICES':
     case 'MANAGE_API_PLATFORM':
       return role === 'OWNER';
+    case 'RUN_PAYROLL':
+      return role === 'OWNER' || role === 'ACCOUNTANT';
+    case 'VIEW_FINANCIALS':
+      return role === 'OWNER' || role === 'ACCOUNTANT' || role === 'GROUP_CFO';
     case 'MANAGE_COMPANY_BRANDING':
     case 'MANAGE_AI_ADDON':
     case 'RECORD_DELIVERY':
