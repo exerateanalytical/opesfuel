@@ -1202,6 +1202,11 @@ class OpesFuelBackendIntegrationTests {
                 jdbcTemplate.execute(trimmed);
             }
         }
+        // The in-memory H2 database is shared by every test class; start this scenario from a clean HSE table.
+        for (String t : new String[]{"hse_records", "service_bay_tickets", "loyalty_vouchers", "bulk_wholesale_orders",
+                "fixed_assets", "ev_utility_readings", "franchise_agreements"}) {
+            jdbcTemplate.update("DELETE FROM " + t);
+        }
 
         // M38: HSE Safety Record
         mockMvc.perform(post("/api/v1/enterprise/hse-records")
