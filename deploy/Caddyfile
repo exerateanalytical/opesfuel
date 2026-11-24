@@ -46,3 +46,16 @@
 
   reverse_proxy opesfuel-mcp:8787
 }
+
+{$OPESFUEL_DEMO_DOMAIN:demo.opesfuel.com} {
+  encode zstd gzip
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    -Server
+  }
+
+  reverse_proxy opesfuel-demo:3000
+}

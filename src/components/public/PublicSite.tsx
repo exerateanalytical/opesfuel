@@ -12,6 +12,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { SUBSCRIPTION_PLANS } from '../../api/opesfuelClient';
+import { isAuth0Configured, startAuth0Login } from '../../auth/auth0';
 import { formatFcfa } from '../../domain/formatters';
 import {
   AiSubscriptionState,
@@ -313,7 +314,14 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
           <div className="flex flex-wrap gap-3 pt-2">
             <button
               type="button"
-              onClick={onOpenConsole}
+              onClick={() => {
+                const demoUrl = (import.meta.env.VITE_DEMO_URL as string | undefined)?.trim();
+                if (demoUrl) {
+                  window.open(demoUrl, '_blank', 'noopener');
+                } else {
+                  onOpenConsole();
+                }
+              }}
               className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold"
             >
               Try Live Station Workspace <ArrowRight className="w-4 h-4" />
@@ -713,43 +721,49 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-10">
         <div className="space-y-3">
-          <div className="text-sm font-semibold text-amber-700">Book a Live Demo &amp; Station Setup</div>
+          <div className="text-sm font-semibold text-amber-700">Start your 14-day free trial</div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
             Let’s get your petrol station running on OpesFuel.
           </h1>
           <p className="text-base text-slate-600">
-            Tell us a little about your station and pump count. Our onboarding team will walk you through a live
-            demo and help you go live in under 48 hours—or reach us directly at{' '}
+            Tell us about your station and your workspace is created instantly—no card needed. Want to look around
+            first? Try the live demo. Questions? Reach us at{' '}
             <span className="font-mono text-slate-900">info@opesware.com</span>.
           </p>
         </div>
 
         {leadReceipt ? (
           <div className="bg-white border border-emerald-200 rounded-xl p-8 space-y-4">
-            <div className="text-sm font-semibold text-emerald-800">Demo Request Received</div>
+            <div className="text-sm font-semibold text-emerald-800">Your workspace is ready</div>
             <h2 className="font-display text-2xl font-bold text-slate-900">
-              Thank you, {leadForm.fullName}. Your reference is{' '}
-              <span className="font-mono text-emerald-700">{leadReceipt}</span>.
+              Welcome, {leadForm.fullName}. Your 14-day free trial has started.
             </h2>
             <p className="text-sm text-slate-700">
-              Our station onboarding team will contact you shortly regarding{' '}
-              <span className="font-semibold">{leadForm.stationName}</span> ({leadForm.pumpCount} pumps) on the{' '}
-              <span className="font-semibold">{leadForm.selectedPlan}</span> plan.
+              <span className="font-semibold">{leadForm.stationName}</span> has been created. Create your password and
+              verify <span className="font-semibold">{leadForm.email.trim()}</span> to sign in—use exactly this email so
+              your workspace opens. Reference:{' '}
+              <span className="font-mono text-emerald-700">{leadReceipt}</span>.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="button"
-                onClick={onOpenConsole}
+                onClick={() => {
+                  if (isAuth0Configured) {
+                    void startAuth0Login({ screenHint: 'signup', returnHash: '#/app/overview' });
+                  } else {
+                    onOpenConsole();
+                  }
+                }}
                 className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold"
               >
-                Explore Live Station Workspace Now
+                Create password &amp; open my workspace
               </button>
               <button
                 type="button"
                 onClick={() => setLeadReceipt(null)}
                 className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium"
               >
-                Submit Another Request
+                Register another station
               </button>
             </div>
           </div>
@@ -833,7 +847,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               disabled={leadSubmitting}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
             >
-              {leadSubmitting ? 'Sending Request…' : 'Request Live Demo & Onboarding'}
+              {leadSubmitting ? 'Creating your workspace…' : 'Start my free 14-day trial'}
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

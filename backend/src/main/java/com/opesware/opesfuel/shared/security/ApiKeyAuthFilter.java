@@ -51,7 +51,8 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
                 ),
                 keyHash
             );
-            if (!matches.isEmpty()) {
+            // An API key without a tenant is never trusted (it must not silently inherit another company's data).
+            if (!matches.isEmpty() && matches.get(0).tenantId() != null && !matches.get(0).tenantId().isBlank()) {
                 ApiKeyRow row = matches.get(0);
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
                 Set<String> scopes = new HashSet<>();
@@ -64,7 +65,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
                 }
                 OpesFuelPrincipal principal = new OpesFuelPrincipal(
                     "api-key:" + row.id(),
-                    row.tenantId() != null ? row.tenantId() : TenantAccessGuard.DEFAULT_TENANT_ID,
+                    row.tenantId(),
                     null,
                     Set.of(),
                     Set.copyOf(scopes),
