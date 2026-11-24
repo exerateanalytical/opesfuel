@@ -107,3 +107,24 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  mobile-logic:
+    name: Mobile app logic (Node 22 · 15 unit tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install test runner only (the tests need no Expo packages)
+        run: npm install --no-save --no-package-lock tsx@4.19.2
+
+      - name: Run tests
+        run: npx tsx --tsconfig test/tsconfig.json --test test/*.test.ts

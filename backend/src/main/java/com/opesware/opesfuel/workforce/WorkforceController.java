@@ -288,6 +288,24 @@ class WorkforceService implements WorkforceQueryApi {
         });
     }
 
+    /** The caller's own employee profile (no salary data). Used by the mobile app to open/close the caller's own shifts. */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getMyProfile() {
+        String sub = accessGuard.currentPrincipal().auth0Sub();
+        EmployeeEntity emp = repository.findFirstByAuth0Sub(sub == null ? "" : sub)
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                HttpStatus.NOT_FOUND, "No employee record is linked to this login."));
+        stationCatalogApi.requireAccessibleStation(emp.getStationId());
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("id", emp.getId());
+        out.put("stationId", emp.getStationId());
+        out.put("fullName", emp.getFullName());
+        out.put("role", emp.getRole());
+        out.put("clockedIn", emp.isClockedIn());
+        out.put("shiftWindow", emp.getShiftWindow());
+        return out;
+    }
+
     @Transactional(readOnly = true)
     public List<EmployeeEntity> listEmployees(String stationId) {
         List<String> stationIds = stationCatalogApi.resolveAuthorizedStationIds(stationId);
@@ -489,6 +507,12 @@ public class WorkforceController {
 
     public WorkforceController(WorkforceService service) {
         this.service = service;
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public java.util.Map<String, Object> myEmployeeProfile() {
+        return service.getMyProfile();
     }
 
     @GetMapping("/employees")
