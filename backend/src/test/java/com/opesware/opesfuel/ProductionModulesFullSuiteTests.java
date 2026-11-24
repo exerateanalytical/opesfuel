@@ -52,8 +52,13 @@ class ProductionModulesFullSuiteTests {
             }
         }
         jdbcTemplate.update("""
-            MERGE INTO stations (id, tenant_id, code, name, city, currency, plan_name, monthly_fee_fcfa, created_at)
-            KEY(id) VALUES ('st_plateau', 'ten_opes_cm', 'DLA-01', 'Bonanjo Flagship', 'Douala', 'FCFA', 'Pro', 50000, CURRENT_TIMESTAMP)
+            MERGE INTO stations (id, tenant_id, code, name, city, currency, plan_name, monthly_fee_fcfa, vat_rate, timezone, created_at)
+            KEY(id) VALUES ('st_plateau', 'ten_opes_cm', 'DLA-01', 'Bonanjo Flagship', 'Douala', 'FCFA', 'Pro', 50000, 0.1925, 'Africa/Douala', CURRENT_TIMESTAMP)
+            """);
+        // Fleet voucher sales draw from a GASOIL tank at this station
+        jdbcTemplate.update("""
+            MERGE INTO fuel_tanks (id, station_id, name, grade, capacity_litres, book_volume_litres, last_dip_litres, unit_cost_fcfa, version)
+            KEY(id) VALUES ('tk_pm_gasoil', 'st_plateau', 'Underground Tank (Gasoil)', 'GASOIL', 40000.00, 30000.00, 30000.00, 600, 0)
             """);
     }
 

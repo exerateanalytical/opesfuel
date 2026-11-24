@@ -69,6 +69,7 @@ services:
       OPESFUEL_ORANGE_NOTIF_URL: ${OPESFUEL_ORANGE_NOTIF_URL:-}
       OPESFUEL_PAYMENT_WEBHOOK_SECRET: ${OPESFUEL_PAYMENT_WEBHOOK_SECRET:-}
       OPESFUEL_PAYMENT_CHECKOUT_BASE_URL: ${OPESFUEL_PAYMENT_CHECKOUT_BASE_URL:-https://pay.opesfuel.com/checkout}
+      OPESFUEL_AUTH0_ACTION_SECRET: ${OPESFUEL_AUTH0_ACTION_SECRET:-}
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:
@@ -107,6 +108,31 @@ services:
       opesfuel-backend:
         condition: service_healthy
 
+  opesfuel-mcp:
+    build:
+      context: ./mcp
+      dockerfile: Dockerfile
+    profiles: ["mcp"]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      OPESFUEL_API_BASE: http://opesfuel-backend:8080
+      AUTH0_ISSUER_URI: ${AUTH0_ISSUER_URI:?AUTH0_ISSUER_URI is required}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-https://mcp.opesfuel.com}
+      MCP_ENABLE_WRITES: ${MCP_ENABLE_WRITES:-false}
+    ports:
+      - "127.0.0.1:8787:8787"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8787/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      opesfuel-backend:
+        condition: service_healthy
+
   caddy:
     image: caddy:2-alpine
     profiles: ["tls"]
@@ -114,6 +140,7 @@ services:
     environment:
       OPESFUEL_DOMAIN: ${OPESFUEL_DOMAIN:-app.opesfuel.com}
       OPESFUEL_API_DOMAIN: ${OPESFUEL_API_DOMAIN:-api.opesfuel.com}
+      OPESFUEL_MCP_DOMAIN: ${OPESFUEL_MCP_DOMAIN:-mcp.opesfuel.com}
     ports:
       - "80:80"
       - "443:443"

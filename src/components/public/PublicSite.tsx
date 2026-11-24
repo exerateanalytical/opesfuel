@@ -183,22 +183,30 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
 
     try {
       if (apiBase) {
-        const res = await fetch(`${apiBase}/api/v1/public/leads`, {
+        const res = await fetch(`${apiBase}/api/v1/public/auth/signup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            companyName: payload.stationName,
+            ownerName: payload.fullName,
+            email: payload.email,
+            phone: payload.phone,
+            website: '',
+          }),
         });
         if (!res.ok) {
           const errText = await res.text();
           throw new Error(
             res.status === 429
-              ? 'Too many requests from this network. Please wait a minute and try again.'
-              : `Unable to submit request (${res.status}): ${errText.slice(0, 140)}`
+              ? 'Too many requests from this network. Please wait a while and try again.'
+              : res.status === 409
+                ? 'An account already exists for this email. Please sign in instead.'
+                : `Unable to create your workspace (${res.status}): ${errText.slice(0, 140)}`
           );
         }
-        const data = (await res.json()) as { referenceId?: string };
-        if (data.referenceId) {
-          refId = data.referenceId;
+        const data = (await res.json()) as { tenantId?: string };
+        if (data.tenantId) {
+          refId = data.tenantId;
         }
       }
       onLeadSubmitted?.({ referenceId: refId, ...payload });

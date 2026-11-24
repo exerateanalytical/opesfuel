@@ -1,5 +1,6 @@
 package com.opesware.opesfuel.shared.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -16,6 +17,13 @@ import java.util.Set;
 public class TenantAccessGuard {
 
     public static final String DEFAULT_TENANT_ID = "ten_opes_cm";
+
+    /**
+     * Production default is FALSE (fail closed): a token without the tenant_id claim is rejected
+     * instead of silently landing in the demo tenant. Only the test profile turns this on.
+     */
+    @Value("${opesfuel.security.allow-default-tenant-fallback:false}")
+    private boolean allowDefaultTenantFallback;
 
     public OpesFuelPrincipal currentPrincipal() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -38,7 +46,7 @@ public class TenantAccessGuard {
                 scopes.add(a.substring("SCOPE_".length()));
             }
         }
-        String tenantId = DEFAULT_TENANT_ID;
+        String tenantId = null;
         String auth0Sub = auth.getName();
         Set<String> stationIds = Collections.emptySet();
         if (auth.getPrincipal() instanceof Jwt jwt) {
@@ -51,6 +59,12 @@ public class TenantAccessGuard {
             if (claimStations != null && !claimStations.isEmpty()) {
                 stationIds = Set.copyOf(claimStations);
             }
+        }
+        if (tenantId == null) {
+            if (!allowDefaultTenantFallback) {
+                throw new AccessDeniedException("Token carries no tenant_id claim; access denied.");
+            }
+            tenantId = DEFAULT_TENANT_ID;
         }
         return new OpesFuelPrincipal(
             auth.getName() != null ? auth.getName() : "unknown",
