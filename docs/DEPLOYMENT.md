@@ -41,7 +41,7 @@ Manual checks:
 Restore the database only if data was corrupted: `deploy/restore-postgres.sh`.
 
 ## 5. Known open items
-- One order-dependent test (`ProductionModulesFullSuiteTests`) fails in the full run; it never ran before this release.
-- Full suite was verified on Java 21 locally; CI runs Java 25.
+- Full backend suite (81 tests) passes on Java 21 locally; confirm once on Java 25 (CI or your build host).
+- GitHub Actions is blocked by an account spending limit ("Actions budget is preventing further use"): fix under GitHub > Settings > Billing > Budgets, otherwise CI cannot run.
 - Email squatting on self-signup (someone registers another person's email first) needs a support release path.
 - Several background paths still use `ten_opes_cm` as a fallback tenant (support tickets, alert notifications, webhook events).
