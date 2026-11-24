@@ -38,8 +38,18 @@ public class SecurityConfig {
     @Value("${opesfuel.idempotency.ttl-hours:24}")
     private long idempotencyTtlHours;
 
+    @Value("${opesfuel.demo.tenant-id:ten_opes_cm}")
+    private String demoTenantId;
+
+    @Value("${opesfuel.demo.read-only:true}")
+    private boolean demoReadOnly;
+
+    @Value("${opesfuel.billing.enforce-trial-lock:true}")
+    private boolean enforceTrialLock;
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JdbcTemplate jdbcTemplate) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JdbcTemplate jdbcTemplate, TenantAccessGuard tenantAccessGuard) throws Exception {
+        TenantPolicyFilter tenantPolicyFilter = new TenantPolicyFilter(jdbcTemplate, tenantAccessGuard, demoTenantId, demoReadOnly, enforceTrialLock);
         ApiKeyAuthFilter apiKeyAuthFilter = new ApiKeyAuthFilter(jdbcTemplate);
         FleetPortalAuthFilter fleetPortalAuthFilter = new FleetPortalAuthFilter(jdbcTemplate);
         IdempotencyFilter idempotencyFilter = new IdempotencyFilter(jdbcTemplate, idempotencyTtlHours);
@@ -73,6 +83,7 @@ public class SecurityConfig {
             )
             .addFilterBefore(apiKeyAuthFilter, BearerTokenAuthenticationFilter.class)
             .addFilterBefore(fleetPortalAuthFilter, BearerTokenAuthenticationFilter.class)
+            .addFilterAfter(tenantPolicyFilter, BearerTokenAuthenticationFilter.class)
             .addFilterAfter(idempotencyFilter, BearerTokenAuthenticationFilter.class)
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(auth0RoleConverter()))

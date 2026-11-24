@@ -48,6 +48,13 @@ springdoc:
     path: /api/v1/docs
 
 opesfuel:
+  demo:
+    # Public walkthrough workspace: browse-only for everyone except PLATFORM_ADMIN.
+    tenant-id: ${OPESFUEL_DEMO_TENANT_ID:ten_opes_cm}
+    read-only: ${OPESFUEL_DEMO_READ_ONLY:true}
+  billing:
+    # Expired trial / restricted billing => read-only (HTTP 402); SUSPENDED => blocked.
+    enforce-trial-lock: ${OPESFUEL_ENFORCE_TRIAL_LOCK:true}
   currency: FCFA
   starting-monthly-fee-fcfa: 25000
   tax:
@@ -70,6 +77,8 @@ opesfuel:
   leads:
     rate-limit-per-minute: 20
   security:
+    # Fail closed: a login without a tenant_id claim is rejected (never defaults to the demo tenant).
+    allow-default-tenant-fallback: ${OPESFUEL_ALLOW_DEFAULT_TENANT_FALLBACK:false}
     encryption-key: ${OPESFUEL_ENCRYPTION_KEY:dev-only-opesfuel-32-byte-secret-key-change-me}
   notifications:
     webhook-url: ${OPESFUEL_ALERTS_WEBHOOK_URL:}

@@ -109,6 +109,7 @@ class OpesFuelBackendIntegrationTests {
 
         // Flyway V7 tables for H2 ddl-auto test mode
         jdbcTemplate.execute("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP WITH TIME ZONE");
+        jdbcTemplate.execute("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_status VARCHAR(24) NOT NULL DEFAULT 'CURRENT'");
         jdbcTemplate.execute("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_pumps INTEGER DEFAULT 12");
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS user_accounts (

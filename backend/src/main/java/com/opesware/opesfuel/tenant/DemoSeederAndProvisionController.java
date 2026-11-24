@@ -61,8 +61,8 @@ public class DemoSeederAndProvisionController {
 
         jdbcTemplate.update(
             """
-            INSERT INTO tenants (id, name, owner_email, default_currency, country_code, timezone, status, trial_ends_at, max_pumps, created_at)
-            VALUES (?, ?, ?, 'FCFA', 'CM', 'Africa/Douala', 'ACTIVE', ?, ?, ?)
+            INSERT INTO tenants (id, name, owner_email, default_currency, country_code, timezone, status, trial_ends_at, max_pumps, created_at, billing_status)
+            VALUES (?, ?, ?, 'FCFA', 'CM', 'Africa/Douala', 'ACTIVE', ?, ?, ?, 'TRIAL')
             """,
             tenantId, stationName, ownerEmail, trialEnds, maxPumps, now
         );
