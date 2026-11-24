@@ -1,47 +1,61 @@
 # OpesFuel deployment runbook
 
-## 0. What this release adds
-Fail-closed tenancy, read-only public demo, trial/suspension lock, self-signup, Auth0 identity-claims endpoint,
-MCP connector for Claude/ChatGPT. Database: Flyway V1..V25 (no new migration in this release).
+## 0. What this release contains
+Fail-closed tenancy, self-signup, trial/suspension lock, separate public demo site, MCP connector for Claude/ChatGPT,
+Auth0 setup script, platform-admin bootstrap. Database: Flyway **V1..V26** (V26 disables seeded demo staff logins).
+Verified locally: backend 83/83 tests, website lint + build, MCP 8/8 tests, compose + script validation.
 
-## 1. Before you deploy (one time)
-| # | Action | Where |
+## 1. One-time setup (about 20 minutes)
+| # | Action | How |
 |---|---|---|
-| 1 | Back up the database (`deploy/backup-postgres.sh`) | server |
-| 2 | Copy `.env.production.example` to `.env`; replace every `CHANGE_ME` | server |
-| 3 | `openssl rand -hex 32` -> `OPESFUEL_AUTH0_ACTION_SECRET` | `.env` |
-| 4 | Auth0: install `deploy/auth0-post-login-action.js` as a Login (post-login) Action, add to the Login flow, set secrets `OPESFUEL_API_BASE` (https://api.yourdomain.com) and `OPESFUEL_ACTION_SECRET` (same value as step 3) | Auth0 |
-| 5 | Auth0: require **email verification** for new users | Auth0 |
-| 6 | Auth0: create demo user with role `OWNER`, email-verified, row in `user_accounts` for tenant `ten_opes_cm` | Auth0 + DB |
-| 7 | Auth0: your own admin user has role `PLATFORM_ADMIN` | Auth0 |
-| 8 | DNS: app., api. (and mcp. if used) -> server | DNS |
+| 1 | Back up the database | `deploy/backup-postgres.sh` |
+| 2 | Create `.env` | copy `.env.production.example`, replace every `CHANGE_ME` |
+| 3 | Generate the Action secret | `openssl rand -hex 32` -> `OPESFUEL_AUTH0_ACTION_SECRET` |
+| 4 | Set **your admin login** | `OPESFUEL_BOOTSTRAP_ADMIN_EMAIL=` the email you will sign in with (REQUIRED) |
+| 5 | Configure Auth0 in one command | see below |
+| 6 | Auth0 SPA app: add your site URL to Allowed Callback / Logout / Web Origins | Auth0 dashboard |
+| 7 | DNS: app., api., demo. (and mcp. if used) -> server | DNS |
+
+Auth0 script (creates the API, roles, the claims Action and binds it to the Login flow; safe to re-run):
+```bash
+export AUTH0_DOMAIN=your-tenant.auth0.com AUTH0_M2M_CLIENT_ID=... AUTH0_M2M_CLIENT_SECRET=...
+export OPESFUEL_API_BASE=https://api.yourdomain.com OPESFUEL_ACTION_SECRET=<value from step 3>
+python3 deploy/auth0_setup.py --dry-run   # preview
+python3 deploy/auth0_setup.py             # apply
+```
+The M2M app needs the Management API scopes listed at the top of the script. The script was tested against a simulated
+Auth0, not your live tenant, so run `--dry-run` first.
 
 ## 2. Deploy
 ```bash
 git pull origin main
-docker compose -f docker-compose.prod.yml --profile tls up -d --build        # add --profile mcp for the connector
+docker compose -f docker-compose.prod.yml --profile tls --profile demo up -d --build   # add --profile mcp for the connector
 ```
-Flyway applies migrations on backend start. First start on an empty database also loads the demo company (`ten_opes_cm`).
+Flyway applies V1..V26 on backend start. Watch the backend build output: the project targets Java 25 (the Docker image
+builds it for you; local verification used Java 21).
 
 ## 3. Verify (10 minutes)
 ```bash
 bash deploy/smoke-test.sh
 curl -fsS https://api.yourdomain.com/actuator/health
-curl -s -o /dev/null -w "%{http_code}\n" https://api.yourdomain.com/api/v1/public/auth/identity-claims -X POST   # expect 401/422, never 200
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.yourdomain.com/api/v1/public/auth/identity-claims   # expect 401/422, never 200
 ```
-Manual checks:
-1. Sign up a test company on the website; confirm you get "workspace created".
-2. Sign in with that email (verify it); confirm the dashboard opens and shows only that company.
-3. Open the demo; confirm browsing works and any save is refused (DEMO_READ_ONLY).
-4. In the admin console set the test company's trial end to yesterday; confirm edits return 402 and billing pages still open.
-5. A login with no tenant claim must get 403 (this is the safe behaviour).
+1. **Demo:** open https://demo.yourdomain.com, sign in with a sample role, browse. It runs on built-in sample data, no Auth0, no backend.
+2. **Signup:** on the website start a trial with a real inbox you own. You should see "Your workspace is ready".
+3. **First login:** click "Create password & open my workspace", sign up in Auth0, verify the email, and the dashboard opens with only that company.
+4. **Admin:** sign in with `OPESFUEL_BOOTSTRAP_ADMIN_EMAIL`; the SaaS admin console should list the company from step 2.
+5. **Lock:** in the admin console set that company's trial end to yesterday; edits must return 402 while billing pages still open.
+6. A login for an unknown email must be refused (403). That is the safe behaviour.
 
 ## 4. Rollback
-`git checkout <previous-tag>` and redo step 2. No schema change in this release, so rollback is code-only.
-Restore the database only if data was corrupted: `deploy/restore-postgres.sh`.
+`git checkout <previous-tag>` and repeat step 2. V26 only disables seeded demo logins (re-enable with
+`UPDATE user_accounts SET status='ACTIVE' WHERE id IN (...)` if ever needed). Restore data only if corrupted: `deploy/restore-postgres.sh`.
 
-## 5. Known open items
-- Full backend suite (81 tests) passes on Java 21 locally; confirm once on Java 25 (CI or your build host).
-- GitHub Actions is blocked by an account spending limit ("Actions budget is preventing further use"): fix under GitHub > Settings > Billing > Budgets, otherwise CI cannot run.
-- Email squatting on self-signup (someone registers another person's email first) needs a support release path.
-- Several background paths still use `ten_opes_cm` as a fallback tenant (support tickets, alert notifications, webhook events).
+## 5. Things to know
+- **CI:** GitHub Actions is blocked by an account spending limit ("Actions budget is preventing further use").
+  Fix under GitHub > Settings > Billing > Budgets; until then no automatic checks run.
+- Self-signup email squatting is neutralised: re-submitting an email whose owner never signed in resumes the same
+  workspace; only a verified-email login can ever open it.
+- `ten_opes_cm` is your operator tenant (platform alerts and lead notifications land there). The public demo never
+  touches it; the backend also keeps it read-only for non-admin roles.
+- The MCP connector needs its own Auth0 settings: see `mcp/README.md`.

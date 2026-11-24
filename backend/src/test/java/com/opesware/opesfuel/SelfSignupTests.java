@@ -71,7 +71,15 @@ class SelfSignupTests {
         assertEquals("OWNER", jdbc.queryForObject("SELECT role FROM user_accounts WHERE email = ?", String.class, email));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stations s JOIN tenants t ON s.tenant_id = t.id WHERE t.owner_email = ?", Integer.class, email));
 
+        // Same email again while nobody has signed in yet: resumes the same workspace (no duplicate, no squatting lock-out)
         mvc.perform(post("/api/v1/public/auth/signup").contentType("application/json").content(body(email.toUpperCase(), "")))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.resumed").value(true));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM tenants WHERE owner_email = ?", Integer.class, email));
+
+        // Once the verified owner has logged in (login linked), the email is taken
+        jdbc.update("UPDATE user_accounts SET auth0_sub = 'auth0|linked' WHERE email = ?", email);
+        mvc.perform(post("/api/v1/public/auth/signup").contentType("application/json").content(body(email, "")))
             .andExpect(status().isConflict());
     }
 

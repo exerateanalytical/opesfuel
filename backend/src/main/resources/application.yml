@@ -51,6 +51,9 @@ opesfuel:
   auth0:
     # Shared secret the Auth0 post-login Action sends to /public/auth/identity-claims (empty = endpoint disabled).
     action-secret: ${OPESFUEL_AUTH0_ACTION_SECRET:}
+  bootstrap:
+    # Email of the platform administrator (the address you sign in with in Auth0). Empty = leave seeded row untouched.
+    admin-email: ${OPESFUEL_BOOTSTRAP_ADMIN_EMAIL:}
   demo:
     # Public walkthrough workspace: browse-only for everyone except PLATFORM_ADMIN.
     tenant-id: ${OPESFUEL_DEMO_TENANT_ID:ten_opes_cm}

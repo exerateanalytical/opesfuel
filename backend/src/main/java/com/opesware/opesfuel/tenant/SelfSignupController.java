@@ -64,6 +64,25 @@ public class SelfSignupController {
         throttle(clientIp(request));
 
         String email = cmd.email().trim().toLowerCase();
+        // Resume instead of blocking: a workspace whose owner never signed in yet (login not linked) belongs to nobody
+        // until the verified email holder logs in, so re-submitting simply refreshes its details. This neutralises
+        // email squatting without exposing anything: access is still gated by a verified-email login.
+        List<Map<String, Object>> pending = jdbc.queryForList(
+            "SELECT id, tenant_id, assigned_station_id FROM user_accounts WHERE LOWER(email) = ? AND auth0_sub LIKE 'pending|%'", email);
+        if (!pending.isEmpty()) {
+            Map<String, Object> row = pending.get(0);
+            String tid = String.valueOf(row.get("tenant_id"));
+            jdbc.update("UPDATE tenants SET name = ? WHERE id = ?", cmd.companyName().trim(), tid);
+            jdbc.update("UPDATE user_accounts SET full_name = ?, phone = ? WHERE id = ?",
+                cmd.ownerName().trim(), cmd.phone() != null ? cmd.phone().trim() : null, row.get("id"));
+            Map<String, Object> resumed = new LinkedHashMap<>();
+            resumed.put("tenantId", tid);
+            resumed.put("stationId", row.get("assigned_station_id"));
+            resumed.put("resumed", true);
+            resumed.put("nextStep", "SIGN_IN_WITH_VERIFIED_EMAIL");
+            resumed.put("message", "Your workspace is ready. Sign in with " + email + " (verify your email) to continue your trial.");
+            return resumed;
+        }
         Integer existing = jdbc.queryForObject(
             "SELECT (SELECT COUNT(*) FROM tenants WHERE LOWER(owner_email) = ?) + (SELECT COUNT(*) FROM user_accounts WHERE LOWER(email) = ?)",
             Integer.class, email, email);
