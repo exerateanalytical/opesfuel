@@ -93,6 +93,7 @@ public class ProblemDetailExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
             "Database integrity constraint violated (duplicate key or referenced entity exists).");
         pd.setTitle("Data Integrity Conflict");

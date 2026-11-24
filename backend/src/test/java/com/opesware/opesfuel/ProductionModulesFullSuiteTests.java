@@ -29,6 +29,17 @@ class ProductionModulesFullSuiteTests {
 
     @BeforeEach
     void setupSchemas() throws Exception {
+        // Self-contained: do not depend on another test class having created these tables first.
+        try {
+            jdbcTemplate.execute("ALTER TABLE event_publication ALTER COLUMN serialized_event CLOB");
+        } catch (Exception ignored) {}
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, station_id VARCHAR(64),
+                actor_email VARCHAR(180) NOT NULL, actor_role VARCHAR(32) NOT NULL, action VARCHAR(64) NOT NULL,
+                entity_type VARCHAR(64) NOT NULL, entity_id VARCHAR(64) NOT NULL, summary CLOB NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )""");
         for (String mig : new String[]{
             "db/migration/V10__sprint3_hardware_bridge_and_payroll_workflow.sql",
             "db/migration/V13__platform_admin_governance.sql",
