@@ -1,12 +1,17 @@
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
 
-const ACCESS_TOKEN_KEY = 'opesfuel.mobile.auth0.access_token';
+const ACCESS_KEY = 'opesfuel.mobile.auth0.access_token';
+const ID_KEY = 'opesfuel.mobile.auth0.id_token';
+const REFRESH_KEY = 'opesfuel.mobile.auth0.refresh_token';
 const AUTH0_DOMAIN = (process.env.EXPO_PUBLIC_AUTH0_DOMAIN || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
 const AUTH0_CLIENT_ID = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID || '';
 const AUTH0_AUDIENCE = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE || 'https://api.opesfuel.com/v1';
 
 export const isMobileAuth0Configured = Boolean(AUTH0_DOMAIN && AUTH0_CLIENT_ID);
+export const isDemoModeEnabled = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
+
+export interface StoredTokens { accessToken: string; idToken: string | null; refreshToken: string | null }
 
 export function getAuth0Discovery(): AuthSession.DiscoveryDocument {
   return {
@@ -20,7 +25,14 @@ export function getMobileRedirectUri(): string {
   return AuthSession.makeRedirectUri({ scheme: 'opesfuel', path: 'callback' });
 }
 
-export async function loginWithMobileAuth0(): Promise<string> {
+async function persist(t: { accessToken: string; idToken?: string | null; refreshToken?: string | null }): Promise<StoredTokens> {
+  await SecureStore.setItemAsync(ACCESS_KEY, t.accessToken);
+  if (t.idToken) await SecureStore.setItemAsync(ID_KEY, t.idToken);
+  if (t.refreshToken) await SecureStore.setItemAsync(REFRESH_KEY, t.refreshToken);
+  return { accessToken: t.accessToken, idToken: t.idToken ?? (await SecureStore.getItemAsync(ID_KEY)), refreshToken: t.refreshToken ?? (await SecureStore.getItemAsync(REFRESH_KEY)) };
+}
+
+export async function loginWithMobileAuth0(): Promise<StoredTokens> {
   if (!isMobileAuth0Configured) {
     throw new Error('Set EXPO_PUBLIC_AUTH0_DOMAIN and EXPO_PUBLIC_AUTH0_CLIENT_ID to enable mobile Auth0 login.');
   }
@@ -34,12 +46,10 @@ export async function loginWithMobileAuth0(): Promise<string> {
     scopes: ['openid', 'profile', 'email', 'offline_access'],
     extraParams: { audience: AUTH0_AUDIENCE },
   });
-
   const result = await request.promptAsync(discovery);
   if (result.type !== 'success' || !result.params.code) {
     throw new Error('Auth0 mobile sign-in was cancelled or failed.');
   }
-
   const tokenRes = await AuthSession.exchangeCodeAsync(
     {
       clientId: AUTH0_CLIENT_ID,
@@ -49,26 +59,34 @@ export async function loginWithMobileAuth0(): Promise<string> {
     },
     discovery
   );
-
-  if (!tokenRes.accessToken) {
-    throw new Error('Auth0 token exchange returned no access token.');
-  }
-  await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokenRes.accessToken);
-  return tokenRes.accessToken;
+  if (!tokenRes.accessToken) throw new Error('Auth0 token exchange returned no access token.');
+  return persist({ accessToken: tokenRes.accessToken, idToken: tokenRes.idToken, refreshToken: tokenRes.refreshToken });
 }
 
-export async function getStoredMobileAccessToken(): Promise<string | null> {
+export async function getStoredTokens(): Promise<StoredTokens | null> {
   try {
-    return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+    const accessToken = await SecureStore.getItemAsync(ACCESS_KEY);
+    if (!accessToken) return null;
+    return { accessToken, idToken: await SecureStore.getItemAsync(ID_KEY), refreshToken: await SecureStore.getItemAsync(REFRESH_KEY) };
   } catch {
     return null;
   }
 }
 
-export async function clearMobileAccessToken(): Promise<void> {
+/** Silent renewal so staff are not thrown out mid-shift. Returns null when renewal is impossible. */
+export async function refreshStoredTokens(refreshToken: string | null): Promise<StoredTokens | null> {
+  if (!refreshToken || !isMobileAuth0Configured) return null;
   try {
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+    const res = await AuthSession.refreshAsync({ clientId: AUTH0_CLIENT_ID, refreshToken }, getAuth0Discovery());
+    if (!res.accessToken) return null;
+    return await persist({ accessToken: res.accessToken, idToken: res.idToken, refreshToken: res.refreshToken ?? refreshToken });
   } catch {
-    // ignore
+    return null;
+  }
+}
+
+export async function clearMobileTokens(): Promise<void> {
+  for (const k of [ACCESS_KEY, ID_KEY, REFRESH_KEY]) {
+    try { await SecureStore.deleteItemAsync(k); } catch { /* ignore */ }
   }
 }
