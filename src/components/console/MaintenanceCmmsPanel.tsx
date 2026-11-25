@@ -1,3 +1,4 @@
+import { useLiveApi } from '../../api/liveApi';
 import React, { useMemo, useState } from 'react';
 import { CalendarClock, CheckCircle2, Cog, Plus, Wrench, Zap } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
@@ -65,20 +66,24 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
   const canEdit = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
   const [tab, setTab] = useState<'work-orders' | 'generator' | 'parts'>('work-orders');
 
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([
+  const liveData = useLiveApi().live; // real customers never see built-in sample rows
+  const seed_workOrders: WorkOrder[] = [
     { id: 'wo_01', assetName: 'Perkins 250kVA Standby Generator', orderType: 'PREVENTIVE', priority: 'HIGH', title: '250-Hour Oil, Fuel Filter & Belt Service', status: 'IN_PROGRESS', assignedTechnician: 'Tech Jean-Luc', laborCostFcfa: 45000, partsCostFcfa: 68000 },
     { id: 'wo_02', assetName: 'Tokheim Dispenser Bay 2', orderType: 'CORRECTIVE', priority: 'MEDIUM', title: 'Replace Super Nozzle Breakaway Coupling', status: 'OPEN', assignedTechnician: 'Unassigned', laborCostFcfa: 0, partsCostFcfa: 0 },
-  ]);
+  ];
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(liveData ? [] : seed_workOrders);
 
-  const [genLogs, setGenLogs] = useState<GeneratorLog[]>([
+  const seed_genLogs: GeneratorLog[] = [
     { id: 'gen_01', generatorName: 'Perkins 250kVA Standby Generator', hoursStart: 1240.5, hoursEnd: 1246.5, runtimeHours: 6.0, fuelLitres: 48, fuelCostFcfa: 39744, powerOutageReason: 'ENEO feeder maintenance outage', loggedAt: new Date(Date.now() - 7200_000).toISOString() },
-  ]);
+  ];
+  const [genLogs, setGenLogs] = useState<GeneratorLog[]>(liveData ? [] : seed_genLogs);
 
-  const [parts, setParts] = useState<SparePart[]>([
+  const seed_parts: SparePart[] = [
     { id: 'prt_01', partCode: 'AVR-SX460', partName: 'Generator AVR Module SX460', category: 'GENERATOR', stockQty: 2, reorderLevel: 1, unitCostFcfa: 45000 },
     { id: 'prt_02', partCode: 'NOZ-ZVA25', partName: 'ZVA Automatic Fuel Nozzle 3/4"', category: 'DISPENSER', stockQty: 4, reorderLevel: 2, unitCostFcfa: 62000 },
     { id: 'prt_03', partCode: 'FLT-PRK250', partName: 'Perkins Fuel/Water Separator Filter', category: 'GENERATOR', stockQty: 1, reorderLevel: 2, unitCostFcfa: 18500 },
-  ]);
+  ];
+  const [parts, setParts] = useState<SparePart[]>(liveData ? [] : seed_parts);
 
   // Modals
   const [woModalOpen, setWoModalOpen] = useState(false);

@@ -3,6 +3,7 @@ import { Calculator, KeyRound, Plus, ShieldAlert, Tag, UserCheck } from 'lucide-
 import { formatFcfa } from '../../domain/formatters';
 import { UserRole } from '../../domain/types';
 import { FormModal } from '../shared/FormModal';
+import { useLiveApi, useLiveList } from '../../api/liveApi';
 
 interface IamGovernanceAndBillingProPanelProps {
   role: UserRole;
@@ -16,29 +17,38 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
   const [tab, setTab] = useState<'billing' | 'iam'>('billing');
   const [modal, setModal] = useState<'coupon' | 'credit' | 'delegation' | 'breakglass' | 'review' | null>(null);
   const canAdmin = role === 'OWNER' || role === 'PLATFORM_ADMIN';
+  const api = useLiveApi();
+  const failed = (e: unknown) => onNotify('error', e instanceof Error ? e.message : 'Request failed.');
+  const quarterLabel = () => { const d = new Date(); return `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}`; };
+  const inOneYear = () => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); };
 
   // M03 State
   const [currentFee, setCurrentFee] = useState('25000');
   const [targetFee, setTargetFee] = useState('55000');
   const [daysLeft, setDaysLeft] = useState('15');
-  const [coupons, setCoupons] = useState([
+  const seed_coupons = [
     { id: 'cpn_01', code: 'CEMAC20', type: 'PERCENT', value: 20, used: 4, max: 100, expiresAt: '2027-12-31' },
     { id: 'cpn_02', code: 'PARTNER10K', type: 'FIXED_FCFA', value: 10000, used: 2, max: 50, expiresAt: '2027-06-30' },
-  ]);
-  const [creditNotes, setCreditNotes] = useState([
+  ];
+  const { items: coupons, setItems: setCoupons, reload: reload_coupons } = useLiveList<any, (typeof seed_coupons)[number]>('/enterprise/billing/coupons', seed_coupons, (r) => (({ id: r.id, code: r.code, type: r.discount_type, value: Number(r.discount_value), used: Number(r.redemptions_used), max: Number(r.max_redemptions), expiresAt: String(r.expires_at) })));
+  const seed_creditNotes = [
     { id: 'cn_01', number: 'CN-2026-4812', invoiceId: 'INV-2026-10', amountFcfa: 12500, reason: 'Mid-month station consolidation proration' },
-  ]);
+  ];
+  const { items: creditNotes, setItems: setCreditNotes, reload: reload_creditNotes } = useLiveList<any, (typeof seed_creditNotes)[number]>('/enterprise/billing/credit-notes', seed_creditNotes, (r) => (({ id: r.id, number: r.credit_note_number, invoiceId: r.invoice_id, amountFcfa: Number(r.amount_fcfa), reason: r.reason })));
 
   // M05 State
-  const [delegations, setDelegations] = useState([
+  const seed_delegations = [
     { id: 'dlg_01', grantee: 'manager@opesfuel.cm', scope: 'APPROVE_PO_UP_TO_5M', reason: 'Owner travel cover', expiresAt: '2026-12-15', status: 'ACTIVE' },
-  ]);
-  const [breakGlass, setBreakGlass] = useState([
+  ];
+  const { items: delegations, setItems: setDelegations, reload: reload_delegations } = useLiveList<any, (typeof seed_delegations)[number]>('/enterprise/iam/delegations', seed_delegations, (r) => (({ id: r.id, grantee: r.grantee_email, scope: r.permission_scope, reason: r.reason, expiresAt: String(r.expires_at).slice(0, 10), status: r.status })));
+  const seed_breakGlass = [
     { id: 'bg_01', actor: 'manager@opesfuel.cm', elevatedRole: 'OWNER', ticket: 'INC-2026-409', justification: 'Emergency night tank quarantine release after drain', reviewStatus: 'REVIEWED_OK' },
-  ]);
-  const [reviews, setReviews] = useState([
+  ];
+  const { items: breakGlass, setItems: setBreakGlass, reload: reload_breakGlass } = useLiveList<any, (typeof seed_breakGlass)[number]>('/enterprise/iam/break-glass', seed_breakGlass, (r) => (({ id: r.id, actor: r.actor_sub, elevatedRole: r.elevated_role, ticket: r.incident_ticket, justification: r.justification, reviewStatus: r.review_status })));
+  const seed_reviews = [
     { id: 'rev_01', cycle: '2026-Q4', email: 'finance@opesfuel.cm', role: 'ACCOUNTANT', decision: 'CERTIFIED', notes: 'Active chief accountant confirmed' },
-  ]);
+  ];
+  const { items: reviews, setItems: setReviews, reload: reload_reviews } = useLiveList<any, (typeof seed_reviews)[number]>('/enterprise/iam/access-reviews', seed_reviews, (r) => (({ id: r.id, cycle: r.cycle_label, email: r.target_user_email, role: r.assigned_role, decision: r.decision, notes: r.notes ?? '' })));
 
   // Form states
   const [cpnCode, setCpnCode] = useState('');
@@ -233,8 +243,12 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
                         {d.status === 'ACTIVE' ? (
                           <button
                             type="button"
-                            onClick={() => {
-                              setDelegations((prev) => prev.map((x) => (x.id === d.id ? { ...x, status: 'REVOKED' } : x)));
+                            onClick={async () => {
+                              if (api.live) {
+                                try { await api.send('PATCH', `/enterprise/iam/delegations/${d.id}/revoke`); await reload_delegations(); } catch (err) { failed(err); return; }
+                              } else {
+                                setDelegations((prev) => prev.map((x) => (x.id === d.id ? { ...x, status: 'REVOKED' } : x)));
+                              }
                               onNotify('success', `Revoked delegated grant for ${d.grantee}.`);
                             }}
                             className="px-2 py-1 rounded border border-red-200 text-red-700 text-[11px] font-semibold"
@@ -283,10 +297,17 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
       {/* Popup Modals */}
       <FormModal open={modal === 'coupon'} title="Create Promotional / Referral Coupon" subtitle="Generates an active SaaS discount coupon code." onClose={() => setModal(null)}>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!cpnCode.trim()) return;
-            setCoupons((prev) => [{ id: `cpn_${Date.now()}`, code: cpnCode.trim().toUpperCase(), type: 'PERCENT', value: Number(cpnVal) || 10, used: 0, max: 100, expiresAt: '2027-12-31' }, ...prev]);
+            if (api.live) {
+              try {
+                await api.send('POST', '/enterprise/billing/coupons', { code: cpnCode.trim().toUpperCase(), discountType: 'PERCENT', discountValue: Math.min(100, Math.max(1, Number(cpnVal) || 10)), maxRedemptions: 100, expiresAt: inOneYear() });
+                await reload_coupons();
+              } catch (err) { failed(err); return; }
+            } else {
+              setCoupons((prev) => [{ id: `cpn_${Date.now()}`, code: cpnCode.trim().toUpperCase(), type: 'PERCENT', value: Number(cpnVal) || 10, used: 0, max: 100, expiresAt: '2027-12-31' }, ...prev]);
+            }
             setCpnCode('');
             setModal(null);
             onNotify('success', `Created coupon code ${cpnCode.trim().toUpperCase()}.`);
@@ -306,11 +327,19 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
 
       <FormModal open={modal === 'credit'} title="Issue Subscription Credit Note" subtitle="Credits a tenant invoice for plan proration or SLA adjustments." onClose={() => setModal(null)}>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!cnReason.trim()) return;
-            const num = `CN-2026-${Math.floor(1000 + Math.random() * 8999)}`;
-            setCreditNotes((prev) => [{ id: `cn_${Date.now()}`, number: num, invoiceId: cnInv.trim(), amountFcfa: Number(cnAmt) || 0, reason: cnReason.trim() }, ...prev]);
+            let num = `CN-2026-${Math.floor(1000 + Math.random() * 8999)}`;
+            if (api.live) {
+              try {
+                const r = await api.send<{ creditNoteNumber?: string; number?: string }>('POST', '/enterprise/billing/credit-notes', { invoiceId: cnInv.trim(), amountFcfa: Math.max(1, Number(cnAmt) || 0), reason: cnReason.trim() });
+                num = r?.creditNoteNumber ?? r?.number ?? num;
+                await reload_creditNotes();
+              } catch (err) { failed(err); return; }
+            } else {
+              setCreditNotes((prev) => [{ id: `cn_${Date.now()}`, number: num, invoiceId: cnInv.trim(), amountFcfa: Number(cnAmt) || 0, reason: cnReason.trim() }, ...prev]);
+            }
             setCnReason('');
             setModal(null);
             onNotify('success', `Issued credit note ${num}.`);
@@ -331,10 +360,17 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
 
       <FormModal open={modal === 'delegation'} title="Grant Time-Bound Delegated Authority" subtitle="Temporarily delegates a specific approval scope with automatic expiry." onClose={() => setModal(null)}>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!dlgEmail.trim()) return;
-            setDelegations((prev) => [{ id: `dlg_${Date.now()}`, grantee: dlgEmail.trim(), scope: dlgScope, reason: dlgReason.trim() || 'Temporary cover', expiresAt: dlgExp, status: 'ACTIVE' }, ...prev]);
+            if (api.live) {
+              try {
+                await api.send('POST', '/enterprise/iam/delegations', { granteeEmail: dlgEmail.trim(), permissionScope: dlgScope.trim(), reason: dlgReason.trim() || 'Temporary cover', expiresAt: dlgExp });
+                await reload_delegations();
+              } catch (err) { failed(err); return; }
+            } else {
+              setDelegations((prev) => [{ id: `dlg_${Date.now()}`, grantee: dlgEmail.trim(), scope: dlgScope, reason: dlgReason.trim() || 'Temporary cover', expiresAt: dlgExp, status: 'ACTIVE' }, ...prev]);
+            }
             setDlgEmail('');
             setDlgReason('');
             setModal(null);
@@ -357,10 +393,17 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
 
       <FormModal open={modal === 'breakglass'} title="Trigger Logged Break-Glass Elevation (2-Hour TTL)" subtitle="Every emergency elevation is recorded in the immutable security audit trail for mandatory review." onClose={() => setModal(null)}>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!bgReason.trim()) return;
-            setBreakGlass((prev) => [{ id: `bg_${Date.now()}`, actor: `${role.toLowerCase()}@opesfuel.cm`, elevatedRole: 'OWNER', ticket: bgTicket.trim(), justification: bgReason.trim(), reviewStatus: 'PENDING_AUDIT' }, ...prev]);
+            if (api.live) {
+              try {
+                await api.send('POST', '/enterprise/iam/break-glass', { elevatedRole: 'OWNER', incidentTicket: bgTicket.trim(), justification: bgReason.trim() });
+                await reload_breakGlass();
+              } catch (err) { failed(err); return; }
+            } else {
+              setBreakGlass((prev) => [{ id: `bg_${Date.now()}`, actor: `${role.toLowerCase()}@demo`, elevatedRole: 'OWNER', ticket: bgTicket.trim(), justification: bgReason.trim(), reviewStatus: 'PENDING_AUDIT' }, ...prev]);
+            }
             setBgReason('');
             setModal(null);
             onNotify('success', `Break-glass elevation logged under incident ${bgTicket} (2-hour TTL).`);
@@ -378,10 +421,17 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
 
       <FormModal open={modal === 'review'} title="Record Periodic User Access Recertification" subtitle="Certifies or revokes staff account privileges during quarterly security reviews." onClose={() => setModal(null)}>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!revEmail.trim()) return;
-            setReviews((prev) => [{ id: `rev_${Date.now()}`, cycle: '2026-Q4', email: revEmail.trim(), role: revRole, decision: revDecision, notes: 'Quarterly IAM recertification' }, ...prev]);
+            if (api.live) {
+              try {
+                await api.send('POST', '/enterprise/iam/access-reviews', { cycleLabel: quarterLabel(), targetUserEmail: revEmail.trim(), assignedRole: revRole.trim(), decision: revDecision, notes: 'Quarterly IAM recertification' });
+                await reload_reviews();
+              } catch (err) { failed(err); return; }
+            } else {
+              setReviews((prev) => [{ id: `rev_${Date.now()}`, cycle: '2026-Q4', email: revEmail.trim(), role: revRole, decision: revDecision, notes: 'Quarterly IAM recertification' }, ...prev]);
+            }
             setRevEmail('');
             setModal(null);
             onNotify('success', `Recorded access recertification (${revDecision}) for ${revEmail}.`);
@@ -395,7 +445,7 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
               <label className="opes-label">Decision</label>
               <select value={revDecision} onChange={(e) => setRevDecision(e.target.value as 'CERTIFIED' | 'REVOKED')} className="opes-input">
                 <option value="CERTIFIED">CERTIFIED (Keep Active)</option>
-                <option value="REVOKED">REVOKED (Disable Access)</option>
+                <option value="REVOKED">REVOKED (Flag for removal — recorded in audit trail)</option>
               </select>
             </div>
           </div>

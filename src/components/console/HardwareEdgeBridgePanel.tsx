@@ -1,3 +1,4 @@
+import { useLiveApi } from '../../api/liveApi';
 import React, { useState } from 'react';
 import {
   Activity,
@@ -52,7 +53,8 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
 }) => {
   const canManage = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
 
-  const [devices, setDevices] = useState<HardwareDevice[]>([
+  const liveData = useLiveApi().live; // real customers never see built-in sample rows
+  const seed_devices: HardwareDevice[] = [
     {
       id: 'hw_doms01',
       stationId,
@@ -83,9 +85,10 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
       status: 'ONLINE',
       lastHeartbeatAt: new Date(Date.now() - 45_000).toISOString(),
     },
-  ]);
+  ];
+  const [devices, setDevices] = useState<HardwareDevice[]>(liveData ? [] : seed_devices);
 
-  const [events, setEvents] = useState<HardwareTelemetryEvent[]>([
+  const seed_events: HardwareTelemetryEvent[] = [
     {
       id: 'hwe_init01',
       deviceCode: 'DOMS-FC-01',
@@ -106,7 +109,8 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
       idempotentReplay: false,
       receivedAt: new Date(Date.now() - 95_000).toISOString(),
     },
-  ]);
+  ];
+  const [events, setEvents] = useState<HardwareTelemetryEvent[]>(liveData ? [] : seed_events);
 
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(
     () => new Set(['DOMS-TX-9001', 'ATG-POLL-4410'])

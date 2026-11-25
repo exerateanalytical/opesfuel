@@ -1,3 +1,4 @@
+import { useLiveApi } from '../../api/liveApi';
 import React, { useMemo, useState } from 'react';
 import { ArrowLeftRight, Flame, PackagePlus, Plus, Printer, RefreshCw, ShieldAlert } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
@@ -50,14 +51,16 @@ export const LpgCylinderExchangePanel: React.FC<LpgCylinderExchangePanelProps> =
   const canManageStock = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
   const canTransact = canManageStock || role === 'ATTENDANT';
 
-  const [skus, setSkus] = useState<LpgSku[]>([
+  const liveData = useLiveApi().live; // real customers never see built-in sample rows
+  const seed_skus: LpgSku[] = [
     { id: 'lpg_tdx_12', brand: 'TRADEX', sizeKg: 12.5, skuCode: 'TDX-12.5KG', gasRefillPriceFcfa: 6500, depositFcfa: 18000, crossBrandSwapFeeFcfa: 1500, fullQty: 42, emptyQty: 18, damagedQty: 1 },
     { id: 'lpg_tot_12', brand: 'TOTALGAZ', sizeKg: 12.5, skuCode: 'TOT-12.5KG', gasRefillPriceFcfa: 6500, depositFcfa: 18000, crossBrandSwapFeeFcfa: 1500, fullQty: 28, emptyQty: 14, damagedQty: 0 },
     { id: 'lpg_sctm_6', brand: 'SCTM', sizeKg: 6, skuCode: 'SCTM-6KG', gasRefillPriceFcfa: 3500, depositFcfa: 12000, crossBrandSwapFeeFcfa: 1000, fullQty: 35, emptyQty: 9, damagedQty: 0 },
     { id: 'lpg_cam_35', brand: 'CAMGAZ', sizeKg: 35, skuCode: 'CMG-35KG', gasRefillPriceFcfa: 19500, depositFcfa: 45000, crossBrandSwapFeeFcfa: 3000, fullQty: 10, emptyQty: 4, damagedQty: 0 },
-  ]);
+  ];
+  const [skus, setSkus] = useState<LpgSku[]>(liveData ? [] : seed_skus);
 
-  const [txs, setTxs] = useState<LpgTx[]>([
+  const seed_txs: LpgTx[] = [
     {
       id: 'lpgtx_01',
       receiptNo: 'LPG-20261122-A12F',
@@ -71,7 +74,8 @@ export const LpgCylinderExchangePanel: React.FC<LpgCylinderExchangePanelProps> =
       totalFcfa: 13000,
       createdAt: new Date(Date.now() - 3600_000).toISOString(),
     },
-  ]);
+  ];
+  const [txs, setTxs] = useState<LpgTx[]>(liveData ? [] : seed_txs);
 
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [skuModalOpen, setSkuModalOpen] = useState(false);

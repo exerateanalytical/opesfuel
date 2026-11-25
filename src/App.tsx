@@ -27,6 +27,7 @@ import {
 } from './auth/auth0';
 import { ClassicLoginPage } from './components/auth/ClassicLoginPage';
 import { ActiveImpersonationSession, ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
+import { LiveApiProvider } from './api/liveApi';
 import type { PlatformAdminTab } from './components/console/PlatformAdminSection';
 import { MobileAppShowcase } from './components/mobile/MobileAppShowcase';
 import { PublicFooter } from './components/public/PublicFooter';
@@ -890,6 +891,7 @@ export default function App() {
   };
 
   return (
+    <LiveApiProvider baseUrl={((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '')} token={authSession?.accessToken}>
     <ConsoleLayout
       tenant={store.tenant}
       role={role}
@@ -2050,5 +2052,6 @@ export default function App() {
       />
       </Suspense>
     </ConsoleLayout>
+    </LiveApiProvider>
   );
 }
