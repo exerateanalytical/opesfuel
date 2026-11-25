@@ -60,6 +60,11 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.opesfuel.com/api/v1
 5. In the admin console set that company's trial end to yesterday: edits must return 402 while billing pages still open.
 6. A login for an unknown email must be refused (403).
 
+## 5b. Adding staff after launch
+Owners invite staff from the console (Invite staff). Managers can invite attendants only; owners can invite any role.
+The invitation creates the login record; the person signs up in Auth0 with **that exact email**, verifies it, and is placed in the
+right company, role and station automatically. One email can belong to one company only.
+
 ## 6. Email deliverability
 Mail from `@opesfuel.com` needs SPF and DKIM records at your mail provider or it lands in spam. Auth0 sends its own
 verification emails separately. Set `OPESFUEL_MAIL_PROVIDER` (SMTP or RESEND) and credentials to enable welcome/OTP emails.

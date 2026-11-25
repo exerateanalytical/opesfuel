@@ -62,15 +62,25 @@ public class PaymentGatewayController {
     public Map<String, Object> subscriptionStatus() {
         String tenantId = accessGuard.currentTenantId();
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-            "SELECT status, created_at FROM tenants WHERE id = ?", tenantId
+            "SELECT * FROM tenants WHERE id = ?", tenantId
         );
         String tenantStatus = rows.isEmpty() ? "ACTIVE" : String.valueOf(rows.get(0).getOrDefault("status", "ACTIVE"));
+        String billingStatus = rows.isEmpty() || rows.get(0).get("billing_status") == null ? "CURRENT" : String.valueOf(rows.get(0).get("billing_status"));
         Instant createdAt = Instant.now();
         if (!rows.isEmpty() && rows.get(0).get("created_at") instanceof Timestamp ts) {
             createdAt = ts.toInstant();
         }
+        // The trial end recorded on the company wins (admins can extend it); 14 days from creation is only a fallback.
         Instant trialEndsAt = createdAt.plusSeconds(14L * 86400L);
+        if (!rows.isEmpty()) {
+            Object raw = rows.get(0).get("trial_ends_at");
+            if (raw instanceof java.util.Date d) trialEndsAt = d.toInstant();                       // Postgres timestamp / timestamptz
+            else if (raw instanceof java.time.OffsetDateTime o) trialEndsAt = o.toInstant();
+            else if (raw instanceof java.time.LocalDateTime l) trialEndsAt = l.toInstant(java.time.ZoneOffset.UTC);
+        }
         long daysRemaining = Math.max(0L, (trialEndsAt.getEpochSecond() - Instant.now().getEpochSecond()) / 86400L);
+        boolean inTrial = "TRIAL".equalsIgnoreCase(billingStatus) && trialEndsAt.isAfter(Instant.now());
+        boolean readOnly = com.opesware.opesfuel.shared.security.TenantPolicyFilter.isWriteLocked(billingStatus, trialEndsAt, Instant.now());
         Integer overdueCount = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM billing_invoices WHERE tenant_id = ? AND status IN ('ISSUED', 'OVERDUE') AND due_at < ?",
             Integer.class, tenantId, Timestamp.from(Instant.now().minusSeconds(7L * 86400L))
@@ -80,7 +90,9 @@ public class PaymentGatewayController {
         return Map.of(
             "tenantId", tenantId,
             "tenantStatus", tenantStatus,
-            "trialActive", daysRemaining > 0,
+            "trialActive", inTrial,
+            "billingStatus", billingStatus,
+            "readOnly", readOnly,
             "trialEndsAt", trialEndsAt.toString(),
             "trialDaysRemaining", daysRemaining,
             "overdueInvoicesCount", overdue,

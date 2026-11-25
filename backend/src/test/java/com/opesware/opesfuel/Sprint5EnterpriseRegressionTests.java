@@ -268,9 +268,16 @@ class Sprint5EnterpriseRegressionTests {
             KEY(id) VALUES ('op_own_01', 'ten_opes_cm', 'OPF-OWN-001', 'owner@opesfuel.com', '+237690000002', 'Jean-Paul Mbarga', 'OWNER', 'st_plateau', TRUE)
             """);
 
+        // Cross-company directory: a company OWNER (or any staff) must NOT be able to look up other people
+        mockMvc.perform(post("/api/v1/platform-admin/governance/directory/resolve")
+                .with(user("some_owner").roles("OWNER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"identifier\":\"owner@opesfuel.com\"}"))
+            .andExpect(status().isForbidden());
+
         for (String idf : new String[]{"owner@opesfuel.com", "+237690000002", "OPF-OWN-001"}) {
             mockMvc.perform(post("/api/v1/platform-admin/governance/directory/resolve")
-                    .with(user("login_gateway").roles("OWNER"))
+                    .with(user("login_gateway").roles("PLATFORM_ADMIN"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"identifier\":\"" + idf + "\"}"))
                 .andExpect(status().isOk())

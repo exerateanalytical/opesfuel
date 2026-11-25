@@ -119,19 +119,22 @@ class IdentityService {
     private final StationCatalogApi stationCatalogApi;
     private final WorkforceQueryApi workforceQueryApi;
     private final ApplicationEventPublisher eventPublisher;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     IdentityService(
         UserInviteRepository inviteRepo,
         TenantAccessGuard accessGuard,
         StationCatalogApi stationCatalogApi,
         WorkforceQueryApi workforceQueryApi,
-        ApplicationEventPublisher eventPublisher
+        ApplicationEventPublisher eventPublisher,
+        org.springframework.jdbc.core.JdbcTemplate jdbc
     ) {
         this.inviteRepo = inviteRepo;
         this.accessGuard = accessGuard;
         this.stationCatalogApi = stationCatalogApi;
         this.workforceQueryApi = workforceQueryApi;
         this.eventPublisher = eventPublisher;
+        this.jdbc = jdbc;
     }
 
     @Transactional(readOnly = true)
@@ -160,10 +163,33 @@ class IdentityService {
                 throw new IllegalArgumentException("Employee does not belong to station " + station.id());
             }
         }
+        OpesFuelPrincipal inviter = accessGuard.currentPrincipal();
+        String invitedRole = cmd.role().trim().toUpperCase();
+        // Privilege ceiling: managers may only invite attendants; only owners (or the platform) may invite managers,
+        // accountants or other owners. Platform/CFO roles can never be granted through an invite.
+        boolean ownerLevel = inviter.hasRole("OWNER") || inviter.hasRole("PLATFORM_ADMIN");
+        if (!ownerLevel && !"ATTENDANT".equals(invitedRole)) {
+            throw new org.springframework.security.access.AccessDeniedException("Managers can only invite attendants.");
+        }
+        String inviteEmail = cmd.email().trim().toLowerCase();
+        Integer taken = jdbc.queryForObject("SELECT COUNT(*) FROM user_accounts WHERE LOWER(email) = ?", Integer.class, inviteEmail);
+        if (taken != null && taken > 0) {
+            throw new IllegalStateException("This email already has an OpesFuel login. Ask the person to use another email.");
+        }
         UserInviteEntity saved = inviteRepo.save(UserInviteEntity.issue(
             station.tenantId(), station.id(), cmd.employeeId(), cmd.email(), cmd.role(),
-            accessGuard.currentPrincipal().principalId()
+            inviter.principalId()
         ));
+        // The login record: when this person signs in to Auth0 with this verified email, the claims Action finds it and
+        // stamps their company, role and station into the token. Without this row a new staff member is refused at the door.
+        String displayName = cmd.employeeId() != null && !cmd.employeeId().isBlank()
+            ? workforceQueryApi.findEmployee(cmd.employeeId()).map(WorkforceQueryApi.EmployeeSnapshot::fullName).orElse(inviteEmail)
+            : inviteEmail;
+        String userId = "usr_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        jdbc.update("""
+            INSERT INTO user_accounts (id, tenant_id, auth0_sub, full_name, email, role, assigned_station_id, preferred_language, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'fr', 'ACTIVE')
+            """, userId, station.tenantId(), "pending|" + userId, displayName, inviteEmail, saved.getRole(), station.id());
         eventPublisher.publishEvent(new StaffInvitedEvent(
             UUID.randomUUID().toString(), saved.getId(), station.tenantId(), station.id(),
             saved.getEmail(), saved.getRole(), saved.getCreatedAt()
@@ -176,6 +202,7 @@ class IdentityService {
         UserInviteEntity invite = inviteRepo.findByInviteToken(token)
             .orElseThrow(() -> new IllegalArgumentException("Invalid invitation token."));
         OpesFuelPrincipal caller = accessGuard.currentPrincipal();
+        accessGuard.assertTenantMatch(invite.getTenantId()); // an invitation can only be used inside its own company
         invite.accept();
         UserInviteEntity saved = inviteRepo.save(invite);
         if (saved.getEmployeeId() != null && caller.auth0Sub() != null && !caller.auth0Sub().isBlank()) {

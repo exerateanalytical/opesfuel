@@ -101,10 +101,10 @@ public class UserProfileController {
             """
             UPDATE user_accounts
             SET full_name = ?, phone = ?, preferred_language = ?, email_alerts_enabled = ?
-            WHERE tenant_id = ? AND (auth0_sub = ? OR role = ?)
+            WHERE tenant_id = ? AND auth0_sub = ?
             """,
             cmd.fullName().trim(), cmd.phone(), lang, cmd.emailAlertsEnabled(),
-            principal.tenantId(), principal.auth0Sub(), role
+            principal.tenantId(), principal.auth0Sub()
         );
         auditRecorder.record(
             principal.tenantId(), null, principal.subject(), role,

@@ -45,6 +45,7 @@ import { useCompanyBranding } from '../../utils/companyBranding';
 import { formatShortDate } from '../../domain/formatters';
 import { ConsoleSection, Station, TenantWorkspace, UserRole } from '../../domain/types';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { SubscriptionBanner } from './SubscriptionBanner';
 import { OpesFuelLogo } from '../brand/OpesFuelLogo';
 import { FormModal } from '../shared/FormModal';
 import type { PlatformAdminTab } from './PlatformAdminSection';
@@ -660,6 +661,10 @@ export const ConsoleLayout: React.FC<ConsoleLayoutProps> = ({
                 Dismiss
               </button>
             </div>
+          )}
+
+          {role !== 'PLATFORM_ADMIN' && (
+            <SubscriptionBanner accessToken={authSession?.accessToken} role={role} onOpenBilling={() => onSelectSection('admin')} />
           )}
 
           {children}

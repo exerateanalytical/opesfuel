@@ -81,7 +81,8 @@ public class AuditController {
     }
 
     @PostMapping("/logs")
-    @PreAuthorize("isAuthenticated() and !hasRole('FLEET_CLIENT')")
+    // Manual audit notes: management roles only (attendants must not be able to write into the audit trail).
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER','MANAGER','ACCOUNTANT','GROUP_CFO')")
     public Map<String, Object> recordLog(@Valid @RequestBody RecordAuditCommand cmd) {
         OpesFuelPrincipal principal = accessGuard.currentPrincipal();
         String role = principal.roles().stream().findFirst().orElse("USER");
@@ -90,7 +91,7 @@ public class AuditController {
             cmd.stationId(),
             principal.subject(),
             role,
-            cmd.action().trim().toUpperCase(),
+            "CLIENT_" + cmd.action().trim().toUpperCase().replaceFirst("^CLIENT_", ""), // marks manual notes: never confusable with system-written entries
             cmd.entityType().trim().toUpperCase(),
             cmd.entityId().trim(),
             cmd.summary().trim()
