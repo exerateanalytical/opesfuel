@@ -4,6 +4,7 @@ import { CalendarClock, CheckCircle2, Cog, Plus, Wrench, Zap } from 'lucide-reac
 import { formatFcfa } from '../../domain/formatters';
 import { UserRole } from '../../domain/types';
 import { FormModal } from '../shared/FormModal';
+import { CostRollupTab, PmSchedulesTab } from './CmmsPlannerTabs';
 
 interface WorkOrder {
   id: string;
@@ -64,7 +65,7 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
   onNotify,
 }) => {
   const canEdit = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
-  const [tab, setTab] = useState<'work-orders' | 'generator' | 'parts'>('work-orders');
+  const [tab, setTab] = useState<'work-orders' | 'pm' | 'costs' | 'generator' | 'parts'>('work-orders');
 
   const liveData = useLiveApi().live; // real customers never see built-in sample rows
   const seed_workOrders: WorkOrder[] = [
@@ -286,6 +287,8 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
         {(
           [
             { id: 'work-orders', label: 'Work Orders & PM', icon: CalendarClock },
+            { id: 'pm', label: 'PM Schedules', icon: CalendarClock },
+            { id: 'costs', label: 'Cost per Asset', icon: Wrench },
             { id: 'generator', label: 'Standby Generator Log', icon: Zap },
             { id: 'parts', label: 'Spare Parts Inventory', icon: Cog },
           ] as const
@@ -380,6 +383,9 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
           </table>
         </div>
       )}
+
+      {tab === 'pm' && <PmSchedulesTab stationId={stationId} canEdit={canEdit} onNotify={onNotify} onChanged={() => void reloadWo()} />}
+      {tab === 'costs' && <CostRollupTab />}
 
       {tab === 'parts' && (
         <div className="border border-slate-200 rounded-xl overflow-x-auto">

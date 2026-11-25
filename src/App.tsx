@@ -28,6 +28,7 @@ import {
 import { ClassicLoginPage } from './components/auth/ClassicLoginPage';
 import { ActiveImpersonationSession, ConsoleLayout, NotificationItem } from './components/console/ConsoleLayout';
 import { LiveApiProvider } from './api/liveApi';
+import { fetchServerLists } from './api/serverHydration';
 import type { PlatformAdminTab } from './components/console/PlatformAdminSection';
 import { MobileAppShowcase } from './components/mobile/MobileAppShowcase';
 import { PublicFooter } from './components/public/PublicFooter';
@@ -66,6 +67,8 @@ const PublicLoyaltyPassPage = lazy(() => import('./components/public/PublicLoyal
 const FleetClientPortalPage = lazy(() => import('./components/fleet/FleetClientPortalPage').then((m) => ({ default: m.FleetClientPortalPage })));
 const LpgCylinderExchangePanel = lazy(() => import('./components/console/LpgCylinderExchangePanel').then((m) => ({ default: m.LpgCylinderExchangePanel })));
 const MaintenanceCmmsPanel = lazy(() => import('./components/console/MaintenanceCmmsPanel').then((m) => ({ default: m.MaintenanceCmmsPanel })));
+const BillingToolsPanel = lazy(() => import('./components/console/BillingToolsPanel').then((m) => ({ default: m.BillingToolsPanel })));
+const LoyaltyEarnRulesPanel = lazy(() => import('./components/console/LoyaltyEarnRulesPanel').then((m) => ({ default: m.LoyaltyEarnRulesPanel })));
 const LoyaltyCampaignsPanel = lazy(() => import('./components/console/LoyaltyCampaignsPanel').then((m) => ({ default: m.LoyaltyCampaignsPanel })));
 const HoldingConsolidationPanel = lazy(() => import('./components/console/HoldingConsolidationPanel').then((m) => ({ default: m.HoldingConsolidationPanel })));
 
@@ -638,28 +641,62 @@ export default function App() {
 
   const currentActorEmail = authSession?.email ?? `${role.toLowerCase()}@opesfuel.cm`;
 
+  const [serverReloadTick, setServerReloadTick] = useState(0);
   const postOptionalBackend = useCallback(
     async (path: string, method: 'POST' | 'PATCH' | 'PUT', body?: Record<string, unknown>) => {
       const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
       if (!apiBase) return null;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() };
       if (authSession?.accessToken) {
         headers.Authorization = `Bearer ${authSession.accessToken}`;
       }
+      const live = Boolean(authSession?.accessToken);
       try {
         const res = await fetch(`${apiBase}${path}`, {
           method,
           headers,
           body: body ? JSON.stringify(body) : undefined,
         });
-        if (res.ok) return (await res.json().catch(() => null)) as Record<string, unknown> | null;
+        if (res.ok) {
+          if (live) setServerReloadTick((n) => n + 1); // the server's copy replaces the optimistic one
+          return (await res.json().catch(() => null)) as Record<string, unknown> | null;
+        }
+        if (live) {
+          // Real customers must never believe an unsaved record was saved.
+          let detail = `HTTP ${res.status}`;
+          try { const j = JSON.parse(await res.text()) as { detail?: string; message?: string }; detail = j.detail || j.message || detail; } catch { /* keep status */ }
+          setToast({ type: 'error', message: `Not saved: ${detail}` });
+          setServerReloadTick((n) => n + 1);
+        }
       } catch {
-        // fallback to optimistic local state when remote API is unavailable
+        if (live) {
+          setToast({ type: 'error', message: 'Not saved: cannot reach the server. Check your connection and try again.' });
+          setServerReloadTick((n) => n + 1);
+        }
       }
       return null;
     },
     [authSession?.accessToken]
   );
+
+  // Signed in to the real server: load every enterprise list from it (and again after each save).
+  useEffect(() => {
+    const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+    const token = authSession?.accessToken;
+    if (!apiBase || !token) return;
+    let cancelled = false;
+    const get = async (path: string) => {
+      const res = await fetch(`${apiBase}/api/v1${path}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json();
+    };
+    void fetchServerLists(get, store.pumps).then(({ ext, ent }) => {
+      if (cancelled) return;
+      setExtOps((prev) => ({ ...prev, ...ext }));
+      setEntOps((prev) => ({ ...prev, ...ent }));
+    });
+    return () => { cancelled = true; };
+  }, [authSession?.accessToken, serverReloadTick, store.pumps]);
 
   const appendAudit = useCallback(
     (action: string, entityType: string, entityId: string, summary: string, stationId = defaultStationId) => {
@@ -1730,6 +1767,7 @@ export default function App() {
             onPostBackend={postOptionalBackend}
             onNotify={notify}
           />
+          <LoyaltyEarnRulesPanel role={role} onNotify={notify} />
         </div>
       )}
 
@@ -1978,6 +2016,7 @@ export default function App() {
                 onNotify={notify}
               />
               <IamGovernanceAndBillingProPanel role={role} onNotify={notify} />
+              {(role === 'OWNER' || role === 'ACCOUNTANT' || role === 'PLATFORM_ADMIN') && <BillingToolsPanel role={role} onNotify={notify} />}
               <SecurityAuditAndProfilePanel
                 accounts={extOps.accounts}
                 auditLogs={extOps.auditLogs}

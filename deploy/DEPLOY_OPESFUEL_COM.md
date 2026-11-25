@@ -85,12 +85,11 @@ Rollback: `git checkout <previous-tag>` and repeat step 4 (no schema change need
 ## Known limits
 - **Connected to live data (load from and save to the server):** IAM and Billing-pro, Shop (FEFO batches, stock adjustments, cart checkout),
   Loyalty (members, campaigns), Maintenance/CMMS (work orders, generator logs, spare parts), LPG cylinder exchange, Hardware bridge.
-- **Real customers never see built-in sample records anywhere.** These modules still do not load their existing lists from the server
-  and start empty (records added in the session are saved to the server): HR admin (contracts, leaves, certificates, disciplinary),
-  Cash vault, Pump calibrations and maintenance logs, HSE / Fraud / Quality, Fixed assets and budgets, Executive approvals, Franchises, EV.
-  Server endpoints exist for most of them; wiring them is a later web-only release (no database change).
-- Not yet wired to a screen at all: maintenance PM schedules and cost roll-up, loyalty earn rules, billing dunning and proration preview,
-  country packs, MoMo refund and provider status, billing payments list.
+- **Also connected now:** HR admin, cash vault, pump calibrations and maintenance, HSE / fraud / quality, transfers, service bay, vouchers,
+  bulk orders, fixed assets, budgets, approvals, EV, franchises (all lists load from the server after sign-in and reload after every save;
+  a failed save shows an error instead of looking saved). Also new screens: PM schedules and cost per asset (Maintenance), loyalty earning
+  rules, subscription payments, Mobile Money list/refund/provider status, payment reminders, plan-change calculator, country rules.
+- **Real customers never see built-in sample records anywhere.**
 - Access-review "REVOKED" records a flag in the audit trail; it does not disable the account automatically.
 - GitHub Actions is blocked by an account spending limit ("Actions budget is preventing further use"). Fix under GitHub
   Settings, Billing, Budgets. Until then CI does not run.

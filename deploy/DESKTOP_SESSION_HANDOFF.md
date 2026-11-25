@@ -90,7 +90,7 @@ Roll back code: `deploy/rollback.sh` (database is not restored; for data problem
 - GitHub Actions CI is blocked by an account spending limit ("Actions budget is preventing further use"), so nothing runs automatically.
 - The backend was tested on Java 21 locally; the first Java 25 build happens in your deploy.
 - The mobile app on a real phone has not been tested by the developer.
-- Some enterprise modules do not yet load their existing lists from the server (listed in `DEPLOY_OPESFUEL_COM.md`, Known limits).
+- Enterprise screens now load from the server; only verified against a mock API (no real server run), so check each module once after the first sign-in.
 - Email sending needs a provider configured and SPF/DKIM DNS records.
 - Keycloak is the identity provider for this deploy (Auth0 remains supported by the code but is no longer used). Real Keycloak sign-in has not been tested by the developer: expect to iterate on the Keycloak hostname/SMTP items above.
 
