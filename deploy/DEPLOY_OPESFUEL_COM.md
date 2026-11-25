@@ -59,6 +59,10 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.opesfuel.com/api/v1
 4. Sign in with `OPESFUEL_BOOTSTRAP_ADMIN_EMAIL`; the SaaS admin console should list the company from step 2.
 5. In the admin console set that company's trial end to yesterday: edits must return 402 while billing pages still open.
 6. A login for an unknown email must be refused (403).
+7. Staff: as the test owner, invite an attendant (Invite staff) with a second inbox you own. Sign up in Auth0 with that exact email,
+   verify it; the person must land in the same company as an attendant. (Managers can invite attendants only.)
+8. As that test company, the console top bar should show the free-trial countdown only in the last 7 days, and "read-only" after
+   expiry. Billing pages must stay reachable when read-only.
 
 ## 5b. Adding staff after launch
 Owners invite staff from the console (Invite staff). Managers can invite attendants only; owners can invite any role.
@@ -74,6 +78,11 @@ Collect: `docker compose -f docker-compose.prod.yml logs --tail=200 opesfuel-bac
 Rollback: `git checkout <previous-tag>` and repeat step 4 (no schema change needs reverting; V26 only disables seeded demo staff logins).
 
 ## Known limits
+- **Enterprise screens not yet connected to live lists.** Real customers do not see sample data, but these modules start empty and only
+  show records added in the current session (saves do reach the server): Loyalty campaigns, Maintenance (CMMS), LPG cylinder exchange,
+  Hardware bridge, Shop batches / stock adjustments. The IAM and Billing-pro screen is fully connected. Remaining wiring is tracked on the
+  branch `claude/modest-ride-vq8wfr` and ships as a later web-only release (no database change).
+- Access-review "REVOKED" records a flag in the audit trail; it does not disable the account automatically.
 - GitHub Actions is blocked by an account spending limit ("Actions budget is preventing further use"). Fix under GitHub
   Settings, Billing, Budgets. Until then CI does not run.
 - Tested on Java 21 locally; first Java 25 build happens on the server.
