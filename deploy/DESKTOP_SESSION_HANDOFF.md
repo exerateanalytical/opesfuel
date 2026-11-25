@@ -3,6 +3,12 @@
 You are the session that will deploy. The code is finished, merged to `main` and tested. Everything below is scripted;
 your job is to gather the secrets from the owner, run the scripts in order, stop on any FAIL, and report honestly.
 
+**Status as of `main` @ PR #14 (`4142d21`) - everything is merged; nothing is pending on the developer side.** Since the last hand-off:
+Keycloak replaced Auth0 everywhere (web, mobile app, Claude/ChatGPT connector, deploy scripts), and every enterprise screen now loads
+from the server (HR, vault, calibrations, HSE/fraud/quality, assets, budgets, approvals, EV, franchises, transfers, vouchers, bulk orders)
+plus new screens (PM schedules, cost per asset, loyalty earning rules, payments/Mobile Money/reminders/plan calculator/country rules).
+No database change since V26. Run `git pull` and confirm `git log -1` shows `4142d21` or later before deploying.
+
 ## 0. Ground rules
 - Deploy from `main` only. Never force-push, never commit `.env`, never print secret values back in chat.
 - If a script prints FAIL, stop and fix the cause. Do not edit scripts to make a check pass.
@@ -67,6 +73,11 @@ made-up tokens refused, the Keycloak realm reachable, CORS, TLS certificate, sit
 6. As the test company owner invite a second inbox as an attendant; sign up with it: it lands in the same company as an attendant.
 7. A login with an email that has no workspace must be refused.
 8. Open a report (Z-report) and confirm the PDF preview opens with Download and Print.
+9. As the test company owner, add one record in each of: HR (a contract), Cash vault, HSE, Fixed assets, Approvals. Refresh the page: each record
+   must still be there (this proves save and load against the real server). A save that fails must show "Not saved: <reason>".
+10. Maintenance: add a PM schedule, press "Open due work orders now", then check Cost per Asset. Loyalty: save an earning rule.
+11. Billing tools (owner): Subscription payments, Mobile Money (provider status shows Connected or Not configured), Plan change calculator, Country rules all open without error.
+12. Only if `--with-mcp` was used: in Claude, add the connector `https://mcp.opesfuel.com/mcp`, sign in with the admin email; a non-admin login must be refused.
 
 ## 6. If something fails
 | Symptom | Likely cause | Fix |
@@ -90,9 +101,11 @@ Roll back code: `deploy/rollback.sh` (database is not restored; for data problem
 - GitHub Actions CI is blocked by an account spending limit ("Actions budget is preventing further use"), so nothing runs automatically.
 - The backend was tested on Java 21 locally; the first Java 25 build happens in your deploy.
 - The mobile app on a real phone has not been tested by the developer.
-- Enterprise screens now load from the server; only verified against a mock API (no real server run), so check each module once after the first sign-in.
+- Enterprise screens and the new billing/maintenance screens were verified only against a mock API in a browser, never against the real backend: checks 9-11 are the first real test. Report any module that errors.
+- The Claude/ChatGPT connector's dynamic client registration with Keycloak is the likeliest thing to need adjusting (see `mcp/README.md`).
+- Access-review "REVOKED" records a flag in the audit trail; it does not disable the account.
 - Email sending needs a provider configured and SPF/DKIM DNS records.
 - Keycloak is the identity provider for this deploy (Auth0 remains supported by the code but is no longer used). Real Keycloak sign-in has not been tested by the developer: expect to iterate on the Keycloak hostname/SMTP items above.
 
 ## 8. Report back
-Give the owner: the deployed commit, the `verify-public` summary, the results of the 8 manual checks, and the open items above.
+Give the owner: the deployed commit, the `verify-public` summary, the results of the 12 manual checks, and the open items above.
