@@ -66,6 +66,7 @@ step "7/7 Verify the public site"
 WEB="https://$(envget OPESFUEL_DOMAIN)"; API="https://$(envget OPESFUEL_API_DOMAIN)"; DEMO="https://$(envget OPESFUEL_DEMO_DOMAIN)"; MCP=""
 [[ $WITH_MCP -eq 1 ]] && MCP="https://$(envget OPESFUEL_MCP_DOMAIN)"
 ok=0
+if [[ -n "$(envget VITE_OIDC_ISSUER)" ]]; then export IDP=keycloak OIDC_ISSUER="$(envget OIDC_ISSUER_URI)"; else export IDP=auth0; fi
 for attempt in 1 2 3 4 5 6; do   # HTTPS certificates can take a minute to be issued on the first deploy
   if deploy/verify-public.sh "$WEB" "$API" "$DEMO" $MCP; then ok=1; break; fi
   [[ $attempt -lt 6 ]] && { echo "retrying in 20s (certificate or routing may still be settling)..."; sleep 20; }

@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # OpesFuel production preflight. Read-only: changes nothing. Exit code 0 = safe to deploy, 1 = at least one FAIL.
-# Usage: deploy/preflight.sh [--env FILE] [--with-mcp] [--no-dns] [--no-git]
+# Usage: deploy/preflight.sh [--env FILE] [--with-mcp] [--no-dns] [--no-git] [--no-idp]
 set -uo pipefail
 
-ENV_FILE=".env"; WITH_MCP=0; CHECK_DNS=1; CHECK_GIT=1
+ENV_FILE=".env"; WITH_MCP=0; CHECK_DNS=1; CHECK_GIT=1; CHECK_IDP=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env) ENV_FILE="$2"; shift 2 ;;
     --with-mcp) WITH_MCP=1; shift ;;
     --no-dns) CHECK_DNS=0; shift ;;
     --no-git) CHECK_GIT=0; shift ;;
+    --no-idp) CHECK_IDP=0; shift ;;
     -h|--help) sed -n 2,4p "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
@@ -40,16 +41,43 @@ else
     fail "placeholder values remain for: $(grep -E '^[A-Za-z_][A-Za-z0-9_]*=.*CHANGE_ME' "$ENV_FILE" | cut -d= -f1 | tr '\n' ' ')"
   else pass "no CHANGE_ME placeholders"; fi
 
-  for k in SPRING_DATASOURCE_PASSWORD OPESFUEL_ENCRYPTION_KEY AUTH0_ISSUER_URI AUTH0_AUDIENCE VITE_AUTH0_DOMAIN VITE_AUTH0_CLIENT_ID \
-           OPESFUEL_CORS_ALLOWED_ORIGINS OPESFUEL_BOOTSTRAP_ADMIN_EMAIL OPESFUEL_AUTH0_ACTION_SECRET OPESFUEL_DOMAIN OPESFUEL_API_DOMAIN OPESFUEL_DEMO_DOMAIN PUBLIC_API_BASE_URL; do
+  for k in SPRING_DATASOURCE_PASSWORD OPESFUEL_ENCRYPTION_KEY OPESFUEL_CORS_ALLOWED_ORIGINS OPESFUEL_BOOTSTRAP_ADMIN_EMAIL \
+           OPESFUEL_DOMAIN OPESFUEL_API_DOMAIN OPESFUEL_DEMO_DOMAIN PUBLIC_API_BASE_URL; do
     [[ -n "$(envget "$k")" ]] && pass "$k set" || fail "$k is missing or empty"
   done
 
   v=$(envget OPESFUEL_ENCRYPTION_KEY);        [[ -n "$v" && ${#v} -lt 32 ]] && fail "OPESFUEL_ENCRYPTION_KEY must be at least 32 characters (is ${#v})"
-  v=$(envget OPESFUEL_AUTH0_ACTION_SECRET);   [[ -n "$v" && ${#v} -lt 32 ]] && fail "OPESFUEL_AUTH0_ACTION_SECRET must be at least 32 characters (use: openssl rand -hex 32)"
   v=$(envget SPRING_DATASOURCE_PASSWORD);     [[ -n "$v" && ${#v} -lt 16 ]] && warn "database password is short (${#v} chars)"
-  v=$(envget AUTH0_ISSUER_URI);               [[ -n "$v" && "$v" != https://*/ ]] && fail "AUTH0_ISSUER_URI must start with https:// and end with / (is: $v)"
   v=$(envget OPESFUEL_BOOTSTRAP_ADMIN_EMAIL); [[ -n "$v" && ! "$v" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] && fail "OPESFUEL_BOOTSTRAP_ADMIN_EMAIL is not a valid email"
+
+  # ---- identity provider: Keycloak when VITE_OIDC_ISSUER is set (it takes precedence), otherwise Auth0 ----
+  if [[ -n "$(envget VITE_OIDC_ISSUER)" ]]; then
+    section "Identity provider: Keycloak"
+    iss=$(envget OIDC_ISSUER_URI); web_iss=$(envget VITE_OIDC_ISSUER)
+    for k in OIDC_ISSUER_URI VITE_OIDC_CLIENT_ID OIDC_AUDIENCE; do [[ -n "$(envget "$k")" ]] && pass "$k set" || fail "$k is missing or empty"; done
+    if [[ -n "$iss" ]]; then
+      [[ "$iss" == https://*/realms/* ]] && pass "OIDC_ISSUER_URI looks like a Keycloak realm URL" || fail "OIDC_ISSUER_URI must look like https://<host>/realms/<realm> (is: $iss)"
+      [[ "$iss" == */ ]] && fail "OIDC_ISSUER_URI must NOT end with / (Keycloak's issuer has no trailing slash, the backend compares it exactly)"
+      [[ "$iss" != "$web_iss" ]] && fail "OIDC_ISSUER_URI and VITE_OIDC_ISSUER differ: the website and the backend must use the same issuer"
+      if [[ $CHECK_IDP -eq 1 && "$iss" == https://* ]]; then
+        disc=$(curl -fsS ${PREFLIGHT_CURL_OPTS:-} --max-time 10 "$iss/.well-known/openid-configuration" 2>/dev/null || true)
+        if [[ -z "$disc" ]]; then fail "cannot read $iss/.well-known/openid-configuration (wrong URL, realm missing, or Keycloak unreachable from this server)"
+        else
+          reported=$(printf '%s' "$disc" | grep -o '"issuer" *: *"[^"]*"' | head -1 | sed 's/.*: *"\(.*\)"/\1/')
+          [[ "$reported" == "$iss" ]] && pass "Keycloak reports the same issuer ($reported)" || fail "Keycloak reports issuer '$reported' but OIDC_ISSUER_URI is '$iss': every token would be rejected (check Keycloak hostname / proxy settings)"
+          jwks=$(printf '%s' "$disc" | grep -o '"jwks_uri" *: *"[^"]*"' | head -1 | sed 's/.*: *"\(.*\)"/\1/')
+          [[ -n "$jwks" ]] && curl -fsS ${PREFLIGHT_CURL_OPTS:-} --max-time 10 -o /dev/null "$jwks" 2>/dev/null && pass "token signing keys are reachable" || fail "cannot read the token signing keys ($jwks)"
+        fi
+      fi
+    fi
+    [[ -n "$(envget OPESFUEL_AUTH0_ACTION_SECRET)" ]] && warn "OPESFUEL_AUTH0_ACTION_SECRET is set but unused with Keycloak (harmless)"
+  else
+    section "Identity provider: Auth0"
+    for k in AUTH0_ISSUER_URI AUTH0_AUDIENCE VITE_AUTH0_DOMAIN VITE_AUTH0_CLIENT_ID OPESFUEL_AUTH0_ACTION_SECRET; do [[ -n "$(envget "$k")" ]] && pass "$k set" || fail "$k is missing or empty"; done
+    v=$(envget AUTH0_ISSUER_URI);             [[ -n "$v" && "$v" != https://*/ ]] && fail "AUTH0_ISSUER_URI must start with https:// and end with / (is: $v)"
+    v=$(envget OPESFUEL_AUTH0_ACTION_SECRET); [[ -n "$v" && ${#v} -lt 32 ]] && fail "OPESFUEL_AUTH0_ACTION_SECRET must be at least 32 characters (use: openssl rand -hex 32)"
+  fi
+  section "Safety flags"
 
   web=$(envget OPESFUEL_DOMAIN); api=$(envget OPESFUEL_API_DOMAIN); demo=$(envget OPESFUEL_DEMO_DOMAIN)
   [[ -n "$web" && "$(envget OPESFUEL_CORS_ALLOWED_ORIGINS)" != *"https://$web"* ]] && fail "OPESFUEL_CORS_ALLOWED_ORIGINS must include https://$web"

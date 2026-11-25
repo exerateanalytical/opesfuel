@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Non-destructive checks of a LIVE deployment (creates no data). Exit 1 if anything fails.
-# Usage: deploy/verify-public.sh WEB_URL API_URL DEMO_URL [MCP_URL]
+# Usage: [IDP=keycloak|auth0] [OIDC_ISSUER=https://.../realms/x] deploy/verify-public.sh WEB_URL API_URL DEMO_URL [MCP_URL]
 #   e.g. deploy/verify-public.sh https://opesfuel.com https://api.opesfuel.com https://demo.opesfuel.com
 set -uo pipefail
 WEB="${1:?usage: verify-public.sh WEB_URL API_URL DEMO_URL [MCP_URL]}"; API="${2:?}"; DEMO="${3:?}"; MCP="${4:-}"
@@ -22,9 +22,18 @@ expect_code "protected endpoint refuses anonymous callers" 401 "$API/api/v1/fore
 expect_code "admin endpoint refuses anonymous callers" 401 "$API/api/v1/platform-admin/overview"
 expect_code "signup route is live (empty body is rejected by validation)" "400|422" "$API/api/v1/public/auth/signup" -X POST -H 'Content-Type: application/json' -d '{}'
 c=$(code -X POST -H 'Content-Type: application/json' -d '{"email":"a@b.cm","sub":"x","emailVerified":true}' "$API/api/v1/public/auth/identity-claims")
-case "$c" in 401) pass "login-claims endpoint refuses calls without the Action secret (HTTP 401)";;
-  503) fail "login-claims endpoint says it is NOT configured (HTTP 503): set OPESFUEL_AUTH0_ACTION_SECRET on the backend, or every login is refused";;
-  *) fail "login-claims endpoint answered HTTP $c (expected 401)";; esac
+if [[ "${IDP:-auth0}" == "keycloak" ]]; then
+  # Keycloak: the backend resolves company/role from the verified email itself; the Auth0 Action endpoint is not used (disabled = 503, or 401)
+  case "$c" in 401|503) pass "Auth0-Action endpoint is closed to callers (HTTP $c; not used with Keycloak)";; *) fail "identity-claims endpoint answered HTTP $c (expected 401 or 503)";; esac
+  expect_code "a made-up login token is refused" 401 "$API/api/v1/identity/me" -H 'Authorization: Bearer not.a.real.token'
+  if [[ -n "${OIDC_ISSUER:-}" ]]; then
+    d=$(body "${OIDC_ISSUER%/}/.well-known/openid-configuration"); [[ "$d" == *"\"issuer\""* && "$d" == *"${OIDC_ISSUER%/}"* ]] && pass "Keycloak realm answers publicly with the expected issuer" || fail "Keycloak realm discovery missing or reports another issuer (${OIDC_ISSUER%/})"
+  fi
+else
+  case "$c" in 401) pass "login-claims endpoint refuses calls without the Action secret (HTTP 401)";;
+    503) fail "login-claims endpoint says it is NOT configured (HTTP 503): set OPESFUEL_AUTH0_ACTION_SECRET on the backend, or every login is refused";;
+    *) fail "login-claims endpoint answered HTTP $c (expected 401)";; esac
+fi
 expect_code "actuator env is not exposed" "401|403|404" "$API/actuator/env"
 expect_code "actuator beans are not exposed" "401|403|404" "$API/actuator/beans"
 cors=$(curl -sSI --max-time 15 -X OPTIONS -H "Origin: $WEB" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type' "$API/api/v1/public/leads" 2>/dev/null | tr -d '\r' | grep -i '^access-control-allow-origin:' | head -1)

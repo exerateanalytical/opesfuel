@@ -17,25 +17,23 @@ Optional: add `www.opesfuel.com` DNS; no redirect is configured for it yet.
 ## 2. Environment file
 ```bash
 cp deploy/opesfuel.com.env.example .env      # then replace every CHANGE_ME
-openssl rand -hex 32                          # use for OPESFUEL_AUTH0_ACTION_SECRET
+openssl rand -hex 32                          # use for OPESFUEL_ENCRYPTION_KEY
 ```
-Required before first start: `SPRING_DATASOURCE_PASSWORD`, `OPESFUEL_ENCRYPTION_KEY`, `AUTH0_*`, `VITE_AUTH0_*`,
-`OPESFUEL_AUTH0_ACTION_SECRET`, `OPESFUEL_BOOTSTRAP_ADMIN_EMAIL`. The stack refuses to start without the first few.
+Required before first start: `SPRING_DATASOURCE_PASSWORD`, `OPESFUEL_ENCRYPTION_KEY`, `OIDC_ISSUER_URI`, `VITE_OIDC_ISSUER`,
+`VITE_OIDC_CLIENT_ID`, `OIDC_AUDIENCE`, `OPESFUEL_BOOTSTRAP_ADMIN_EMAIL`. The stack refuses to start without the first few.
 
-## 3. Auth0 (one time)
-Single Page Application settings:
-- Allowed Callback URLs: `https://opesfuel.com/`
-- Allowed Logout URLs: `https://opesfuel.com/`
-- Allowed Web Origins: `https://opesfuel.com`
-
-Then configure the API, roles and claims Action (safe to re-run; preview first):
+## 3. Identity provider: Keycloak (one time)
+OpesFuel signs people in with **Keycloak**. The backend finds each person's company and role from their verified email, so no
+Auth0 Action or action secret is involved. Configure the realm and the two clients in one idempotent command (preview with `--dry-run`):
 ```bash
-export AUTH0_DOMAIN=YOUR-TENANT.auth0.com AUTH0_M2M_CLIENT_ID=... AUTH0_M2M_CLIENT_SECRET=...
-export OPESFUEL_API_BASE=https://api.opesfuel.com OPESFUEL_ACTION_SECRET=<same value as in .env>
-python3 deploy/auth0_setup.py --dry-run
-python3 deploy/auth0_setup.py
+export KC_URL=https://<keycloak-host> KC_ADMIN_USER=<admin> KC_ADMIN_PASSWORD=...
+export OPESFUEL_WEB_ORIGIN=https://opesfuel.com
+export KC_SMTP_HOST=<smtp host> KC_SMTP_FROM=noreply@opesfuel.com KC_SMTP_USER=... KC_SMTP_PASSWORD=...   # verification emails: REQUIRED
+python3 deploy/keycloak_setup.py --dry-run && python3 deploy/keycloak_setup.py
 ```
-Without the Action every login is refused (by design: no company tag, no access).
+Then put the printed issuer (`https://<keycloak-host>/realms/opesfuel`, no trailing slash) in `.env` as `OIDC_ISSUER_URI` and `VITE_OIDC_ISSUER`.
+Keycloak's own **hostname** setting must make it report exactly that issuer; `deploy/preflight.sh` checks this from the server.
+Without a working verification email nobody can finish signing in (by design: unverified emails are never trusted).
 
 ## 4. Deploy
 Scripted (recommended). Details and failure table: `deploy/DESKTOP_SESSION_HANDOFF.md`.
@@ -50,13 +48,13 @@ Manual equivalent: `git pull origin main` then
 Flyway applies migrations V1 to V26 automatically on backend start. The backend image builds with Java 25.
 
 ## 5. Verify
-`deploy/deploy.sh` already runs `deploy/verify-public.sh` (health, access refused without login, signup route, login-claims secret,
+`deploy/deploy.sh` already runs `deploy/verify-public.sh` (health, access refused without login, signup route, made-up tokens refused, Keycloak realm reachable,
 CORS, TLS certificate, sitemap/llms/robots, demo). To rerun it alone:
 `deploy/verify-public.sh https://opesfuel.com https://api.opesfuel.com https://demo.opesfuel.com`.
 Then do these manual checks (they need a browser and real inboxes):
 1. `https://demo.opesfuel.com` opens and you can browse with a sample role.
 2. On `https://opesfuel.com` start a free trial with an inbox you own; you should see "Your workspace is ready".
-3. Click "Create password & open my workspace", verify the email, and the dashboard opens with only that company.
+3. Click "Create password & open my workspace", create the Keycloak account and verify the email (it must arrive), and the dashboard opens with only that company.
 4. Sign in with `OPESFUEL_BOOTSTRAP_ADMIN_EMAIL`; the SaaS admin console should list the company from step 2.
 5. In the admin console set that company's trial end to yesterday: edits must return 402 while billing pages still open.
 6. A login for an unknown email must be refused (403).
