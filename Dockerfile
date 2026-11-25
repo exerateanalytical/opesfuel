@@ -5,6 +5,7 @@ COPY package.json ./
 RUN npm install --no-audit --no-fund
 COPY index.html tsconfig.json vite.config.ts ./
 COPY src ./src
+COPY public ./public
 ARG VITE_API_BASE_URL=
 ARG VITE_AUTH0_DOMAIN=
 ARG VITE_AUTH0_CLIENT_ID=
