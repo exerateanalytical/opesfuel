@@ -1,5 +1,33 @@
 # Hand-off: deploy OpesFuel to opesfuel.com
 
+## LIVE NOW (updated 2026-11-25) - read this first
+OpesFuel is **deployed and running** on the shared Contabo server (84.46.246.228) at commit `8ebf622` (main), next to OPES Maintain.
+This server does **not** use `docker-compose.prod.yml`/Caddy/`deploy/deploy.sh`; it uses the shared layout below. Sections 2-4 describe a
+fresh standalone install and are kept for reference only.
+
+| Piece | Live setup |
+|---|---|
+| Website | container `opesfuel-web`, host network, port 3083 (healthy) |
+| Backend | container `opesfuel-backend`, port 8083 (healthy); DB `opesfuel` in the shared PostgreSQL 16 (127.0.0.1) |
+| Public demo | container `opesfuel-demo`, port 3084 |
+| Proxy/TLS | Nginx + certbot, site `opesfuel.com` (`/api/ai/`, `/api/health` -> 3083; `/api/` -> 8083; `/` -> 3083, demo page as fallback) |
+| Identity | shared Keycloak, realm `opesfuel`, issuer `https://auth.opesmaintain.com/realms/opesfuel`, public PKCE client `opesfuel-web` with the `https://api.opesfuel.com/v1` audience mapper |
+| Settings | `/etc/spring/opesfuel.env` (chmod 600): `AUTH0_ISSUER_URI` = the Keycloak issuer (the backend reads this name), `VITE_OIDC_ISSUER`, `VITE_OIDC_CLIENT_ID=opesfuel-web`, `OPESFUEL_BOOTSTRAP_ADMIN_EMAIL=nshome@opesware.com` |
+| Redeploy | `opesfuel-redeploy` on the server: pulls main, rebuilds demo/backend/web images, restarts containers with health checks |
+
+Verified live: `/`, `/app/overview`, `/login` 200; `/sitemap.xml`, `/robots.txt`, `/llms.txt` served as files; clean URLs (no `#`);
+backend health UP; API without a token -> 401; "Sign in" redirects to the Keycloak login page.
+
+**Still open on the live server**
+- A real sign-in has not been done yet. The owner registers at opesfuel.com with the admin email; until SMTP exists the operator marks the
+  email verified in Keycloak (Users > the user > Email verified).
+- Keycloak SMTP is not configured, so verification and password-reset emails are not sent (needs Brevo/Zoho details).
+- The `opesfuel-mobile` client has not been created in the realm yet (only `opesfuel-web`).
+- Manual checks 1-12 in section 5 have not been run against the live server.
+
+---
+
+
 You are the session that will deploy. The code is finished, merged to `main` and tested. Everything below is scripted;
 your job is to gather the secrets from the owner, run the scripts in order, stop on any FAIL, and report honestly.
 
