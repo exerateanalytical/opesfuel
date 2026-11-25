@@ -829,7 +829,7 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                 </div>
               </div>
 
-              <table className="w-full border-collapse text-xs border border-slate-200">
+              <div className="overflow-x-auto"><table className="w-full border-collapse text-xs border border-slate-200">
                 <thead>
                   <tr className="text-white font-mono text-[10px] uppercase" style={{ backgroundColor: draft.primaryColorHex }}>
                     <th className="py-2 px-3 text-left">Description</th>
@@ -849,7 +849,7 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                     <td className="py-2 px-3 text-right font-mono font-bold">74,000</td>
                   </tr>
                 </tbody>
-              </table>
+              </table></div>
 
               <div className="flex items-end justify-between pt-4 border-t border-slate-200 gap-4">
                 <div className="space-y-1 text-[11px] text-slate-600">
