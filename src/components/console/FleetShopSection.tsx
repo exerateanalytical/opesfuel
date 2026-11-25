@@ -908,6 +908,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
       {role !== 'GROUP_CFO' && role !== 'ACCOUNTANT' && (
         <ShopCartAndFefoPanel
           role={role}
+          stationId={stationId}
           shopItems={visibleItems}
           onRecordShopSale={onRecordShopSale}
           onNotify={onNotify}

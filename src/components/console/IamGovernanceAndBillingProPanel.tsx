@@ -147,7 +147,7 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
                   </button>
                 )}
               </div>
-              <table className="w-full text-xs text-left">
+              <div className="overflow-x-auto"><table className="w-full text-xs text-left">
                 <thead>
                   <tr>
                     <th className="px-3 py-2.5">Code</th>
@@ -166,7 +166,7 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
 
             <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -178,7 +178,7 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
                   </button>
                 )}
               </div>
-              <table className="w-full text-xs text-left">
+              <div className="overflow-x-auto"><table className="w-full text-xs text-left">
                 <thead>
                   <tr>
                     <th className="px-3 py-2.5">Credit Note #</th>
@@ -197,7 +197,7 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           </div>
         </div>
@@ -224,7 +224,7 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
               <div className="px-4 py-3 border-b border-slate-200 font-display text-sm font-bold text-slate-900">
                 Time-Bound Delegated Authority Grants
               </div>
-              <table className="w-full text-xs text-left">
+              <div className="overflow-x-auto"><table className="w-full text-xs text-left">
                 <thead>
                   <tr>
                     <th className="px-3 py-2.5">Grantee</th>
@@ -262,7 +262,7 @@ export const IamGovernanceAndBillingProPanel: React.FC<IamGovernanceAndBillingPr
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
 
             <div className="border border-slate-200 rounded-xl overflow-hidden">

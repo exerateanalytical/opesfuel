@@ -1,4 +1,4 @@
-import { useLiveApi } from '../../api/liveApi';
+import { useLiveApi, useLiveList } from '../../api/liveApi';
 import React, { useState } from 'react';
 import {
   Activity,
@@ -86,7 +86,13 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
       lastHeartbeatAt: new Date(Date.now() - 45_000).toISOString(),
     },
   ];
-  const [devices, setDevices] = useState<HardwareDevice[]>(liveData ? [] : seed_devices);
+  const deviceList = useLiveList<any, HardwareDevice>('/enterprise/hardware/devices', seed_devices, (r) => ({
+    id: r.id, stationId: r.station_id, deviceCode: r.device_code, protocol: r.protocol, endpointUri: r.endpoint_uri ?? '',
+    firmwareVersion: r.firmware_version ?? '', status: r.status, lastHeartbeatAt: String(r.last_heartbeat_at ?? ''),
+  }));
+  const devices = deviceList.items;
+  const noop = () => {};
+  const setDevices = (liveData ? noop : deviceList.setItems) as typeof deviceList.setItems;
 
   const seed_events: HardwareTelemetryEvent[] = [
     {
@@ -110,7 +116,17 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
       receivedAt: new Date(Date.now() - 95_000).toISOString(),
     },
   ];
-  const [events, setEvents] = useState<HardwareTelemetryEvent[]>(liveData ? [] : seed_events);
+  const eventList = useLiveList<any, HardwareTelemetryEvent>('/enterprise/hardware/events', seed_events, (r) => ({
+    id: r.id, deviceCode: r.device_code, protocol: r.protocol, deviceEventId: r.device_event_id, summary: r.summary,
+    alarmTriggered: Boolean(r.alarm_triggered), idempotentReplay: false, receivedAt: String(r.received_at),
+  }));
+  const events = eventList.items;
+  const setEvents = (liveData ? noop : eventList.setItems) as typeof eventList.setItems;
+  const post: typeof onPostBackend = async (path, method, body) => {
+    const r = await onPostBackend(path, method, body);
+    if (liveData) await Promise.all([deviceList.reload(), eventList.reload()]);
+    return r;
+  };
 
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(
     () => new Set(['DOMS-TX-9001', 'ATG-POLL-4410'])
@@ -121,7 +137,7 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
   // Registration form fields
   const [devCode, setDevCode] = useState('');
   const [devProtocol, setDevProtocol] = useState<'DOMS_PTS2' | 'VEEDER_ROOT_ATG' | 'OCPP_201_EV'>('DOMS_PTS2');
-  const [devUri, setDevUri] = useState('wss://edge-site.opesfuel.local:8443');
+  const [devUri, setDevUri] = useState(liveData ? '' : 'wss://edge-site.opesfuel.local:8443');
   const [devFirmware, setDevFirmware] = useState('v2.4.1');
   const [provisionedKey, setProvisionedKey] = useState<{ deviceName: string; apiKey: string } | null>(null);
 
@@ -138,7 +154,7 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
       endpointUri: devUri.trim(),
       firmwareVersion: devFirmware.trim() || 'v2.4.1',
     };
-    const remote = await onPostBackend('/api/v1/enterprise/hardware/devices', 'POST', payload);
+    const remote = await post('/api/v1/enterprise/hardware/devices', 'POST', payload);
     const created: HardwareDevice = {
       id: String(remote?.id ?? `hw_${Date.now().toString(36)}`),
       stationId,
@@ -166,7 +182,7 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
       litresDispensed: 55.0,
       amountFcfa: 45540,
     };
-    const remote = await onPostBackend('/api/v1/enterprise/hardware/ingest/forecourt-tx', 'POST', payload);
+    const remote = await post('/api/v1/enterprise/hardware/ingest/forecourt-tx', 'POST', payload);
     const isReplay = remote ? Boolean(remote.idempotentReplay) : seenEventIds.has(eventId);
 
     setSeenEventIds((prev) => new Set(prev).add(eventId));
@@ -206,7 +222,7 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
       waterLevelMm: waterMm,
       temperatureC: 27.4,
     };
-    const remote = await onPostBackend('/api/v1/enterprise/hardware/ingest/atg-reading', 'POST', payload);
+    const remote = await post('/api/v1/enterprise/hardware/ingest/atg-reading', 'POST', payload);
     const alarm = remote ? Boolean(remote.waterIngressAlarm) : waterMm > 15.0;
 
     setSeenEventIds((prev) => new Set(prev).add(eventId));
@@ -241,7 +257,7 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
       kwhDelivered: 38.4,
       tariffFcfaPerKwh: 220,
     };
-    const remote = await onPostBackend('/api/v1/enterprise/hardware/ingest/ocpp-session', 'POST', payload);
+    const remote = await post('/api/v1/enterprise/hardware/ingest/ocpp-session', 'POST', payload);
     const amount = Number(remote?.amountFcfa ?? Math.round(payload.kwhDelivered * payload.tariffFcfaPerKwh));
 
     setSeenEventIds((prev) => new Set(prev).add(eventId));
@@ -269,7 +285,7 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
         { clientOpId: opId, stationId, operationType: 'OFFLINE_SALE', payloadSummary: 'Duplicate retry frame after reconnect' },
       ],
     };
-    const remote = await onPostBackend('/api/v1/enterprise/mobile/offline-sync', 'POST', batch);
+    const remote = await post('/api/v1/enterprise/mobile/offline-sync', 'POST', batch);
     const applied = Number(remote?.appliedCount ?? 1);
     const skipped = Number(remote?.duplicatesSkipped ?? 1);
     setEvents((prev) => [
@@ -535,7 +551,7 @@ export const HardwareEdgeBridgePanel: React.FC<HardwareEdgeBridgePanelProps> = (
               type="button"
               onClick={async () => {
                 const name = `Edge-${stationName.replace(/[^a-zA-Z0-9]+/g, '-')}-${Math.floor(10 + Math.random() * 89)}`;
-                const res = await onPostBackend('/api/v1/edge/devices', 'POST', {
+                const res = await post('/api/v1/edge/devices', 'POST', {
                   stationId,
                   deviceName: name,
                   driversCsv: 'DOMS_PTS2,VEEDER_ROOT_ATG,OCPP_201_EV',

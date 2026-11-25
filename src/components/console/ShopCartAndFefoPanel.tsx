@@ -1,4 +1,4 @@
-import { useLiveApi } from '../../api/liveApi';
+import { useLiveApi, useLiveList } from '../../api/liveApi';
 import React, { useState } from 'react';
 import { Barcode, CheckCircle2, Layers, Plus, Printer, ShoppingCart, Trash2 } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
@@ -31,6 +31,7 @@ export interface StockAdjustmentItem {
 
 interface ShopCartAndFefoPanelProps {
   role: UserRole;
+  stationId?: string;
   stationName?: string;
   shopItems: ShopItem[];
   onRecordShopSale: (itemId: string, quantity: number, paymentMethod: 'CASH' | 'MOBILE_MONEY' | 'CARD') => void;
@@ -39,6 +40,7 @@ interface ShopCartAndFefoPanelProps {
 
 export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
   role,
+  stationId = '',
   stationName = 'OpesFuel Shop POS',
   shopItems,
   onRecordShopSale,
@@ -56,7 +58,9 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
   const [cart, setCart] = useState<Array<{ itemId: string; sku: string; name: string; unitPriceFcfa: number; qty: number }>>([]);
   const [tender, setTender] = useState<'CASH' | 'MOBILE_MONEY' | 'CARD'>('MOBILE_MONEY');
 
-  const [batches, setBatches] = useState<ShopBatchItem[]>(() => [
+  const api = useLiveApi();
+  const liveData = api.live; // real customers never see built-in sample rows
+  const seedBatches: ShopBatchItem[] = [
     {
       id: 'bch_01',
       sku: shopItems[0]?.sku ?? 'LUB-5W30',
@@ -77,9 +81,12 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
       quantityRemaining: 22,
       unitPriceFcfa: shopItems[1]?.unitPriceFcfa ?? 19500,
     },
-  ]);
-
-  const liveData = useLiveApi().live; // real customers never see built-in sample rows
+  ];
+  const { items: batches, setItems: setBatches, reload: reloadBatches } = useLiveList<any, ShopBatchItem>('/enterprise/shop/batches', seedBatches, (r) => ({
+    id: r.id, sku: r.sku, barcode: r.barcode, itemName: r.item_name, batchCode: r.batch_code,
+    expiryDate: String(r.expiry_date), quantityRemaining: Number(r.quantity_remaining), unitPriceFcfa: Number(r.unit_price_fcfa),
+  }));
+  const failed = (e: unknown) => onNotify('error', e instanceof Error ? e.message : 'Request failed.');
   const seed_adjustments: StockAdjustmentItem[] = [
     {
       id: 'adj_01',
@@ -92,21 +99,24 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
       createdBy: 'manager@opesfuel.cm',
     },
   ];
-  const [adjustments, setAdjustments] = useState<StockAdjustmentItem[]>(liveData ? [] : seed_adjustments);
+  const { items: adjustments, setItems: setAdjustments, reload: reloadAdjustments } = useLiveList<any, StockAdjustmentItem>('/enterprise/stock-adjustments', seed_adjustments, (r) => ({
+    id: r.id, sku: r.sku, itemName: r.item_name, qtyDelta: Number(r.qty_delta), unitCostFcfa: Number(r.unit_cost_fcfa), reason: r.reason,
+    status: r.status, createdBy: r.created_by, approvedBy: r.approved_by ?? undefined,
+  }));
 
   // Batch modal state
-  const [bSku, setBSku] = useState(shopItems[0]?.sku ?? 'LUB-5W30');
-  const [bBarcode, setBBarcode] = useState('3425901018999');
-  const [bName, setBName] = useState(shopItems[0]?.name ?? 'Engine Oil 4L');
-  const [bLot, setBLot] = useState('LOT-2026-C1');
+  const [bSku, setBSku] = useState(shopItems[0]?.sku ?? (liveData ? '' : 'LUB-5W30'));
+  const [bBarcode, setBBarcode] = useState(liveData ? '' : '3425901018999');
+  const [bName, setBName] = useState(shopItems[0]?.name ?? (liveData ? '' : 'Engine Oil 4L'));
+  const [bLot, setBLot] = useState(liveData ? '' : 'LOT-2026-C1');
   const [bExpiry, setBExpiry] = useState('2027-12-31');
-  const [bQty, setBQty] = useState('20');
-  const [bPrice, setBPrice] = useState('18500');
+  const [bQty, setBQty] = useState(liveData ? '' : '20');
+  const [bPrice, setBPrice] = useState(liveData ? '' : '18500');
 
   // Adjustment modal state
-  const [aSku, setASku] = useState(shopItems[0]?.sku ?? 'LUB-5W30');
-  const [aDelta, setADelta] = useState('-1');
-  const [aCost, setACost] = useState('13000');
+  const [aSku, setASku] = useState(shopItems[0]?.sku ?? (liveData ? '' : 'LUB-5W30'));
+  const [aDelta, setADelta] = useState(liveData ? '' : '-1');
+  const [aCost, setACost] = useState(liveData ? '' : '13000');
   const [aReason, setAReason] = useState('');
 
   const addItemToCart = (item: ShopItem) => {
@@ -138,8 +148,32 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
 
   const cartTotalFcfa = cart.reduce((s, c) => s + c.unitPriceFcfa * c.qty, 0);
 
-  const checkoutCart = () => {
+  const checkoutCart = async () => {
     if (cart.length === 0) return;
+    if (api.live) {
+      // Sales and ledger are recorded by the shop sale flow; FEFO lots are then deducted on the server for lines that have registered lots.
+      for (const line of cart) onRecordShopSale(line.itemId, line.qty, tender);
+      const lines = cart
+        .filter((l) => batches.filter((b) => b.sku.toUpperCase() === l.sku.toUpperCase()).reduce((s2, b) => s2 + b.quantityRemaining, 0) >= l.qty)
+        .map((l) => ({ skuOrBarcode: l.sku, quantity: l.qty }));
+      if (lines.length > 0) {
+        try {
+          await api.send('POST', '/enterprise/shop/cart-checkout', { stationId, paymentMethod: tender, items: lines });
+          await reloadBatches();
+        } catch (e) { failed(e); }
+      }
+      printShopPosThermalSlip({
+        stationName,
+        sku: cart.length === 1 ? cart[0].sku : `BASKET-${cart.length}-ITEMS`,
+        itemName: cart.map((c) => `${c.qty}x ${c.name}`).join(', ').slice(0, 64),
+        quantity: 1,
+        unitPriceFcfa: cartTotalFcfa,
+        paymentMethod: tender,
+      });
+      setCart([]);
+      onNotify('success', `Checked out ${formatFcfa(cartTotalFcfa)} via ${tender}.`);
+      return;
+    }
     for (const line of cart) {
       onRecordShopSale(line.itemId, line.qty, tender);
       // FEFO batch deduction
@@ -168,9 +202,18 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
     onNotify('success', `Checked out ${formatFcfa(cartTotalFcfa)} via ${tender} with FEFO batch deduction & 80mm receipt.`);
   };
 
-  const transitionAdjustment = (id: string, nextStatus: StockAdjustmentItem['status']) => {
+  const transitionAdjustment = async (id: string, nextStatus: StockAdjustmentItem['status']) => {
     const target = adjustments.find((a) => a.id === id);
     if (!target) return;
+    if (api.live) {
+      // The server enforces the workflow and the maker-checker rule and tells us why if refused.
+      try {
+        await api.send('PATCH', `/enterprise/stock-adjustments/${id}/transition`, { nextStatus });
+        await reloadAdjustments();
+        onNotify('success', `Stock adjustment moved to ${nextStatus.replace(/_/g, ' ')}.`);
+      } catch (e) { failed(e); }
+      return;
+    }
     if (nextStatus === 'APPROVED' && target.createdBy.toLowerCase() === currentActor.toLowerCase()) {
       onNotify('error', 'Maker-Checker rule: creator cannot approve their own stock adjustment.');
       return;
@@ -420,8 +463,20 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
       {/* Popup Modals */}
       <FormModal open={modal === 'batch'} title="Register FEFO Stock Batch & Barcode" subtitle="Adds a traceable lot with expiry date for First-Expired-First-Out POS picking." onClose={() => setModal(null)}>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
+            if (api.live) {
+              try {
+                await api.send('POST', '/enterprise/shop/batches', {
+                  stationId, sku: bSku.trim().toUpperCase(), barcode: bBarcode.trim(), itemName: bName.trim(),
+                  batchCode: bLot.trim().toUpperCase(), expiryDate: bExpiry, quantityRemaining: Math.max(1, Number(bQty) || 1), unitPriceFcfa: Math.max(1, Number(bPrice) || 1),
+                });
+                await reloadBatches();
+                setModal(null);
+                onNotify('success', `Registered FEFO batch ${bLot} (${bExpiry}).`);
+              } catch (err) { failed(err); }
+              return;
+            }
             setBatches((prev) => [
               {
                 id: `bch_${Date.now().toString(36)}`,
@@ -458,10 +513,20 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
 
       <FormModal open={modal === 'adjustment'} title="Draft Stock Adjustment (Maker-Checker)" subtitle="Enforces DRAFT -> PENDING_APPROVAL -> APPROVED -> POSTED workflow." onClose={() => setModal(null)}>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!aReason.trim()) return;
             const match = shopItems.find((i) => i.sku.toUpperCase() === aSku.trim().toUpperCase());
+            if (api.live) {
+              try {
+                await api.send('POST', '/enterprise/stock-adjustments', { stationId, sku: aSku.trim().toUpperCase(), itemName: match?.name ?? aSku.trim(), qtyDelta: Number(aDelta) || 0, unitCostFcfa: Math.max(0, Number(aCost) || 0), reason: aReason.trim() });
+                await reloadAdjustments();
+                setAReason('');
+                setModal(null);
+                onNotify('success', 'Created stock adjustment in DRAFT state.');
+              } catch (err) { failed(err); }
+              return;
+            }
             setAdjustments((prev) => [
               {
                 id: `adj_${Date.now().toString(36)}`,

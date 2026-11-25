@@ -119,3 +119,46 @@
     color: #0f172a !important;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Phone & tablet fit: readable text, finger-sized targets, tables that */
+/* scroll instead of being crushed. Desktop (>= 768px) is unchanged.   */
+/* ------------------------------------------------------------------ */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+img, svg, video, canvas { max-width: 100%; }
+
+@media (max-width: 767px) {
+  /* Tables: keep natural column widths and scroll sideways (wrapper = .overflow-x-auto) */
+  .overflow-x-auto > table,
+  .overflow-auto > table { min-width: max-content; }
+  .overflow-x-auto > table th,
+  .overflow-auto > table th { white-space: nowrap; }
+  .overflow-x-auto > table td,
+  .overflow-auto > table td { min-width: 4.5rem; max-width: 22rem; }
+  .overflow-x-auto, .overflow-auto { -webkit-overflow-scrolling: touch; max-width: 100%; }
+
+  /* Text floor: nothing below 12px, small labels stay compact but legible */
+  [class*="text-[8px]"], [class*="text-[9px]"], [class*="text-[10px]"] { font-size: 12px !important; line-height: 1.35; }
+  [class*="text-[11px]"] { font-size: 12.5px !important; line-height: 1.4; }
+  .text-xs { font-size: 0.8125rem; line-height: 1.25rem; }          /* 13px */
+  .text-sm { font-size: 0.9375rem; line-height: 1.4rem; }           /* 15px */
+  input, select, textarea { font-size: 16px !important; max-width: 100%; }           /* stops iOS zoom-on-focus; never wider than its card */
+  select { text-overflow: ellipsis; }
+
+  /* Wide fixed blocks never push the page sideways */
+  main, section, article { min-width: 0; }
+  .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl { max-width: 100%; }
+  [class*="grid-cols-"] > * { min-width: 0; }
+}
+
+@media (max-width: 380px) {
+  .text-3xl { font-size: 1.6rem; line-height: 1.2; }
+  .text-4xl { font-size: 1.85rem; line-height: 1.15; }
+  .text-5xl, .text-6xl { font-size: 2.1rem; line-height: 1.1; }
+}
+
+/* Touch screens of any size (phones and tablets): finger-sized controls */
+@media (pointer: coarse) {
+  button, [role="button"], select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { min-height: 40px; }
+  input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
+}

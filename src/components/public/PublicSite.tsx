@@ -419,12 +419,12 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               1 USD ≈ {xafPerUsd} XAF ({ratesUpdatedAt})
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 font-medium">Display Currency:</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-slate-500 font-medium shrink-0">Display Currency:</span>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
-              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900"
+              className="min-w-0 flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900"
             >
               {SUPPORTED_CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>

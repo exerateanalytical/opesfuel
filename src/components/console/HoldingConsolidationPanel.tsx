@@ -555,7 +555,7 @@ export const HoldingConsolidationPanel: React.FC<HoldingConsolidationPanelProps>
               </h3>
               <span className="font-mono text-[11px] text-slate-500">OHADA / IFRS 10</span>
             </div>
-            <table className="w-full text-xs">
+            <div className="overflow-x-auto"><table className="w-full text-xs">
               <thead className="bg-[#0F172A] text-white">
                 <tr>
                   <th className="px-5 py-2.5 text-left">Line Item</th>
@@ -600,7 +600,7 @@ export const HoldingConsolidationPanel: React.FC<HoldingConsolidationPanelProps>
                   <td className="px-5 py-2.5 text-right font-mono font-semibold text-amber-700">{fmt(pnl.minorityInterestNetIncome)}</td>
                 </tr>
               </tbody>
-            </table>
+            </table></div>
           </div>
 
           {/* Subsidiary Revenue Contribution Ranking */}
@@ -664,7 +664,7 @@ export const HoldingConsolidationPanel: React.FC<HoldingConsolidationPanelProps>
           <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
             <div>
               <div className="px-5 py-2.5 bg-[#0F172A] text-white text-xs font-bold uppercase">Assets</div>
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-xs">
                 <tbody className="divide-y divide-slate-200">
                   <tr>
                     <td className="px-5 py-3 text-slate-700">Gross Combined Subsidiary Assets</td>
@@ -679,11 +679,11 @@ export const HoldingConsolidationPanel: React.FC<HoldingConsolidationPanelProps>
                     <td className="px-5 py-3.5 text-right font-mono text-slate-950">{fmt(bs.consolidatedAssets)}</td>
                   </tr>
                 </tbody>
-              </table>
+              </table></div>
             </div>
             <div>
               <div className="px-5 py-2.5 bg-[#0F172A] text-white text-xs font-bold uppercase">Liabilities &amp; Consolidated Equity</div>
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-xs">
                 <tbody className="divide-y divide-slate-200">
                   <tr>
                     <td className="px-5 py-3 text-slate-700">Consolidated Liabilities (Net of Inter-Co Payables)</td>
@@ -702,7 +702,7 @@ export const HoldingConsolidationPanel: React.FC<HoldingConsolidationPanelProps>
                     <td className="px-5 py-3.5 text-right font-mono text-slate-950">{fmt(bs.consolidatedLiabilities + bs.totalEquity)}</td>
                   </tr>
                 </tbody>
-              </table>
+              </table></div>
             </div>
           </div>
         </div>
@@ -1089,7 +1089,7 @@ export const HoldingConsolidationPanel: React.FC<HoldingConsolidationPanelProps>
                 <div className="font-mono text-lg font-bold text-slate-950">{detailSub.roaPct.toFixed(1)}%</div>
               </div>
             </div>
-            <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto"><table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
               <thead className="bg-[#0F172A] text-white">
                 <tr>
                   <th className="px-3 py-2 text-left">Account</th>
@@ -1106,7 +1106,7 @@ export const HoldingConsolidationPanel: React.FC<HoldingConsolidationPanelProps>
                 <tr><td className="px-3 py-2 font-sans">Total Liabilities</td><td className="px-3 py-2 text-right">{fmt(detailSub.liabilitiesFunctional, detailSub.functionalCurrency)}</td><td className="px-3 py-2 text-right">{fmt(detailSub.liabilitiesReporting)}</td></tr>
                 <tr><td className="px-3 py-2 font-sans">Total Equity</td><td className="px-3 py-2 text-right">{fmt(detailSub.equityFunctional, detailSub.functionalCurrency)}</td><td className="px-3 py-2 text-right">{fmt(detailSub.equityReporting)}</td></tr>
               </tbody>
-            </table>
+            </table></div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"

@@ -179,6 +179,17 @@ const CONSOLE_SECTIONS: ConsoleSection[] = [
 
 type AppMode = 'public' | 'login' | 'console' | 'verify' | 'fleet-portal' | 'loyalty-pass';
 
+/** Real customers must never see the built-in sample records (HR, vault, calibrations, HSE, assets...): arrays -> empty, counters -> 0. */
+function withoutSampleRecords<T extends object>(bundle: T): T {
+  return Object.fromEntries(
+    Object.entries(bundle).map(([k, v]) => [k, Array.isArray(v) ? [] : typeof v === 'number' ? 0 : v])
+  ) as T;
+}
+
+function hasLiveSession(): boolean {
+  return Boolean((import.meta.env.VITE_API_BASE_URL as string | undefined) && getStoredAuthSession()?.accessToken);
+}
+
 function parseHashRoute(hashStr = window.location.hash): {
   mode: AppMode;
   publicPage: PublicPage;
@@ -228,12 +239,14 @@ function parseHashRoute(hashStr = window.location.hash): {
 export default function App() {
   const engineRef = useRef<OpesFuelApiEngine>(new OpesFuelApiEngine());
   const [store, setStore] = useState<OpesFuelStoreState>(() => engineRef.current.getSnapshot());
-  const [extOps, setExtOps] = useState<ExtendedOperationsBundle>(() =>
-    buildExtendedOperationsDataset(engineRef.current.getSnapshot().stations[0]?.id ?? 'st_plateau')
-  );
-  const [entOps, setEntOps] = useState<EnterpriseModulesDataset>(() =>
-    buildEnterpriseModulesDataset(engineRef.current.getSnapshot().stations[0]?.id ?? 'st_plateau')
-  );
+  const [extOps, setExtOps] = useState<ExtendedOperationsBundle>(() => {
+    const built = buildExtendedOperationsDataset(engineRef.current.getSnapshot().stations[0]?.id ?? 'st_plateau');
+    return hasLiveSession() ? withoutSampleRecords(built) : built;
+  });
+  const [entOps, setEntOps] = useState<EnterpriseModulesDataset>(() => {
+    const built = buildEnterpriseModulesDataset(engineRef.current.getSnapshot().stations[0]?.id ?? 'st_plateau');
+    return hasLiveSession() ? withoutSampleRecords(built) : built;
+  });
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   const initialRoute = useMemo(() => parseHashRoute(), []);
@@ -248,6 +261,12 @@ export default function App() {
   const [loyaltyToken, setLoyaltyToken] = useState<string | null>(initialRoute.loyaltyToken);
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => getStoredAuthSession());
   const [authError, setAuthError] = useState<string | null>(null);
+  // The moment a customer is signed in to the real server, drop any built-in sample records (also covers the sign-in redirect).
+  useEffect(() => {
+    if (!authSession?.accessToken || !(import.meta.env.VITE_API_BASE_URL as string | undefined)) return;
+    setExtOps((prev) => withoutSampleRecords(prev));
+    setEntOps((prev) => withoutSampleRecords(prev));
+  }, [authSession?.accessToken]);
   const [role, setRole] = useState<UserRole>(() => getStoredAuthSession()?.role ?? 'OWNER');
   const [activeStationId, setActiveStationId] = useState<string>(() => {
     const initialRole = getStoredAuthSession()?.role ?? 'OWNER';

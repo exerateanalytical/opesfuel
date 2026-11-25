@@ -28,24 +28,23 @@ export const CookiePrivacyNotice: React.FC<CookiePrivacyNoticeProps> = ({ onNavi
   };
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-40 glass-surface rounded-xl p-4 shadow-lg no-print">
-      <div className="space-y-3">
-        <p className="text-xs text-slate-700 leading-relaxed">
-          OpesFuel uses essential session storage to keep your language preference and secure sign-in active.
-          We never sell station data.{' '}
+    <div className="fixed bottom-3 left-3 right-3 sm:bottom-4 sm:left-auto sm:right-6 sm:max-w-md z-40 glass-surface rounded-xl px-3 py-2.5 sm:p-4 shadow-lg no-print">
+      <div className="flex items-center gap-3 sm:block sm:space-y-3">
+        <p className="text-[13px] sm:text-xs text-slate-700 leading-snug sm:leading-relaxed flex-1">
+          OpesFuel uses essential session storage for your language and secure sign-in. We never sell station data.{' '}
           <button
             type="button"
             onClick={() => onNavigate('legal')}
             className="font-semibold text-slate-950 underline hover:text-amber-700"
           >
-            Read Privacy Policy
+            Privacy Policy
           </button>
         </p>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-2 shrink-0">
           <button
             type="button"
             onClick={accept}
-            className="px-3.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+            className="px-4 py-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-sm sm:text-xs font-semibold"
           >
             Got it
           </button>
