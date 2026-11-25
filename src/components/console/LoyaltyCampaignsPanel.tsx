@@ -1,3 +1,4 @@
+import { useLiveApi } from '../../api/liveApi';
 import React, { useState } from 'react';
 import { Award, ExternalLink, Gift, MessageCircle, Plus, Sparkles } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
@@ -39,15 +40,18 @@ export const LoyaltyCampaignsPanel: React.FC<LoyaltyCampaignsPanelProps> = ({
 }) => {
   const canManage = role === 'PLATFORM_ADMIN' || role === 'OWNER' || role === 'MANAGER';
 
-  const [members, setMembers] = useState<LoyaltyMember[]>([
+  const liveData = useLiveApi().live; // real customers never see built-in sample rows
+  const seed_members: LoyaltyMember[] = [
     { id: 'loy_01', phone: '+237677998877', fullName: 'Jean-Marie Kamga', passToken: 'pass_cameroon01demo', pointsBalance: 640, lifetimePoints: 1850, tier: 'GOLD' },
     { id: 'loy_02', phone: '+237699443322', fullName: 'Nadine Tchatchoua', passToken: 'pass_cameroon02demo', pointsBalance: 210, lifetimePoints: 490, tier: 'SILVER' },
-  ]);
+  ];
+  const [members, setMembers] = useState<LoyaltyMember[]>(liveData ? [] : seed_members);
 
-  const [campaigns, setCampaigns] = useState<LoyaltyCampaign[]>([
+  const seed_campaigns: LoyaltyCampaign[] = [
     { id: 'cmp_01', name: 'Early Bird Happy Hour', campaignType: 'HAPPY_HOUR', discountPct: 3, fuelGrade: 'SUPER', windowLabel: '06:00–09:00 UTC', active: true },
     { id: 'cmp_02', name: 'Transport Fleet Gasoil Rebate', campaignType: 'FLEET_REBATE', discountPct: 2.5, fuelGrade: 'GASOIL', windowLabel: 'All Day', active: true },
-  ]);
+  ];
+  const [campaigns, setCampaigns] = useState<LoyaltyCampaign[]>(liveData ? [] : seed_campaigns);
 
   const [earnModalOpen, setEarnModalOpen] = useState(false);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);

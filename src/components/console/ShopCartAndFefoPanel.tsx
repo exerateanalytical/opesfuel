@@ -1,3 +1,4 @@
+import { useLiveApi } from '../../api/liveApi';
 import React, { useState } from 'react';
 import { Barcode, CheckCircle2, Layers, Plus, Printer, ShoppingCart, Trash2 } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
@@ -78,7 +79,8 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
     },
   ]);
 
-  const [adjustments, setAdjustments] = useState<StockAdjustmentItem[]>([
+  const liveData = useLiveApi().live; // real customers never see built-in sample rows
+  const seed_adjustments: StockAdjustmentItem[] = [
     {
       id: 'adj_01',
       sku: 'LUB-5W30',
@@ -89,7 +91,8 @@ export const ShopCartAndFefoPanel: React.FC<ShopCartAndFefoPanelProps> = ({
       status: 'PENDING_APPROVAL',
       createdBy: 'manager@opesfuel.cm',
     },
-  ]);
+  ];
+  const [adjustments, setAdjustments] = useState<StockAdjustmentItem[]>(liveData ? [] : seed_adjustments);
 
   // Batch modal state
   const [bSku, setBSku] = useState(shopItems[0]?.sku ?? 'LUB-5W30');
