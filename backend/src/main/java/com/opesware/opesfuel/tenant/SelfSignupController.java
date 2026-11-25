@@ -44,11 +44,14 @@ public class SelfSignupController {
     private final JdbcTemplate jdbc;
     private final AuditTrailRecorder audit;
     private final String actionSecret;
+    private final com.opesware.opesfuel.shared.security.IdentityClaimsService identityClaims;
     private final Map<String, Deque<Long>> ipHits = new ConcurrentHashMap<>();
     private final Deque<Long> globalHits = new ArrayDeque<>();
 
     public SelfSignupController(JdbcTemplate jdbc, AuditTrailRecorder audit,
-                                @Value("${opesfuel.auth0.action-secret:}") String actionSecret) {
+                                @Value("${opesfuel.auth0.action-secret:}") String actionSecret,
+                                com.opesware.opesfuel.shared.security.IdentityClaimsService identityClaims) {
+        this.identityClaims = identityClaims;
         this.jdbc = jdbc;
         this.audit = audit;
         this.actionSecret = actionSecret;
@@ -144,36 +147,7 @@ public class SelfSignupController {
         if (secret == null || !MessageDigest.isEqual(secret.getBytes(StandardCharsets.UTF_8), actionSecret.getBytes(StandardCharsets.UTF_8))) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid action secret.");
         }
-        if (!Boolean.TRUE.equals(req.emailVerified())) { // never trust an unverified email (account-takeover guard)
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email must be verified.");
-        }
-        String email = req.email().trim().toLowerCase();
-        List<Map<String, Object>> rows = jdbc.queryForList(
-            "SELECT id, tenant_id, auth0_sub, role, assigned_station_id FROM user_accounts WHERE LOWER(email) = ? AND status = 'ACTIVE' ORDER BY created_at ASC",
-            email);
-        if (rows.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No workspace for this email.");
-        }
-        Map<String, Object> row = rows.get(0);
-        if (req.sub() != null && !req.sub().isBlank() && String.valueOf(row.get("auth0_sub")).startsWith("pending|")) {
-            jdbc.update("UPDATE user_accounts SET auth0_sub = ? WHERE id = ?", req.sub(), row.get("id"));
-            // Invited staff: tie the login to their employee record (so the mobile app finds "me") and close the invitation.
-            jdbc.update("""
-                UPDATE employees SET auth0_sub = ?
-                WHERE id IN (SELECT employee_id FROM user_invites
-                             WHERE LOWER(email) = ? AND tenant_id = ? AND employee_id IS NOT NULL AND status = 'PENDING')
-                """, req.sub(), email, row.get("tenant_id"));
-            jdbc.update("UPDATE user_invites SET status = 'ACCEPTED', accepted_at = CURRENT_TIMESTAMP WHERE LOWER(email) = ? AND tenant_id = ? AND status = 'PENDING'",
-                email, row.get("tenant_id"));
-        }
-        Object station = row.get("assigned_station_id");
-        String role = String.valueOf(row.get("role")).toUpperCase();
-        boolean restricted = !role.equals("OWNER") && !role.equals("PLATFORM_ADMIN") && !role.equals("GROUP_CFO");
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("tenant_id", row.get("tenant_id"));
-        out.put("roles", List.of(role));
-        out.put("station_ids", restricted && station != null ? List.of(String.valueOf(station)) : List.of());
-        return out;
+        return identityClaims.resolve(req.email(), req.sub(), req.emailVerified());
     }
 
     private String clientIp(HttpServletRequest request) {

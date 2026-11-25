@@ -48,7 +48,7 @@ public class SecurityConfig {
     private boolean enforceTrialLock;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JdbcTemplate jdbcTemplate, TenantAccessGuard tenantAccessGuard) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JdbcTemplate jdbcTemplate, TenantAccessGuard tenantAccessGuard, IdentityClaimsService identityClaims) throws Exception {
         TenantPolicyFilter tenantPolicyFilter = new TenantPolicyFilter(jdbcTemplate, tenantAccessGuard, demoTenantId, demoReadOnly, enforceTrialLock);
         ApiKeyAuthFilter apiKeyAuthFilter = new ApiKeyAuthFilter(jdbcTemplate);
         FleetPortalAuthFilter fleetPortalAuthFilter = new FleetPortalAuthFilter(jdbcTemplate);
@@ -86,7 +86,7 @@ public class SecurityConfig {
             .addFilterAfter(tenantPolicyFilter, BearerTokenAuthenticationFilter.class)
             .addFilterAfter(idempotencyFilter, BearerTokenAuthenticationFilter.class)
             .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt.jwtAuthenticationConverter(auth0RoleConverter()))
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(new ClaimsEnrichingJwtConverter(identityClaims, auth0RoleConverter())))
             );
         return http.build();
     }

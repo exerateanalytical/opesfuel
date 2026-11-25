@@ -19,12 +19,51 @@ const AUTH0_DOMAIN = (import.meta.env.VITE_AUTH0_DOMAIN || '').replace(/^https?:
 const AUTH0_CLIENT_ID = import.meta.env.VITE_AUTH0_CLIENT_ID || '';
 const AUTH0_AUDIENCE = import.meta.env.VITE_AUTH0_AUDIENCE || 'https://api.opesfuel.com/v1';
 
+// Self-hosted OpenID Connect provider (Keycloak), e.g. https://auth.opesmaintain.com/realms/opesfuel.
+// When set it takes precedence over Auth0; OpesFuel identity (tenant/role/stations) then comes from the backend.
+const OIDC_ISSUER = (import.meta.env.VITE_OIDC_ISSUER || '').replace(/\/$/, '');
+const OIDC_CLIENT_ID = import.meta.env.VITE_OIDC_CLIENT_ID || AUTH0_CLIENT_ID;
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const isOidc = Boolean(OIDC_ISSUER);
+const CLIENT_ID = isOidc ? OIDC_CLIENT_ID : AUTH0_CLIENT_ID;
+const AUTHORIZE_URL = isOidc ? `${OIDC_ISSUER}/protocol/openid-connect/auth` : `https://${AUTH0_DOMAIN}/authorize`;
+const TOKEN_URL = isOidc ? `${OIDC_ISSUER}/protocol/openid-connect/token` : `https://${AUTH0_DOMAIN}/oauth/token`;
+
+function tokenRequest(body: Record<string, string>): Promise<Response> {
+  if (isOidc) {
+    return fetch(TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(body).toString(),
+    });
+  }
+  return fetch(TOKEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+/** Keycloak tokens carry no OpesFuel claims: ask the backend who this person is (it resolves by verified e-mail). */
+async function completeFromBackend(session: AuthSession): Promise<AuthSession> {
+  if (!isOidc || session.tenantId) return session;
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/identity/me`, { headers: { Authorization: `Bearer ${session.accessToken}` } });
+    if (!res.ok) return session;
+    const me = (await res.json()) as { tenantId?: string; roles?: string[]; allowedStationIds?: string[] };
+    return {
+      ...session,
+      role: resolveRoleFromClaims({ 'https://opesfuel.com/roles': me.roles || [] }),
+      tenantId: me.tenantId ?? null,
+      allowedStationIds: me.allowedStationIds || [],
+    };
+  } catch {
+    return session;
+  }
+}
+
 const SESSION_STORAGE_KEY = 'opesfuel.auth0.session.v1';
 const PKCE_VERIFIER_KEY = 'opesfuel.auth0.pkce_verifier';
 const PKCE_STATE_KEY = 'opesfuel.auth0.pkce_state';
 const PKCE_RETURN_HASH_KEY = 'opesfuel.auth0.return_hash';
 
-export const isAuth0Configured = Boolean(AUTH0_DOMAIN && AUTH0_CLIENT_ID);
+export const isAuth0Configured = isOidc ? Boolean(OIDC_CLIENT_ID) : Boolean(AUTH0_DOMAIN && AUTH0_CLIENT_ID);
 
 export const ROLE_PROFILES: Record<
   UserRole,
@@ -228,12 +267,12 @@ export function buildAuth0AuthorizeUrl(): string | null {
   if (!isAuth0Configured) return null;
   const params = new URLSearchParams({
     response_type: 'code',
-    client_id: AUTH0_CLIENT_ID,
+    client_id: CLIENT_ID,
     redirect_uri: getRedirectUri(),
     scope: 'openid profile email offline_access',
-    audience: AUTH0_AUDIENCE,
+    ...(isOidc ? {} : { audience: AUTH0_AUDIENCE }),
   });
-  return `https://${AUTH0_DOMAIN}/authorize?${params.toString()}`;
+  return `${AUTHORIZE_URL}?${params.toString()}`;
 }
 
 export async function startAuth0Login(options?: {
@@ -253,16 +292,17 @@ export async function startAuth0Login(options?: {
 
   const params = new URLSearchParams({
     response_type: 'code',
-    client_id: AUTH0_CLIENT_ID,
+    client_id: CLIENT_ID,
     redirect_uri: getRedirectUri(),
     scope: 'openid profile email offline_access',
-    audience: AUTH0_AUDIENCE,
+    ...(isOidc ? {} : { audience: AUTH0_AUDIENCE }),
     code_challenge: challenge,
     code_challenge_method: 'S256',
     state,
-    ...(options?.screenHint ? { screen_hint: options.screenHint } : {}),
+    ...(options?.screenHint === 'signup' && isOidc ? { prompt: 'create' } : {}),
+    ...(options?.screenHint && !isOidc ? { screen_hint: options.screenHint } : {}),
   });
-  window.location.assign(`https://${AUTH0_DOMAIN}/authorize?${params.toString()}`);
+  window.location.assign(`${AUTHORIZE_URL}?${params.toString()}`);
 }
 
 function buildSessionFromTokenResponse(
@@ -336,8 +376,14 @@ export function clearAuthSession(): void {
 
 export function buildAuth0LogoutUrl(): string | null {
   if (!isAuth0Configured) return null;
+  if (isOidc) {
+    const session = getStoredAuthSession();
+    const p = new URLSearchParams({ client_id: CLIENT_ID, post_logout_redirect_uri: getRedirectUri() });
+    if (session?.idToken) p.set('id_token_hint', session.idToken);
+    return `${OIDC_ISSUER}/protocol/openid-connect/logout?${p.toString()}`;
+  }
   const params = new URLSearchParams({
-    client_id: AUTH0_CLIENT_ID,
+    client_id: CLIENT_ID,
     returnTo: getRedirectUri(),
   });
   return `https://${AUTH0_DOMAIN}/v2/logout?${params.toString()}`;
@@ -381,16 +427,12 @@ export async function handleAuth0CallbackIfPresent(): Promise<{
     return { session: null, returnHash, error: 'Auth0 OIDC state/PKCE verification failed. Please sign in again.' };
   }
 
-  const tokenRes = await fetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'authorization_code',
-      client_id: AUTH0_CLIENT_ID,
-      code_verifier: verifier,
-      code,
-      redirect_uri: getRedirectUri(),
-    }),
+  const tokenRes = await tokenRequest({
+    grant_type: 'authorization_code',
+    client_id: CLIENT_ID,
+    code_verifier: verifier,
+    code,
+    redirect_uri: getRedirectUri(),
   });
 
   if (!tokenRes.ok) {
@@ -408,7 +450,7 @@ export async function handleAuth0CallbackIfPresent(): Promise<{
     refresh_token?: string;
     expires_in?: number;
   };
-  const session = buildSessionFromTokenResponse(tokenData);
+  const session = await completeFromBackend(buildSessionFromTokenResponse(tokenData));
   saveAuthSession(session);
   return { session, returnHash, error: null };
 }
@@ -423,14 +465,10 @@ export async function refreshAuth0SessionIfNeeded(session: AuthSession | null): 
     return session;
   }
   try {
-    const res = await fetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'refresh_token',
-        client_id: AUTH0_CLIENT_ID,
-        refresh_token: session.refreshToken,
-      }),
+    const res = await tokenRequest({
+      grant_type: 'refresh_token',
+      client_id: CLIENT_ID,
+      refresh_token: session.refreshToken,
     });
     if (!res.ok) return session;
     const tokenData = (await res.json()) as {
@@ -439,7 +477,7 @@ export async function refreshAuth0SessionIfNeeded(session: AuthSession | null): 
       refresh_token?: string;
       expires_in?: number;
     };
-    const refreshed = buildSessionFromTokenResponse(tokenData, session.refreshToken);
+    const refreshed = await completeFromBackend(buildSessionFromTokenResponse(tokenData, session.refreshToken));
     saveAuthSession(refreshed);
     return refreshed;
   } catch {
