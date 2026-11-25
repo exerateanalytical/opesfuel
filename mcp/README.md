@@ -25,19 +25,18 @@ Write tools are **off by default** (`MCP_ENABLE_WRITES=false`) and every one nee
 ## Deploy
 ```bash
 # in .env.production
-AUTH0_ISSUER_URI=https://YOUR-TENANT.auth0.com/
+AUTH0_ISSUER_URI=https://auth.opesfuel.com/realms/opesfuel   # your Keycloak realm URL, no trailing slash (the variable name is historical)
 MCP_PUBLIC_URL=https://mcp.opesfuel.com
 MCP_ENABLE_WRITES=false        # set true once you are comfortable
 docker compose -f docker-compose.prod.yml --profile mcp --profile tls up -d --build
 ```
 Point DNS `mcp.opesfuel.com` at the server (Caddy issues the certificate).
 
-## Auth0 setup (one time)
-1. Use the **same API audience** as the backend (`https://api.opesfuel.com/v1`), so the token passes straight through.
-2. Tenant Settings > Advanced: enable **Resource Parameter Compatibility Profile** and **Dynamic Client Registration**
-   (Claude and ChatGPT register themselves).
-3. Promote your connection to a domain-level connection (required for dynamically registered clients).
-4. Your platform-admin user must carry role `PLATFORM_ADMIN` in `https://opesfuel.com/roles`.
+## Identity setup (one time, Keycloak)
+1. Use the **same API audience** as the backend (`https://api.opesfuel.com/v1`), so the token passes straight through (the realm setup script already adds this audience mapper).
+2. Keycloak: allow **dynamic client registration** (Clients > Client registration) so Claude and ChatGPT can register themselves, and add `https://claude.ai/*` and the ChatGPT callback as allowed redirect/trusted hosts.
+3. Your platform-admin user is recognised by the backend from the verified email (`OPESFUEL_BOOTSTRAP_ADMIN_EMAIL`); the connector asks `GET /api/v1/identity/me` and only admits `PLATFORM_ADMIN`. Tokens that already carry the roles claim (Auth0) are read directly.
+Not yet tested against a real Keycloak: dynamic client registration is the likeliest place to need adjustment.
 
 ## Connect
 - **Claude** (claude.ai / desktop): Settings > Connectors > Add custom connector > `https://mcp.opesfuel.com/mcp`, then sign in.

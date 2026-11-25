@@ -58,7 +58,7 @@ Then do these manual checks (they need a browser and real inboxes):
 4. Sign in with `OPESFUEL_BOOTSTRAP_ADMIN_EMAIL`; the SaaS admin console should list the company from step 2.
 5. In the admin console set that company's trial end to yesterday: edits must return 402 while billing pages still open.
 6. A login for an unknown email must be refused (403).
-7. Staff: as the test owner, invite an attendant (Invite staff) with a second inbox you own. Sign up in Auth0 with that exact email,
+7. Staff: as the test owner, invite an attendant (Invite staff) with a second inbox you own. Sign up in Keycloak with that exact email,
    verify it; the person must land in the same company as an attendant. (Managers can invite attendants only.)
 8. As that test company, the console top bar should show the free-trial countdown only in the last 7 days, and "read-only" after
    expiry. Billing pages must stay reachable when read-only.
@@ -71,12 +71,12 @@ Then do these manual checks (they need a browser and real inboxes):
 
 ## 5b. Adding staff after launch
 Owners invite staff from the console (Invite staff). Managers can invite attendants only; owners can invite any role.
-The invitation creates the login record; the person signs up in Auth0 with **that exact email**, verifies it, and is placed in the
+The invitation creates the login record; the person signs up in Keycloak with **that exact email**, verifies it, and is placed in the
 right company, role and station automatically. One email can belong to one company only.
 
 ## 6. Email deliverability
-Mail from `@opesfuel.com` needs SPF and DKIM records at your mail provider or it lands in spam. Auth0 sends its own
-verification emails separately. Set `OPESFUEL_MAIL_PROVIDER` (SMTP or RESEND) and credentials to enable welcome/OTP emails.
+Mail from `@opesfuel.com` needs SPF and DKIM records at your mail provider or it lands in spam. Keycloak sends its
+verification emails through the SMTP settings you give it. Set `OPESFUEL_MAIL_PROVIDER` (SMTP or RESEND) and credentials to enable welcome/OTP emails.
 
 ## 7. If something fails
 Collect: `docker compose -f docker-compose.prod.yml logs --tail=200 opesfuel-backend`, the failing step, and the exact error.
@@ -95,4 +95,4 @@ Rollback: `git checkout <previous-tag>` and repeat step 4 (no schema change need
 - GitHub Actions is blocked by an account spending limit ("Actions budget is preventing further use"). Fix under GitHub
   Settings, Billing, Budgets. Until then CI does not run.
 - Tested on Java 21 locally; first Java 25 build happens on the server.
-- Mobile app: needs an Auth0 Native application and employee-to-login linking; see `mobile/README.md`.
+- Mobile app: needs the Keycloak mobile client (created by the realm setup script) and employee-to-login linking; see `mobile/README.md`.

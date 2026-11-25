@@ -17,9 +17,10 @@ export function buildApp(env: NodeJS.ProcessEnv = process.env) {
   const devToken = env.MCP_DEV_TOKEN;
   if (devToken && isProd) throw new Error('MCP_DEV_TOKEN must not be set in production');
   const cfg: AuthConfig = {
-    issuer: env.AUTH0_ISSUER_URI ?? '',
+    issuer: env.AUTH0_ISSUER_URI ?? env.OIDC_ISSUER_URI ?? '',   // the compose file passes the Keycloak realm URL as AUTH0_ISSUER_URI
     audience: env.AUTH0_AUDIENCE ?? 'https://api.opesfuel.com/v1',
     publicUrl: (env.MCP_PUBLIC_URL ?? 'http://localhost:8787').replace(/\/$/, ''),
+    backendBaseUrl: backendUrl,
     devToken,
   };
   if (!devToken && !cfg.issuer) throw new Error('AUTH0_ISSUER_URI is required');

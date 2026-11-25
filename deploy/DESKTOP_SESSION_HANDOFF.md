@@ -51,7 +51,7 @@ Not something an API call can set, so check it in Keycloak: its **hostname** mus
 ```bash
 deploy/deploy.sh --skip-backup          # first deploy on an empty server
 deploy/deploy.sh                        # every later deploy (backs up the database first)
-deploy/deploy.sh --with-mcp             # also the Claude/ChatGPT connector (see mcp/README.md for its Auth0 steps)
+deploy/deploy.sh --with-mcp             # also the Claude/ChatGPT connector (see mcp/README.md for its Keycloak steps)
 ```
 It runs preflight, backs up, pulls `main`, builds (the first build takes several minutes and compiles Java 25 inside Docker),
 starts everything, waits for health (Flyway applies migrations V1 to V26 on first start), then runs
@@ -89,7 +89,7 @@ Roll back code: `deploy/rollback.sh` (database is not restored; for data problem
 ## 7. Known open items (tell the owner; do not hide them)
 - GitHub Actions CI is blocked by an account spending limit ("Actions budget is preventing further use"), so nothing runs automatically.
 - The backend was tested on Java 21 locally; the first Java 25 build happens in your deploy.
-- Real Auth0/Keycloak sign-in and the mobile app on a real phone have not been tested by the developer.
+- The mobile app on a real phone has not been tested by the developer.
 - Some enterprise modules do not yet load their existing lists from the server (listed in `DEPLOY_OPESFUEL_COM.md`, Known limits).
 - Email sending needs a provider configured and SPF/DKIM DNS records.
 - Keycloak is the identity provider for this deploy (Auth0 remains supported by the code but is no longer used). Real Keycloak sign-in has not been tested by the developer: expect to iterate on the Keycloak hostname/SMTP items above.
