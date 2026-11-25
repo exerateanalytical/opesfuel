@@ -25,8 +25,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-opesfuel}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-opesfuel_app}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
-      AUTH0_ISSUER_URI: ${AUTH0_ISSUER_URI:?AUTH0_ISSUER_URI is required}
-      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}
+      AUTH0_ISSUER_URI: ${OIDC_ISSUER_URI:-${AUTH0_ISSUER_URI:?OIDC_ISSUER_URI (the Keycloak realm URL) is required}}
+      AUTH0_AUDIENCE: ${OIDC_AUDIENCE:-${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OPESFUEL_AI_MODEL: ${OPESFUEL_AI_MODEL:-gemini-2.5-flash}
       OPESFUEL_VAT_RATE: ${OPESFUEL_VAT_RATE:-0.1925}
@@ -91,7 +91,10 @@ services:
         VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-https://api.opesfuel.com}
         VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN:-}
         VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID:-}
-        VITE_AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}
+        VITE_AUTH0_AUDIENCE: ${OIDC_AUDIENCE:-${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}}
+        # Keycloak / self-hosted OpenID Connect (takes precedence over Auth0 when VITE_OIDC_ISSUER is set)
+        VITE_OIDC_ISSUER: ${VITE_OIDC_ISSUER:-}
+        VITE_OIDC_CLIENT_ID: ${VITE_OIDC_CLIENT_ID:-}
         VITE_DEMO_URL: ${VITE_DEMO_URL:-}
     restart: unless-stopped
     environment:
@@ -120,6 +123,8 @@ services:
         VITE_API_BASE_URL: ""
         VITE_AUTH0_DOMAIN: ""
         VITE_AUTH0_CLIENT_ID: ""
+        VITE_OIDC_ISSUER: ""
+        VITE_OIDC_CLIENT_ID: ""
         VITE_DEMO_URL: ""
     profiles: ["demo"]
     restart: unless-stopped
@@ -144,8 +149,8 @@ services:
       NODE_ENV: production
       PORT: 8787
       OPESFUEL_API_BASE: http://opesfuel-backend:8080
-      AUTH0_ISSUER_URI: ${AUTH0_ISSUER_URI:?AUTH0_ISSUER_URI is required}
-      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}
+      AUTH0_ISSUER_URI: ${OIDC_ISSUER_URI:-${AUTH0_ISSUER_URI:?OIDC_ISSUER_URI (the Keycloak realm URL) is required}}
+      AUTH0_AUDIENCE: ${OIDC_AUDIENCE:-${AUTH0_AUDIENCE:-https://api.opesfuel.com/v1}}
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-https://mcp.opesfuel.com}
       MCP_ENABLE_WRITES: ${MCP_ENABLE_WRITES:-false}
     ports:

@@ -89,3 +89,17 @@ test('translations: French and English have exactly the same keys and no empty t
   for (const k of frKeys) assert.deepEqual((DICTS.fr[k].match(/\{\w+\}/g) ?? []).sort(), (DICTS.en[k].match(/\{\w+\}/g) ?? []).sort(), k);
   assert.equal(format('Bonjour, {name}', { name: 'Awa' }), 'Bonjour, Awa');
 });
+
+test('Keycloak-style token (no OpesFuel claims): identity from the backend decides role, company and stations', () => {
+  const kc = jwt({ sub: 'kc|1', exp: 2000000000, email: 'awa@x.cm', name: 'Awa Ngo' });
+  assert.deepEqual(sessionFromTokens(kc, null, 1), { ok: false, reason: 'UNSUPPORTED_ROLE' }); // nothing in the token, no lookup yet
+  const r = sessionFromTokens(kc, null, 1, { roles: ['attendant'], tenantId: 'ten_x', stationIds: ['st_1'] });
+  assert.ok(r.ok);
+  if (r.ok) { assert.equal(r.session.role, 'ATTENDANT'); assert.equal(r.session.tenantId, 'ten_x'); assert.deepEqual(r.session.stationIds, ['st_1']); assert.equal(r.session.email, 'awa@x.cm'); }
+  // a backend answer that is only a platform role is still refused for the mobile app
+  assert.deepEqual(sessionFromTokens(kc, null, 1, { roles: ['PLATFORM_ADMIN'] }), { ok: false, reason: 'UNSUPPORTED_ROLE' });
+  // claims in the token (Auth0) win over a lookup
+  const auth0 = jwt({ sub: 'a|1', exp: 2000000000, [NS + 'roles']: ['MANAGER'] });
+  const m = sessionFromTokens(auth0, null, 1, { roles: ['ATTENDANT'] });
+  assert.ok(m.ok && m.session.role === 'MANAGER');
+});

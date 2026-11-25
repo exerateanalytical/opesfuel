@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Clock, Cloud, CloudOff, Ellipsis, Fuel, Gauge, House, RefreshCw, ShoppingCart, TrendingUp, Truck, type LucideIcon } from 'lucide-react-native';
-import { OpesFuelMobileClient } from './src/api/opesfuelMobileClient';
-import { clearMobileTokens, getStoredTokens, isDemoModeEnabled, isMobileAuth0Configured, loginWithMobileAuth0, refreshStoredTokens, StoredTokens } from './src/auth/mobileAuth0';
+import { ApiError, OpesFuelMobileClient } from './src/api/opesfuelMobileClient';
+import { clearMobileTokens, getStoredTokens, isDemoModeEnabled, isMobileAuth0Configured, loginWithMobileAuth0, refreshStoredTokens, StoredTokens, usesBackendIdentityLookup } from './src/auth/mobileAuth0';
 import { DataProvider, useData } from './src/data';
 import { DemoClient } from './src/demoClient';
 import { LangProvider, useT } from './src/i18n';
@@ -51,8 +51,19 @@ function Gate() {
     setSession(null); setClient(realClient); setMessage(msg ?? null); setPhase('out');
   }, []);
 
-  const apply = useCallback((tok: StoredTokens): 'ok' | 'EXPIRED' | 'INVALID' | 'UNSUPPORTED_ROLE' => {
-    const r = sessionFromTokens(tok.accessToken, tok.idToken);
+  const apply = useCallback(async (tok: StoredTokens): Promise<'ok' | 'EXPIRED' | 'INVALID' | 'UNSUPPORTED_ROLE' | 'NO_WORKSPACE'> => {
+    let r = sessionFromTokens(tok.accessToken, tok.idToken);
+    if (!r.ok && r.reason === 'UNSUPPORTED_ROLE' && usesBackendIdentityLookup) {
+      // Keycloak tokens carry no OpesFuel claims: ask the backend who this is (it resolves company and role from the verified email)
+      realClient.setAccessToken(tok.accessToken);
+      try {
+        const me = await realClient.getIdentityMe();
+        r = sessionFromTokens(tok.accessToken, tok.idToken, undefined, { roles: me.roles ?? [], tenantId: me.tenantId ?? null, stationIds: me.allowedStationIds ?? [] });
+      } catch (e) {
+        realClient.setAccessToken(null);
+        return e instanceof ApiError && (e.status === 403 || e.status === 404) ? 'NO_WORKSPACE' : 'INVALID';
+      }
+    }
     if (!r.ok) return r.reason;
     realClient.setAccessToken(tok.accessToken);
     tokens.current = tok;
@@ -66,7 +77,7 @@ function Gate() {
     try {
       const cur = tokens.current ?? (await getStoredTokens());
       const next = await refreshStoredTokens(cur?.refreshToken ?? null);
-      return Boolean(next) && apply(next as StoredTokens) === 'ok';
+      return Boolean(next) && (await apply(next as StoredTokens)) === 'ok';
     } finally { refreshing.current = false; }
   }, [apply]);
 
@@ -76,9 +87,10 @@ function Gate() {
       if (!isMobileAuth0Configured) { setPhase('out'); return; }
       const saved = await getStoredTokens();
       if (!saved) { setPhase('out'); return; }
-      const res = apply(saved);
+      const res = await apply(saved);
       if (res === 'ok') return;
       if (res === 'UNSUPPORTED_ROLE') { await signOut(t('unsupportedRole')); return; }
+      if (res === 'NO_WORKSPACE') { await signOut(t('noWorkspace')); return; }
       if (!(await renew())) await signOut(res === 'EXPIRED' ? t('sessionExpired') : undefined);
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -101,8 +113,9 @@ function Gate() {
     setBusy(true); setMessage(null);
     try {
       const tok = await loginWithMobileAuth0();
-      const res = apply(tok);
+      const res = await apply(tok);
       if (res === 'UNSUPPORTED_ROLE') await signOut(t('unsupportedRole'));
+      else if (res === 'NO_WORKSPACE') await signOut(t('noWorkspace'));
       else if (res !== 'ok') setMessage(t('signInError'));
     } catch { setMessage(t('signInError')); } finally { setBusy(false); }
   };

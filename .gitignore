@@ -8,3 +8,8 @@ coverage/
 .env*
 !.env.example
 !.env.production.example
+
+__pycache__/
+*.pyc
+deploy/backups/
+deploy/.last-release

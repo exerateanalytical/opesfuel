@@ -93,3 +93,13 @@ test('cache keeps last known data', async () => {
   assert.equal(got!.value[0].id, 'p');
   assert.equal(await c.cacheGet('nope'), null);
 });
+
+test('identity lookup for Keycloak logins uses the backend identity endpoint with the bearer token', async () => {
+  const c = fresh();
+  behaviour = () => json(200, { tenantId: 'ten_x', roles: ['MANAGER'], allowedStationIds: ['st1'] });
+  const me = await c.getIdentityMe();
+  assert.deepEqual(me.roles, ['MANAGER']);
+  assert.equal(calls.at(-1)!.url, 'http://api.test/api/v1/identity/me'); assert.equal(calls.at(-1)!.headers.Authorization, 'Bearer tok');
+  behaviour = () => json(403, { detail: 'Token carries no tenant_id claim; access denied.' });
+  await assert.rejects(c.getIdentityMe(), (e: any) => e instanceof ApiError && e.status === 403);
+});

@@ -17,11 +17,10 @@ Offline: reads show the last known data; writes are saved on the phone and sent 
 
 ## Setup
 ```bash
-cd mobile && cp .env.example .env     # fill in Auth0 + API URL
+cd mobile && cp .env.example .env     # fill in Keycloak + API URL
 npm install && npx expo start
 ```
-Auth0: create a **Native** application, allowed callback `opesfuel://callback`, enable Refresh Token Rotation, and use the
-same API audience and claims Action as the web app (`deploy/auth0_setup.py`). Staff are added with **Invite staff** (web console): the invitation creates their login record, and when they first sign in
+Keycloak: create a public client for the app (the realm setup script `deploy/keycloak_setup.py` does it), allowed redirect `opesfuel://callback`, with the same API audience as the web app. The app asks the backend (`GET /api/v1/identity/me`) which company and role the signed-in person has. Staff are added with **Invite staff** (web console): the invitation creates their login record, and when they first sign in
 with that verified email the system links them to their employee record, so `GET /api/v1/workforce/me` finds them.
 
 ## Tests

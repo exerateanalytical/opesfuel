@@ -1,3 +1,5 @@
+> **Identity provider update:** OpesFuel now signs in with Keycloak. Where this runbook mentions Auth0, follow `deploy/DESKTOP_SESSION_HANDOFF.md` and `deploy/keycloak_setup.py` instead.
+
 # OpesFuel deployment runbook
 
 ## 0. What this release contains

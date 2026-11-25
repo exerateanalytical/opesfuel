@@ -42,17 +42,23 @@ export function decodeJwt(token: string): Record<string, any> | null {
 export type SessionResult = { ok: true; session: Session } | { ok: false; reason: 'INVALID' | 'EXPIRED' | 'UNSUPPORTED_ROLE' };
 
 /** UI-only role detection. The backend remains the authority and re-checks every request. */
-export function sessionFromTokens(accessToken: string, idToken?: string | null, nowSec = Math.floor(Date.now() / 1000)): SessionResult {
+export interface ServerIdentity { roles: string[]; tenantId?: string | null; stationIds?: string[] }
+
+/**
+ * `identity` is what the backend says about the signed-in person. Keycloak tokens carry no OpesFuel claims, so the app asks the
+ * backend (GET /identity/me); when a token does carry the claims (Auth0), they are used and no lookup is needed.
+ */
+export function sessionFromTokens(accessToken: string, idToken?: string | null, nowSec = Math.floor(Date.now() / 1000), identity?: ServerIdentity | null): SessionResult {
   const access = decodeJwt(accessToken);
   if (!access) return { ok: false, reason: 'INVALID' };
   const exp = typeof access.exp === 'number' ? access.exp : null;
   if (exp !== null && exp <= nowSec) return { ok: false, reason: 'EXPIRED' };
   const id = idToken ? decodeJwt(idToken) : null;
   const claim = (k: string) => access[NS + k] ?? id?.[NS + k];
-  const roles: string[] = ((claim('roles') as string[] | undefined) ?? []).map((r) => String(r).toUpperCase());
+  const roles: string[] = ((claim('roles') as string[] | undefined) ?? identity?.roles ?? []).map((r) => String(r).toUpperCase());
   const role = PRIORITY.find((r) => roles.includes(r));
   if (!role || !SUPPORTED.includes(role)) return { ok: false, reason: 'UNSUPPORTED_ROLE' };
-  const stations = (claim('station_ids') as string[] | undefined) ?? [];
+  const stations = (claim('station_ids') as string[] | undefined) ?? identity?.stationIds ?? [];
   return {
     ok: true,
     session: {
@@ -61,7 +67,7 @@ export function sessionFromTokens(accessToken: string, idToken?: string | null, 
       name: String(id?.name ?? access.name ?? id?.email ?? access.email ?? ''),
       email: String(id?.email ?? access.email ?? ''),
       sub: String(access.sub ?? ''),
-      tenantId: (claim('tenant_id') as string | undefined) ?? null,
+      tenantId: (claim('tenant_id') as string | undefined) ?? identity?.tenantId ?? null,
       stationIds: stations,
       exp,
     },

@@ -225,6 +225,8 @@ export class OpesFuelMobileClient {
 
   // ---------- reads (all return fresh data; callers cache) ----------
   getMyProfile() { return this.request<EmployeeDto>('/workforce/me'); }
+  /** Who the backend says this login is (company, role, stations). Refused (403) when the email has no workspace. */
+  getIdentityMe() { return this.request<{ tenantId?: string; roles?: string[]; allowedStationIds?: string[] }>('/identity/me'); }
   getStations() { return this.request<StationDto[]>('/stations'); }
   getPumps(stationId: string) { return this.request<PumpDto[]>(`/forecourt/pumps?stationId=${encodeURIComponent(stationId)}`); }
   getShifts(stationId: string, limit = 100) { return this.request<ShiftDto[]>(`/forecourt/shifts?stationId=${encodeURIComponent(stationId)}&limit=${limit}`); }

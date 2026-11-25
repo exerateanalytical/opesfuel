@@ -8,12 +8,28 @@ const AUTH0_DOMAIN = (process.env.EXPO_PUBLIC_AUTH0_DOMAIN || '').replace(/^http
 const AUTH0_CLIENT_ID = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID || '';
 const AUTH0_AUDIENCE = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE || 'https://api.opesfuel.com/v1';
 
-export const isMobileAuth0Configured = Boolean(AUTH0_DOMAIN && AUTH0_CLIENT_ID);
+// Self-hosted OpenID Connect (Keycloak). When set it takes precedence over Auth0, and OpesFuel identity (company, role, stations)
+// is read from the backend instead of the token.
+const OIDC_ISSUER = (process.env.EXPO_PUBLIC_OIDC_ISSUER || '').replace(/\/$/, '');
+const OIDC_CLIENT_ID = process.env.EXPO_PUBLIC_OIDC_CLIENT_ID || 'opesfuel-mobile';
+const isOidc = Boolean(OIDC_ISSUER);
+const CLIENT_ID = isOidc ? OIDC_CLIENT_ID : AUTH0_CLIENT_ID;
+
+export const isMobileAuth0Configured = isOidc ? true : Boolean(AUTH0_DOMAIN && AUTH0_CLIENT_ID);
+export const usesBackendIdentityLookup = isOidc;
 export const isDemoModeEnabled = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
 
 export interface StoredTokens { accessToken: string; idToken: string | null; refreshToken: string | null }
 
 export function getAuth0Discovery(): AuthSession.DiscoveryDocument {
+  if (isOidc) {
+    return {
+      authorizationEndpoint: `${OIDC_ISSUER}/protocol/openid-connect/auth`,
+      tokenEndpoint: `${OIDC_ISSUER}/protocol/openid-connect/token`,
+      revocationEndpoint: `${OIDC_ISSUER}/protocol/openid-connect/revoke`,
+      endSessionEndpoint: `${OIDC_ISSUER}/protocol/openid-connect/logout`,
+    };
+  }
   return {
     authorizationEndpoint: `https://${AUTH0_DOMAIN}/authorize`,
     tokenEndpoint: `https://${AUTH0_DOMAIN}/oauth/token`,
@@ -34,17 +50,17 @@ async function persist(t: { accessToken: string; idToken?: string | null; refres
 
 export async function loginWithMobileAuth0(): Promise<StoredTokens> {
   if (!isMobileAuth0Configured) {
-    throw new Error('Set EXPO_PUBLIC_AUTH0_DOMAIN and EXPO_PUBLIC_AUTH0_CLIENT_ID to enable mobile Auth0 login.');
+    throw new Error('Set EXPO_PUBLIC_OIDC_ISSUER (Keycloak) or EXPO_PUBLIC_AUTH0_DOMAIN and EXPO_PUBLIC_AUTH0_CLIENT_ID to enable sign-in.');
   }
   const discovery = getAuth0Discovery();
   const redirectUri = getMobileRedirectUri();
   const request = new AuthSession.AuthRequest({
-    clientId: AUTH0_CLIENT_ID,
+    clientId: CLIENT_ID,
     redirectUri,
     responseType: AuthSession.ResponseType.Code,
     usePKCE: true,
     scopes: ['openid', 'profile', 'email', 'offline_access'],
-    extraParams: { audience: AUTH0_AUDIENCE },
+    extraParams: isOidc ? {} : { audience: AUTH0_AUDIENCE },
   });
   const result = await request.promptAsync(discovery);
   if (result.type !== 'success' || !result.params.code) {
@@ -52,7 +68,7 @@ export async function loginWithMobileAuth0(): Promise<StoredTokens> {
   }
   const tokenRes = await AuthSession.exchangeCodeAsync(
     {
-      clientId: AUTH0_CLIENT_ID,
+      clientId: CLIENT_ID,
       code: result.params.code,
       redirectUri,
       extraParams: request.codeVerifier ? { code_verifier: request.codeVerifier } : undefined,
@@ -77,7 +93,7 @@ export async function getStoredTokens(): Promise<StoredTokens | null> {
 export async function refreshStoredTokens(refreshToken: string | null): Promise<StoredTokens | null> {
   if (!refreshToken || !isMobileAuth0Configured) return null;
   try {
-    const res = await AuthSession.refreshAsync({ clientId: AUTH0_CLIENT_ID, refreshToken }, getAuth0Discovery());
+    const res = await AuthSession.refreshAsync({ clientId: CLIENT_ID, refreshToken }, getAuth0Discovery());
     if (!res.accessToken) return null;
     return await persist({ accessToken: res.accessToken, idToken: res.idToken, refreshToken: res.refreshToken ?? refreshToken });
   } catch {
