@@ -64,6 +64,12 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.opesfuel.com/api/v1
 8. As that test company, the console top bar should show the free-trial countdown only in the last 7 days, and "read-only" after
    expiry. Billing pages must stay reachable when read-only.
 
+## 5a. Search and AI discoverability (after DNS is live)
+- Open `https://opesfuel.com/sitemap.xml`, `/llms.txt` and `/robots.txt`; each must load. The sitemap lists clean page paths (e.g. `/pricing`).
+- Submit the sitemap in Google Search Console and Bing Webmaster Tools.
+- `demo.opesfuel.com` marks itself `noindex` so it is not indexed as a duplicate of the main site.
+- Prices in `public/llms.txt` and `public/sitemap.xml` dates are edited by hand: update them when plans change.
+
 ## 5b. Adding staff after launch
 Owners invite staff from the console (Invite staff). Managers can invite attendants only; owners can invite any role.
 The invitation creates the login record; the person signs up in Auth0 with **that exact email**, verifies it, and is placed in the

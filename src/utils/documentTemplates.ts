@@ -24,6 +24,7 @@ import {
 
 import { getCompanyBranding, hexToRgb } from './companyBranding';
 import { printSecurityLicenseCertificatePdf } from './securityGuilloche';
+import { deliverPdf } from './pdfPreview';
 
 type JsPdfAuto = jsPDF & { lastAutoTable?: { finalY: number } };
 
@@ -175,7 +176,7 @@ export function printBrandedLetterheadSamplePdf(): void {
   });
 
   drawSignatureFooter(doc, 'Prepared & Verified By', b.signatoryTitle || 'Authorized Signatory');
-  doc.save(`${(b.tradingName || 'company').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-official-letterhead.pdf`);
+  deliverPdf(doc, `${(b.tradingName || 'company').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-official-letterhead.pdf`);
 }
 
 /** 1. Official Daily Station Z-Report PDF */
@@ -244,7 +245,7 @@ export function printDailyZReportPdf(params: {
   });
 
   drawSignatureFooter(doc, 'Station Manager Signature & Stamp', 'Owner / Chief Accountant Sign-Off');
-  doc.save(`opesfuel-z-report-${params.dateLabel}.pdf`);
+  deliverPdf(doc, `opesfuel-z-report-${params.dateLabel}.pdf`);
 }
 
 /** 2. Printable Employee Monthly Payslip PDF */
@@ -289,7 +290,7 @@ export function printEmployeePayslipPdf(params: {
   });
 
   drawSignatureFooter(doc, `Employee Signature (${params.employee.fullName})`, 'Employer / HR Manager Stamp');
-  doc.save(`opesfuel-payslip-${params.employee.fullName.toLowerCase().replace(/\s+/g, '-')}-${params.periodLabel}.pdf`);
+  deliverPdf(doc, `opesfuel-payslip-${params.employee.fullName.toLowerCase().replace(/\s+/g, '-')}-${params.periodLabel}.pdf`);
 }
 
 /** 3. Printable Full Station Payroll Register PDF */
@@ -336,7 +337,7 @@ export function printPayrollRegisterPdf(params: {
   });
 
   drawSignatureFooter(doc, 'Prepared By (HR / Accountant)', 'Approved For Disbursement (Owner)');
-  doc.save(`opesfuel-payroll-register-${params.periodLabel}.pdf`);
+  deliverPdf(doc, `opesfuel-payroll-register-${params.periodLabel}.pdf`);
 }
 
 /** 4. Printable HR Employment Contract Summary PDF */
@@ -369,7 +370,7 @@ export function printHrContractPdf(stationName: string, contract: HrContractItem
   });
 
   drawSignatureFooter(doc, `Employee Signature (${contract.employeeName})`, 'Station Director Signature & Seal');
-  doc.save(`opesfuel-hr-contract-${contract.employeeName.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+  deliverPdf(doc, `opesfuel-hr-contract-${contract.employeeName.toLowerCase().replace(/\s+/g, '-')}.pdf`);
 }
 
 /** 5. Printable Corporate Fleet Monthly Statement & Tax Invoice PDF */
@@ -427,7 +428,7 @@ export function printFleetStatementPdf(params: {
   });
 
   drawSignatureFooter(doc, 'Station Accounts Receivable', `Acknowledged By (${params.account.companyName})`);
-  doc.save(`opesfuel-fleet-statement-${params.account.companyName.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+  deliverPdf(doc, `opesfuel-fleet-statement-${params.account.companyName.toLowerCase().replace(/\s+/g, '-')}.pdf`);
 }
 
 /** 6. Printable Fuel Supplier Purchase Order (PO) PDF */
@@ -452,7 +453,7 @@ export function printPurchaseOrderPdf(stationName: string, po: PurchaseOrder): v
   });
 
   drawSignatureFooter(doc, 'Authorized Station Purchaser', `Supplier Dispatch Stamp (${po.supplierName})`);
-  doc.save(`opesfuel-po-${po.id}.pdf`);
+  deliverPdf(doc, `opesfuel-po-${po.id}.pdf`);
 }
 
 /** 7. Printable Tanker Delivery Goods Received Note (GRN) PDF */
@@ -485,7 +486,7 @@ export function printDeliveryGrnPdf(stationName: string, del: TankDeliveryRecord
   });
 
   drawSignatureFooter(doc, 'Tanker Driver Signature', 'Station Manager Offload Verification');
-  doc.save(`opesfuel-grn-${del.id}.pdf`);
+  deliverPdf(doc, `opesfuel-grn-${del.id}.pdf`);
 }
 
 /** 8. Printable Cash Safe / Vault Custody Handover Receipt PDF */
@@ -516,7 +517,7 @@ export function printCashVaultSlipPdf(stationName: string, entry: CashVaultEntry
   });
 
   drawSignatureFooter(doc, `Handed By (${entry.handedBy})`, `Received By (${entry.receivedBy})`);
-  doc.save(`opesfuel-vault-slip-${entry.referenceCode}.pdf`);
+  deliverPdf(doc, `opesfuel-vault-slip-${entry.referenceCode}.pdf`);
 }
 
 /** 9. Printable 20L Pump Calibration Certificate PDF */
@@ -548,7 +549,7 @@ export function printCalibrationCertPdf(stationName: string, cal: PumpCalibratio
   });
 
   drawSignatureFooter(doc, `Inspector (${cal.inspectorName})`, 'Station Manager Verification');
-  doc.save(`opesfuel-calibration-${cal.pumpCode}-${cal.id}.pdf`);
+  deliverPdf(doc, `opesfuel-calibration-${cal.pumpCode}-${cal.id}.pdf`);
 }
 
 /** 10. Printable Official OpesFuel SaaS Subscription Tax Invoice PDF (Multi-Currency Ready) */
@@ -591,7 +592,7 @@ export function printSaasInvoicePdf(params: {
   });
 
   drawSignatureFooter(doc, 'OpesWare Billing Desk (billing@opesware.com)', `Customer: ${params.organizationName}`);
-  doc.save(`opesfuel-saas-invoice-${params.invoiceNumber}.pdf`);
+  deliverPdf(doc, `opesfuel-saas-invoice-${params.invoiceNumber}.pdf`);
 }
 
 /** 11. Printable Official Enterprise Software License Certificate PDF (Sovereign Guilloche + Watermark + Verification QR) */
@@ -691,7 +692,7 @@ export function printHseIncidentReportPdf(params: {
     bodyStyles: { fontSize: 9 },
   });
   drawSignatureFooter(doc, `HSE Officer (${params.record.inspectorOrReporter})`, 'Station Manager Sign-Off');
-  doc.save(`opesfuel-hse-${params.record.id}.pdf`);
+  deliverPdf(doc, `opesfuel-hse-${params.record.id}.pdf`);
 }
 
 /** 15. Printable Fraud & Loss Prevention Investigation Case PDF (M39) */
@@ -737,7 +738,7 @@ export function printFraudCaseReportPdf(params: {
     bodyStyles: { fontSize: 9 },
   });
   drawSignatureFooter(doc, `Lead Investigator (${params.fraudCase.investigator})`, 'Owner / Chief Auditor Approval');
-  doc.save(`opesfuel-fraud-case-${params.fraudCase.id}.pdf`);
+  deliverPdf(doc, `opesfuel-fraud-case-${params.fraudCase.id}.pdf`);
 }
 
 /** 16. Printable Fuel Quality Control & Water-Paste Test Certificate PDF (M55) */
@@ -783,7 +784,7 @@ export function printFuelQualityCertPdf(params: {
     bodyStyles: { fontSize: 9 },
   });
   drawSignatureFooter(doc, `QC Technician (${params.sample.testedBy})`, 'Station Quality Release Sign-Off');
-  doc.save(`opesfuel-fuel-qc-${params.sample.id}.pdf`);
+  deliverPdf(doc, `opesfuel-fuel-qc-${params.sample.id}.pdf`);
 }
 
 /** 17. Printable Inter-Station Fuel Transfer Manifest PDF (M25) */
@@ -827,7 +828,7 @@ export function printInterstationTransferPdf(transfer: {
     bodyStyles: { fontSize: 9 },
   });
   drawSignatureFooter(doc, `Dispatching Station / Driver (${transfer.driverName})`, `Receiving Station (${transfer.toStationName})`);
-  doc.save(`opesfuel-transfer-${transfer.id}.pdf`);
+  deliverPdf(doc, `opesfuel-transfer-${transfer.id}.pdf`);
 }
 
 /** 18. Printable Fixed Assets & Depreciation Register PDF (M36 — SYSCOHADA Class 2) */
@@ -877,7 +878,7 @@ export function printFixedAssetsRegisterPdf(params: {
     columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' } },
   });
   drawSignatureFooter(doc, 'Station Accountant', 'Owner / Statutory Auditor');
-  doc.save(`opesfuel-fixed-assets-${new Date().toISOString().slice(0, 10)}.pdf`);
+  deliverPdf(doc, `opesfuel-fixed-assets-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 /** 19. Printable Statutory Audit Evidence Pack PDF (M56) */
@@ -919,7 +920,7 @@ export function printAuditEvidencePackPdf(params: {
     bodyStyles: { fontSize: 7 },
   });
   drawSignatureFooter(doc, 'Compliance Officer / Accountant', 'External Statutory Auditor');
-  doc.save(`opesfuel-audit-evidence-pack-${new Date().toISOString().slice(0, 10)}.pdf`);
+  deliverPdf(doc, `opesfuel-audit-evidence-pack-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 /** 20. SaaS Executive Monthly Performance & MRR Board Report PDF (PLATFORM_ADMIN) */
@@ -1005,7 +1006,7 @@ export function printSaasExecutiveBoardReportPdf(params: {
   });
 
   drawSignatureFooter(doc, 'OpesWare CEO / SaaS Super-Admin', 'Board of Directors / Finance Review');
-  doc.save(`opesfuel-saas-executive-board-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+  deliverPdf(doc, `opesfuel-saas-executive-board-report-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 /** 21. Multi-Sheet Global SaaS Billing & MoMo Reconciliation Workbook (.xlsx) */
@@ -1054,7 +1055,7 @@ export function printSaasAuditTrailPdf(
     bodyStyles: { fontSize: 7 },
   });
   drawSignatureFooter(doc, 'Platform Security Officer', 'Chief Technology Officer');
-  doc.save(`opesfuel-platform-audit-trail-${new Date().toISOString().slice(0, 10)}.pdf`);
+  deliverPdf(doc, `opesfuel-platform-audit-trail-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 export function exportSaasAuditCsv(
@@ -1128,7 +1129,7 @@ export function printTenantWelcomeDossierPdf(params: {
     doc.text(s, 14, y + 6 + idx * 5.5);
   });
   drawSignatureFooter(doc, 'OpesWare Onboarding & Success Desk', `Tenant Owner (${params.ownerEmail})`);
-  doc.save(`opesfuel-welcome-dossier-${params.tenantId}.pdf`);
+  deliverPdf(doc, `opesfuel-welcome-dossier-${params.tenantId}.pdf`);
 }
 
 /** 24. Multi-Section Consolidated Financial Statements Board Pack PDF (GROUP_CFO) */
@@ -1252,7 +1253,7 @@ export function printConsolidatedFinancialStatementsPackPdf(params: {
   }
 
   drawSignatureFooter(doc, 'Group Chief Financial Officer (GROUP_CFO)', 'Statutory Group Auditor');
-  doc.save(`opesfuel-consolidated-pack-${params.period}-${params.reportingCurrency.toLowerCase()}.pdf`);
+  deliverPdf(doc, `opesfuel-consolidated-pack-${params.period}-${params.reportingCurrency.toLowerCase()}.pdf`);
 }
 
 /** 25. 5-Sheet Consolidated Group Excel Workbook (.xlsx) */
@@ -1340,7 +1341,7 @@ export function printIntercompanyEliminationCertificatePdf(params: {
     columnStyles: { 4: { halign: 'right', fontStyle: 'bold' } },
   });
   drawSignatureFooter(doc, 'Group CFO Certification', 'External Statutory Auditor');
-  doc.save(`opesfuel-elimination-certificate-${params.period}.pdf`);
+  deliverPdf(doc, `opesfuel-elimination-certificate-${params.period}.pdf`);
 }
 
 /** 27. Owner Multi-Station Executive Network Performance Report PDF (OWNER) */
@@ -1416,7 +1417,7 @@ export function printOwnerNetworkExecutivePdf(params: {
   });
 
   drawSignatureFooter(doc, 'Station Network Owner / CEO', 'Chief Accountant / Auditor');
-  doc.save(`opesfuel-owner-network-executive-${new Date().toISOString().slice(0, 10)}.pdf`);
+  deliverPdf(doc, `opesfuel-owner-network-executive-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 /** 28. Multi-Station Network Executive Workbook (.xlsx, 4 sheets) */
@@ -1534,7 +1535,7 @@ export function printManagerDailyHandoverPdf(params: {
   }
 
   drawSignatureFooter(doc, `Outgoing Station Manager (${params.managerName})`, 'Incoming Shift Supervisor / Auditor');
-  doc.save(`opesfuel-manager-handover-${params.dateLabel}.pdf`);
+  deliverPdf(doc, `opesfuel-manager-handover-${params.dateLabel}.pdf`);
 }
 
 /** 30. Station Manager Daily Operations Pack (.xlsx, 4 operational sheets — zero salary/P&L columns) */
@@ -1636,7 +1637,7 @@ export function printJournalVoucherPdf(params: {
   });
 
   drawSignatureFooter(doc, 'Prepared By (Chief Accountant)', 'Verified / Audited By (Owner / External Auditor)');
-  doc.save(`opesfuel-journal-voucher-${params.journal.reference.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
+  deliverPdf(doc, `opesfuel-journal-voucher-${params.journal.reference.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
 }
 
 /** 32. Statutory 19.25% VAT (TVA) / DGI Tax Declaration & Reconciliation Pack PDF */
@@ -1699,7 +1700,7 @@ export function printStatutoryVatTaxPackPdf(params: {
   });
 
   drawSignatureFooter(doc, 'Chief Accountant (Expert-Comptable / DAF)', 'Managing Director / Owner Tax Sign-Off');
-  doc.save(`opesfuel-vat-tax-pack-${params.periodLabel}.pdf`);
+  deliverPdf(doc, `opesfuel-vat-tax-pack-${params.periodLabel}.pdf`);
 }
 
 /** 33. Chief Accountant 5-Sheet SYSCOHADA Audit & Grand Livre Workbook (.xlsx) */
@@ -1917,7 +1918,7 @@ export function printFleetPortalVatStatementPdf(params: {
 
   drawSignatureFooter(doc, 'Corporate Fleet Manager / Client', 'Station Network Finance & Tax Control');
   const slug = params.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  doc.save(`opesfuel-fleet-vat-statement-${slug}-${params.period}.pdf`);
+  deliverPdf(doc, `opesfuel-fleet-vat-statement-${slug}-${params.period}.pdf`);
 }
 
 export function exportFleetPortalAuditWorkbookExcel(params: {

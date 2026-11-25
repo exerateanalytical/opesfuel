@@ -14,6 +14,7 @@ import {
 } from '../domain/types';
 
 import { getCompanyBranding, hexToRgb } from './companyBranding';
+import { deliverPdf } from './pdfPreview';
 
 type JsPdfWithAutoTable = jsPDF & {
   lastAutoTable?: { finalY: number };
@@ -273,7 +274,7 @@ export function exportAccountingPdf(
   }
 
   const slug = stationLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  doc.save(`opesfuel-accounting-reconciliation-${slug}.pdf`);
+  deliverPdf(doc, `opesfuel-accounting-reconciliation-${slug}.pdf`);
 }
 
 export function exportAccountingExcel(
@@ -514,7 +515,7 @@ export function exportInventoryPdf(
   }
 
   const slug = stationLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  doc.save(`opesfuel-inventory-audit-${slug}.pdf`);
+  deliverPdf(doc, `opesfuel-inventory-audit-${slug}.pdf`);
 }
 
 export function exportInventoryExcel(
