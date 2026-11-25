@@ -131,12 +131,12 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
     setError(null);
     setSsoBusy(true);
     try {
-      const returnHash = pendingInviteToken
-        ? `#/invite/${pendingInviteToken}`
+      const returnPath = pendingInviteToken
+        ? `/invite/${pendingInviteToken}`
         : screenHint === 'signup'
-        ? '#/login'
-        : '#/app/overview';
-      await startAuth0Login({ screenHint, returnHash });
+        ? '/login'
+        : '/app/overview';
+      await startAuth0Login({ screenHint, returnPath });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to start Auth0 PKCE sign-in.');
       setSsoBusy(false);
@@ -619,10 +619,10 @@ export const ClassicLoginPage: React.FC<ClassicLoginPageProps> = ({
           )}
 
           <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
-            <a href="#/fleet-portal" className="font-semibold text-slate-800 hover:text-amber-700 underline">
+            <a href="/fleet-portal" className="font-semibold text-slate-800 hover:text-amber-700 underline">
               Corporate Fleet Client Portal →
             </a>
-            <a href="#/verify" className="font-semibold text-slate-800 hover:text-amber-700 underline">
+            <a href="/verify" className="font-semibold text-slate-800 hover:text-amber-700 underline">
               Verify License / Letterhead
             </a>
           </div>

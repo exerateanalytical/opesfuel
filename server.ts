@@ -337,8 +337,18 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distDir = path.resolve(process.cwd(), 'dist');
-    app.use(express.static(distDir));
-    app.get('*', (_req, res) => {
+    // Real build files (incl. public/ sitemap.xml, robots.txt, llms.txt) are served before the SPA fallback.
+    app.use(express.static(distDir, { index: 'index.html' }));
+    // Unknown API endpoints must not be answered with the SPA shell.
+    app.all('/api/*', (_req, res) => {
+      res.status(404).json({ error: 'Not found' });
+    });
+    // Any other non-file GET (deep links such as /app/overview, /login, /api) returns index.html.
+    app.get('*', (req, res) => {
+      if (path.extname(req.path)) {
+        res.status(404).send('Not found');
+        return;
+      }
       const indexFile = path.join(distDir, 'index.html');
       if (fs.existsSync(indexFile)) {
         res.sendFile(indexFile);

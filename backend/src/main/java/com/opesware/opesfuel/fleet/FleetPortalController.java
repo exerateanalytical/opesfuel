@@ -128,7 +128,7 @@ public class FleetPortalController {
                 principal.tenantId(), principal.subject(), "EMAIL", email,
                 "Welcome to OpesFuel Corporate Fleet Portal — " + acc.get("company_name"),
                 "Hello " + cmd.fullName() + ", your corporate fleet portal account for " + acc.get("company_name")
-                    + " is active. Sign in at /#/fleet-portal with email " + email + ".",
+                    + " is active. Sign in at /fleet-portal with email " + email + ".",
                 "FLEET_PORTAL_INVITE"
             );
         } catch (Exception ignored) {

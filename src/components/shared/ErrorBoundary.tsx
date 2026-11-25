@@ -55,7 +55,8 @@ export class ErrorBoundary extends React.Component<
               <button
                 type="button"
                 onClick={() => {
-                  window.location.hash = '';
+                  window.history.replaceState(null, '', '/');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
                   this.setState({ hasError: false, errorMessage: '' });
                 }}
                 className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 text-sm font-semibold"

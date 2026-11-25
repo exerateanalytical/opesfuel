@@ -61,7 +61,17 @@ async function completeFromBackend(session: AuthSession): Promise<AuthSession> {
 const SESSION_STORAGE_KEY = 'opesfuel.auth0.session.v1';
 const PKCE_VERIFIER_KEY = 'opesfuel.auth0.pkce_verifier';
 const PKCE_STATE_KEY = 'opesfuel.auth0.pkce_state';
-const PKCE_RETURN_HASH_KEY = 'opesfuel.auth0.return_hash';
+const PKCE_RETURN_PATH_KEY = 'opesfuel.auth0.return_path';
+
+/** Normalises a post-login return target to a same-origin clean path (accepts legacy `#/x` values). */
+function toReturnPath(value: string | null | undefined, fallback = '/app/overview'): string {
+  if (!value) return fallback;
+  let v = value.trim();
+  if (v.startsWith('#')) v = v.slice(1);
+  if (!v.startsWith('/')) v = `/${v}`;
+  if (v.startsWith('//') || v === '/') return fallback;
+  return v;
+}
 
 export const isAuth0Configured = isOidc ? Boolean(OIDC_CLIENT_ID) : Boolean(AUTH0_DOMAIN && AUTH0_CLIENT_ID);
 
@@ -277,7 +287,7 @@ export function buildAuth0AuthorizeUrl(): string | null {
 
 export async function startAuth0Login(options?: {
   screenHint?: 'login' | 'signup';
-  returnHash?: string;
+  returnPath?: string;
 }): Promise<void> {
   if (!isAuth0Configured) {
     throw new Error('Auth0 is not configured. Set VITE_AUTH0_DOMAIN and VITE_AUTH0_CLIENT_ID.');
@@ -288,7 +298,7 @@ export async function startAuth0Login(options?: {
 
   sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier);
   sessionStorage.setItem(PKCE_STATE_KEY, state);
-  sessionStorage.setItem(PKCE_RETURN_HASH_KEY, options?.returnHash || window.location.hash || '#/app/overview');
+  sessionStorage.setItem(PKCE_RETURN_PATH_KEY, toReturnPath(options?.returnPath || window.location.pathname));
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -368,7 +378,7 @@ export function clearAuthSession(): void {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
     sessionStorage.removeItem(PKCE_VERIFIER_KEY);
     sessionStorage.removeItem(PKCE_STATE_KEY);
-    sessionStorage.removeItem(PKCE_RETURN_HASH_KEY);
+    sessionStorage.removeItem(PKCE_RETURN_PATH_KEY);
   } catch {
     // ignore
   }
@@ -391,11 +401,11 @@ export function buildAuth0LogoutUrl(): string | null {
 
 export async function handleAuth0CallbackIfPresent(): Promise<{
   session: AuthSession | null;
-  returnHash: string | null;
+  returnPath: string | null;
   error: string | null;
 }> {
   if (!isAuth0Configured) {
-    return { session: null, returnHash: null, error: null };
+    return { session: null, returnPath: null, error: null };
   }
   const url = new URL(window.location.href);
   const authError = url.searchParams.get('error');
@@ -404,27 +414,27 @@ export async function handleAuth0CallbackIfPresent(): Promise<{
   const state = url.searchParams.get('state');
 
   if (authError) {
-    window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.hash || '#/login'}`);
-    return { session: null, returnHash: null, error: authErrorDesc || authError };
+    window.history.replaceState({}, document.title, '/login');
+    return { session: null, returnPath: null, error: authErrorDesc || authError };
   }
 
   if (!code) {
-    return { session: null, returnHash: null, error: null };
+    return { session: null, returnPath: null, error: null };
   }
 
   const expectedState = sessionStorage.getItem(PKCE_STATE_KEY);
   const verifier = sessionStorage.getItem(PKCE_VERIFIER_KEY);
-  const returnHash = sessionStorage.getItem(PKCE_RETURN_HASH_KEY) || '#/app/overview';
+  const returnPath = toReturnPath(sessionStorage.getItem(PKCE_RETURN_PATH_KEY));
 
   sessionStorage.removeItem(PKCE_STATE_KEY);
   sessionStorage.removeItem(PKCE_VERIFIER_KEY);
-  sessionStorage.removeItem(PKCE_RETURN_HASH_KEY);
+  sessionStorage.removeItem(PKCE_RETURN_PATH_KEY);
 
   // Strip OAuth query parameters immediately so reloading does not re-submit the single-use code
-  window.history.replaceState({}, document.title, `${window.location.pathname}${returnHash}`);
+  window.history.replaceState({}, document.title, returnPath);
 
   if (!verifier || !expectedState || state !== expectedState) {
-    return { session: null, returnHash, error: 'Auth0 OIDC state/PKCE verification failed. Please sign in again.' };
+    return { session: null, returnPath, error: 'Auth0 OIDC state/PKCE verification failed. Please sign in again.' };
   }
 
   const tokenRes = await tokenRequest({
@@ -439,7 +449,7 @@ export async function handleAuth0CallbackIfPresent(): Promise<{
     const errText = await tokenRes.text();
     return {
       session: null,
-      returnHash,
+      returnPath,
       error: `Auth0 token exchange failed (${tokenRes.status}): ${errText.slice(0, 180)}`,
     };
   }
@@ -452,7 +462,7 @@ export async function handleAuth0CallbackIfPresent(): Promise<{
   };
   const session = await completeFromBackend(buildSessionFromTokenResponse(tokenData));
   saveAuthSession(session);
-  return { session, returnHash, error: null };
+  return { session, returnPath, error: null };
 }
 
 export async function refreshAuth0SessionIfNeeded(session: AuthSession | null): Promise<AuthSession | null> {
