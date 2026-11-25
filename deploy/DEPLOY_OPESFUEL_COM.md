@@ -38,21 +38,22 @@ python3 deploy/auth0_setup.py
 Without the Action every login is refused (by design: no company tag, no access).
 
 ## 4. Deploy
+Scripted (recommended). Details and failure table: `deploy/DESKTOP_SESSION_HANDOFF.md`.
 ```bash
-bash deploy/backup-postgres.sh                # skip on a brand-new server
-git pull origin main                          # expect merge commit 594cb69 or later
-docker compose -f docker-compose.prod.yml --profile tls --profile demo up -d --build
-# add --profile mcp only after doing the Auth0 steps in mcp/README.md
+deploy/preflight.sh                 # read-only checks; must end with "READY to deploy."
+deploy/deploy.sh --skip-backup      # first deploy on an empty server (add --with-mcp for the connector)
+deploy/deploy.sh                    # later deploys: backs up, pulls main, builds, starts, waits healthy, verifies public URLs
+deploy/rollback.sh                  # return to the previous release (code only)
 ```
-Flyway applies migrations V1 to V26 automatically on backend start. The backend image builds with Java 25;
-if that build fails, capture the error output.
+Manual equivalent: `git pull origin main` then
+`docker compose -f docker-compose.prod.yml --profile tls --profile demo up -d --build`.
+Flyway applies migrations V1 to V26 automatically on backend start. The backend image builds with Java 25.
 
-## 5. Verify (about 10 minutes)
-```bash
-curl -fsS https://api.opesfuel.com/actuator/health
-bash deploy/smoke-test.sh
-curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.opesfuel.com/api/v1/public/auth/identity-claims   # expect 401 or 422, never 200
-```
+## 5. Verify
+`deploy/deploy.sh` already runs `deploy/verify-public.sh` (health, access refused without login, signup route, login-claims secret,
+CORS, TLS certificate, sitemap/llms/robots, demo). To rerun it alone:
+`deploy/verify-public.sh https://opesfuel.com https://api.opesfuel.com https://demo.opesfuel.com`.
+Then do these manual checks (they need a browser and real inboxes):
 1. `https://demo.opesfuel.com` opens and you can browse with a sample role.
 2. On `https://opesfuel.com` start a free trial with an inbox you own; you should see "Your workspace is ready".
 3. Click "Create password & open my workspace", verify the email, and the dashboard opens with only that company.
