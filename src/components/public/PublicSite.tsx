@@ -749,7 +749,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 type="button"
                 onClick={() => {
                   if (isAuth0Configured) {
-                    void startAuth0Login({ screenHint: 'signup', returnHash: '#/app/overview' });
+                    void startAuth0Login({ screenHint: 'signup', returnPath: '/app/overview' });
                   } else {
                     onOpenConsole();
                   }

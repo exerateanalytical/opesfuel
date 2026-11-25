@@ -100,7 +100,7 @@ public class DocumentVerificationController {
         return Map.of(
             "fingerprint", fp,
             "status", "VALID",
-            "verifyPath", "/#/verify/" + fp,
+            "verifyPath", "/verify/" + fp,
             "issuedAt", now.toString()
         );
     }

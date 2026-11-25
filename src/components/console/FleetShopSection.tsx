@@ -520,7 +520,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
                 }
                 onNotify(
                   'success',
-                  `Invited ${portalEmail.trim()} to Corporate Fleet Self-Service Portal (/#/fleet-portal) for ${portalInviteAccount.companyName}.`
+                  `Invited ${portalEmail.trim()} to Corporate Fleet Self-Service Portal (/fleet-portal) for ${portalInviteAccount.companyName}.`
                 );
                 setPortalInviteAccount(null);
                 setPortalEmail('');
@@ -541,7 +541,7 @@ export const FleetShopSection: React.FC<FleetShopSectionProps> = ({
                 <input type="text" required minLength={6} value={portalPassword} onChange={(e) => setPortalPassword(e.target.value)} className="opes-input text-xs font-mono" />
               </div>
               <div className="flex items-center justify-between pt-2">
-                <a href="#/fleet-portal" className="text-[11px] font-semibold text-amber-700 underline">
+                <a href="/fleet-portal" className="text-[11px] font-semibold text-amber-700 underline">
                   Preview Fleet Portal →
                 </a>
                 <div className="flex gap-2">

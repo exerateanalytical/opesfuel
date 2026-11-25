@@ -179,7 +179,7 @@ export const BillingAndInvitesPanel: React.FC<BillingAndInvitesPanelProps> = ({
   };
 
   const copyInviteLink = async (token: string) => {
-    const link = `${window.location.origin}/#/invite/${token}`;
+    const link = `${window.location.origin}/invite/${token}`;
     try {
       await navigator.clipboard.writeText(link);
       setCopiedToken(token);

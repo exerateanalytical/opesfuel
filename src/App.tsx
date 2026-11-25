@@ -193,7 +193,18 @@ function hasLiveSession(): boolean {
   return Boolean((import.meta.env.VITE_API_BASE_URL as string | undefined) && getStoredAuthSession()?.accessToken);
 }
 
-function parseHashRoute(hashStr = window.location.hash): {
+/** Backward compatibility: rewrite a legacy `#/x` URL to the clean path `/x` (keeps query string). */
+function migrateLegacyHashUrl(): void {
+  if (typeof window === 'undefined') return;
+  const { hash, search } = window.location;
+  if (hash.startsWith('#/')) {
+    const path = '/' + hash.slice(2).replace(/^\/+/, '');
+    window.history.replaceState(null, '', `${path}${search}`);
+  }
+}
+
+/** Parses a clean path (`/app/overview`) or a legacy hash (`#/app/overview`) into an app route. */
+function parseRoute(pathStr = window.location.pathname): {
   mode: AppMode;
   publicPage: PublicPage;
   consoleSection: ConsoleSection;
@@ -202,8 +213,11 @@ function parseHashRoute(hashStr = window.location.hash): {
   loyaltyToken: string | null;
   unknownHash: string | null;
 } {
-  const pathFallback = !hashStr && typeof window !== 'undefined' ? window.location.pathname.replace(/^\/+/, '') : '';
-  const rawOriginal = (hashStr ? hashStr.replace(/^#\/?/, '') : pathFallback);
+  const rawOriginal = pathStr
+    .replace(/^#/, '')
+    .replace(/[?#].*$/, '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
   const raw = rawOriginal.toLowerCase();
   if (!raw) {
     return { mode: 'public', publicPage: 'home', consoleSection: 'overview', inviteToken: null, verifyCode: null, loyaltyToken: null, unknownHash: null };
@@ -252,7 +266,10 @@ export default function App() {
   });
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
-  const initialRoute = useMemo(() => parseHashRoute(), []);
+  const initialRoute = useMemo(() => {
+    migrateLegacyHashUrl();
+    return parseRoute();
+  }, []);
   const [mode, setMode] = useState<AppMode>(initialRoute.mode);
   const [publicPage, setPublicPage] = useState<PublicPage>(initialRoute.publicPage);
   const [unknownHash, setUnknownHash] = useState<string | null>(initialRoute.unknownHash);
@@ -380,8 +397,8 @@ export default function App() {
         engineRef.current.setAccessToken(resolvedSession.accessToken);
 
         // If returning from Auth0 PKCE callback, navigate to the intended route
-        if (callbackResult.session && callbackResult.returnHash) {
-          const parsedReturn = parseHashRoute(callbackResult.returnHash);
+        if (callbackResult.session && callbackResult.returnPath) {
+          const parsedReturn = parseRoute(callbackResult.returnPath);
           if (parsedReturn.inviteToken) {
             try {
               await engineRef.current.acceptStaffInvite(parsedReturn.inviteToken, resolvedSession.accessToken);
@@ -429,14 +446,14 @@ export default function App() {
     }
   }, [mode, effectiveActiveStationId, refreshNotifications]);
 
-  // Production Auth0 route guard: prevent unauthenticated direct access to #/app/* when Auth0 is enabled
+  // Production Auth0 route guard: prevent unauthenticated direct access to /app/* when Auth0 is enabled
   useEffect(() => {
     if (isAuth0Configured && mode === 'console' && !authSession?.accessToken) {
       setMode('login');
     }
   }, [mode, authSession]);
 
-  // Strict RBAC route guard: prevent direct hash navigation to forbidden sections
+  // Strict RBAC route guard: prevent direct URL navigation to forbidden sections
   useEffect(() => {
     if (mode === 'console' && !canAccessSection(role, consoleSection)) {
       const fallback: ConsoleSection =
@@ -463,34 +480,41 @@ export default function App() {
     }
   }, [mode, consoleSection]);
 
-  // Bidirectional URL hash sync for direct bookmarkable individual pages
+  // Bidirectional URL path sync for direct bookmarkable individual pages (History API)
+  const firstUrlSyncRef = useRef(true);
   useEffect(() => {
-    const nextHash =
+    const nextPath =
       mode === 'verify'
         ? verifyCode
-          ? `#/verify/${encodeURIComponent(verifyCode)}`
-          : '#/verify'
+          ? `/verify/${encodeURIComponent(verifyCode)}`
+          : '/verify'
         : mode === 'fleet-portal'
-        ? '#/fleet-portal'
+        ? '/fleet-portal'
         : mode === 'loyalty-pass'
-        ? `#/loyalty/${encodeURIComponent(loyaltyToken || 'demo')}`
+        ? `/loyalty/${encodeURIComponent(loyaltyToken || 'demo')}`
         : mode === 'login'
         ? pendingInviteToken
-          ? `#/invite/${pendingInviteToken}`
-          : '#/login'
+          ? `/invite/${pendingInviteToken}`
+          : '/login'
         : mode === 'console'
-        ? `#/app/${consoleSection}`
+        ? `/app/${consoleSection}`
         : publicPage === 'home'
-        ? '#/'
-        : `#/${publicPage}`;
-    if (window.location.hash !== nextHash) {
-      window.history.replaceState(null, '', nextHash);
+        ? '/'
+        : `/${publicPage}`;
+    const isFirst = firstUrlSyncRef.current;
+    firstUrlSyncRef.current = false;
+    if (window.location.pathname !== nextPath) {
+      if (isFirst) {
+        window.history.replaceState(null, '', nextPath);
+      } else {
+        window.history.pushState(null, '', nextPath);
+      }
     }
   }, [mode, publicPage, consoleSection, pendingInviteToken, verifyCode, loyaltyToken]);
 
   useEffect(() => {
-    const onHashChange = () => {
-      const parsed = parseHashRoute();
+    const onRouteChange = () => {
+      const parsed = parseRoute();
       if (isAuth0Configured && parsed.mode === 'console' && !authSession?.accessToken) {
         setMode('login');
       } else {
@@ -509,9 +533,38 @@ export default function App() {
       setPendingInviteToken(parsed.inviteToken);
       setVerifyCode(parsed.verifyCode);
       setLoyaltyToken(parsed.loyaltyToken);
+      setUnknownHash(parsed.unknownHash);
     };
+    // Legacy `#/x` links still work: rewrite to `/x`, then route.
+    const onHashChange = () => {
+      if (window.location.hash.startsWith('#/')) {
+        migrateLegacyHashUrl();
+        onRouteChange();
+      }
+    };
+    // Same-origin in-app links (`<a href="/verify">`) navigate without a full reload.
+    const onDocumentClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as Element | null)?.closest?.('a');
+      if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+      const href = anchor.getAttribute('href');
+      if (!href || !href.startsWith('/') || href.startsWith('//') || href.startsWith('/api/')) return;
+      const url = new URL(href, window.location.origin);
+      if (/\.[a-z0-9]+$/i.test(url.pathname)) return; // real files (sitemap.xml, robots.txt, ...)
+      e.preventDefault();
+      if (url.pathname + url.search !== window.location.pathname + window.location.search) {
+        window.history.pushState(null, '', url.pathname + url.search);
+      }
+      onRouteChange();
+    };
+    window.addEventListener('popstate', onRouteChange);
     window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    document.addEventListener('click', onDocumentClick);
+    return () => {
+      window.removeEventListener('popstate', onRouteChange);
+      window.removeEventListener('hashchange', onHashChange);
+      document.removeEventListener('click', onDocumentClick);
+    };
   }, [authSession, role]);
 
   const report = useMemo(
@@ -842,7 +895,7 @@ export default function App() {
           <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-4">
             <div className="rounded-xl border border-slate-300 border-l-4 border-l-amber-600 bg-white px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div>
-                <span className="font-bold text-slate-900">Page not found (#/{unknownHash}):</span>{' '}
+                <span className="font-bold text-slate-900">Page not found (/{unknownHash}):</span>{' '}
                 <span className="text-slate-600">
                   We redirected you to the OpesFuel homepage. Use the navigation bar or visit Station Docs.
                 </span>

@@ -107,8 +107,8 @@ const PROVIDERS: ProviderMeta[] = [
       { key: 'clientId', label: 'OAuth Client ID', placeholder: 'From developer.orange.com' },
       { key: 'clientSecret', label: 'OAuth Client Secret', secret: true, placeholder: 'From developer.orange.com' },
       { key: 'merchantKey', label: 'Merchant Key', secret: true, placeholder: 'Orange Money CM Merchant Key' },
-      { key: 'returnUrl', label: 'Customer Return URL', placeholder: 'https://app.yourdomain.com/#/app/admin' },
-      { key: 'cancelUrl', label: 'Customer Cancel URL', placeholder: 'https://app.yourdomain.com/#/app/admin' },
+      { key: 'returnUrl', label: 'Customer Return URL', placeholder: 'https://app.yourdomain.com/app/admin' },
+      { key: 'cancelUrl', label: 'Customer Cancel URL', placeholder: 'https://app.yourdomain.com/app/admin' },
       { key: 'notifUrl', label: 'Server-to-Server Notification URL', placeholder: 'https://api.yourdomain.com/api/v1/public/webhooks/momo/orange' },
     ],
   },
@@ -315,7 +315,7 @@ export const ApiIntegrationsHubPanel: React.FC<ApiIntegrationsHubPanelProps> = (
       } else if (f.key === 'callbackUrl' || f.key === 'notifUrl') {
         defaults[f.key] = `${apiBase || window.location.origin}${meta.webhookPath || ''}`;
       } else if (f.key === 'returnUrl' || f.key === 'cancelUrl') {
-        defaults[f.key] = `${window.location.origin}/#/app/admin`;
+        defaults[f.key] = `${window.location.origin}/app/admin`;
       } else {
         defaults[f.key] = f.defaultValue ?? '';
       }

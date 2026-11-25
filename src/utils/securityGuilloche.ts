@@ -20,7 +20,7 @@ type JsPdfAuto = jsPDF & { lastAutoTable?: { finalY: number } };
 
 export function buildVerifyUrl(fingerprint: string): string {
   const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://app.opesfuel.com';
-  return `${origin}/#/verify/${encodeURIComponent(fingerprint.toUpperCase())}`;
+  return `${origin}/verify/${encodeURIComponent(fingerprint.toUpperCase())}`;
 }
 
 /** Registers issued security document in backend V16 registry + local cache so /verify/:code confirms authenticity */
@@ -273,7 +273,7 @@ export function drawSecurityVerificationMatrix(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(5.0);
   doc.setTextColor(100, 116, 139);
-  doc.textWithLink('VERIFY: /#/verify/' + fingerprint, x + sizeMm / 2, y + sizeMm + 6.6, { align: 'center', url: verifyUrl });
+  doc.textWithLink('VERIFY: /verify/' + fingerprint, x + sizeMm / 2, y + sizeMm + 6.6, { align: 'center', url: verifyUrl });
 }
 
 /**

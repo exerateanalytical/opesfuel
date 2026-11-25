@@ -726,7 +726,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                   Station Role-Based Access Control (RBAC) Matrix — All 7 Account Types
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Status: {isAuth0Configured ? 'Auth0 RS256 OIDC Production Active' : 'Workspace RBAC Policy Active'} · Plus external B2B Fleet Client Portal (ROLE_FLEET_CLIENT) at /#/fleet-portal
+                  Status: {isAuth0Configured ? 'Auth0 RS256 OIDC Production Active' : 'Workspace RBAC Policy Active'} · Plus external B2B Fleet Client Portal (ROLE_FLEET_CLIENT) at /fleet-portal
                 </p>
               </div>
             </div>

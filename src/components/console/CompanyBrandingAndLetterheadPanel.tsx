@@ -1201,7 +1201,7 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                   Issued Security Documents Registry &amp; Public Verification Control
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Every generated Guilloché letterhead, compliance certificate, dealer authorization, or license is auto-registered for public QR verification at <span className="font-mono">/#/verify/&lt;fingerprint&gt;</span>.
+                  Every generated Guilloché letterhead, compliance certificate, dealer authorization, or license is auto-registered for public QR verification at <span className="font-mono">/verify/&lt;fingerprint&gt;</span>.
                 </p>
               </div>
               <button
@@ -1256,7 +1256,7 @@ export const CompanyBrandingAndLetterheadPanel: React.FC<CompanyBrandingAndLette
                         <td className="px-4 py-2.5 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
                             <a
-                              href={`#/verify/${encodeURIComponent(doc.fingerprint)}`}
+                              href={`/verify/${encodeURIComponent(doc.fingerprint)}`}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-[11px] font-semibold text-slate-800"
                             >
                               <ExternalLink className="w-3 h-3" /> Verify

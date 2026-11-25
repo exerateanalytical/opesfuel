@@ -111,7 +111,7 @@ export const VerifyDocumentPage: React.FC<VerifyDocumentPageProps> = ({ initialC
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim()) return;
-    window.history.replaceState(null, '', `#/verify/${encodeURIComponent(code.trim().toUpperCase())}`);
+    window.history.replaceState(null, '', `/verify/${encodeURIComponent(code.trim().toUpperCase())}`);
     void runVerify(code);
   };
 

@@ -62,8 +62,8 @@ public class MomoProperties {
         private String clientId = "";
         private String clientSecret = "";
         private String merchantKey = "";
-        private String returnUrl = "https://app.opesfuel.com/#/app/admin";
-        private String cancelUrl = "https://app.opesfuel.com/#/app/admin";
+        private String returnUrl = "https://app.opesfuel.com/app/admin";
+        private String cancelUrl = "https://app.opesfuel.com/app/admin";
         private String notifUrl = "";
         private String lang = "fr";
 

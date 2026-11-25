@@ -204,7 +204,7 @@ export const LoyaltyCampaignsPanel: React.FC<LoyaltyCampaignsPanelProps> = ({
                 <div className="text-right">
                   <div className="font-mono font-bold text-slate-900">{m.pointsBalance.toLocaleString()} pts</div>
                   <a
-                    href={`#/loyalty/${m.passToken}`}
+                    href={`/loyalty/${m.passToken}`}
                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:underline"
                   >
                     Open Public Pass <ExternalLink className="w-3 h-3" />

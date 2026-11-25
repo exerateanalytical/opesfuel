@@ -441,7 +441,7 @@ class PlatformAdminService {
             tenant.getOwnerEmail(),
             "OpesFuel Workspace Access & Recovery Code — " + tenant.getName(),
             "Hello,\n\nAn OpesFuel Platform Support Engineer triggered a workspace access recovery for " + tenant.getName()
-                + ".\nVerification Code: " + otpCode + "\nSign in at: https://app.opesfuel.com/#/login\n\n— OpesFuel Support Desk",
+                + ".\nVerification Code: " + otpCode + "\nSign in at: https://app.opesfuel.com/login\n\n— OpesFuel Support Desk",
             "SUPPORT_ACCESS_RECOVERY"
         );
         audit.record("PLATFORM", null, actorEmail(), actorRole(),

@@ -106,8 +106,8 @@ opesfuel:
       client-id: ${OPESFUEL_ORANGE_CLIENT_ID:}
       client-secret: ${OPESFUEL_ORANGE_CLIENT_SECRET:}
       merchant-key: ${OPESFUEL_ORANGE_MERCHANT_KEY:}
-      return-url: ${OPESFUEL_ORANGE_RETURN_URL:https://app.opesfuel.com/#/app/admin}
-      cancel-url: ${OPESFUEL_ORANGE_CANCEL_URL:https://app.opesfuel.com/#/app/admin}
+      return-url: ${OPESFUEL_ORANGE_RETURN_URL:https://app.opesfuel.com/app/admin}
+      cancel-url: ${OPESFUEL_ORANGE_CANCEL_URL:https://app.opesfuel.com/app/admin}
       notif-url: ${OPESFUEL_ORANGE_NOTIF_URL:}
       lang: ${OPESFUEL_ORANGE_LANG:fr}
   mail:
