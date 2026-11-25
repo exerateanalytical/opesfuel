@@ -78,10 +78,14 @@ Collect: `docker compose -f docker-compose.prod.yml logs --tail=200 opesfuel-bac
 Rollback: `git checkout <previous-tag>` and repeat step 4 (no schema change needs reverting; V26 only disables seeded demo staff logins).
 
 ## Known limits
-- **Enterprise screens not yet connected to live lists.** Real customers do not see sample data, but these modules start empty and only
-  show records added in the current session (saves do reach the server): Loyalty campaigns, Maintenance (CMMS), LPG cylinder exchange,
-  Hardware bridge, Shop batches / stock adjustments. The IAM and Billing-pro screen is fully connected. Remaining wiring is tracked on the
-  branch `claude/modest-ride-vq8wfr` and ships as a later web-only release (no database change).
+- **Connected to live data (load from and save to the server):** IAM and Billing-pro, Shop (FEFO batches, stock adjustments, cart checkout),
+  Loyalty (members, campaigns), Maintenance/CMMS (work orders, generator logs, spare parts), LPG cylinder exchange, Hardware bridge.
+- **Real customers never see built-in sample records anywhere.** These modules still do not load their existing lists from the server
+  and start empty (records added in the session are saved to the server): HR admin (contracts, leaves, certificates, disciplinary),
+  Cash vault, Pump calibrations and maintenance logs, HSE / Fraud / Quality, Fixed assets and budgets, Executive approvals, Franchises, EV.
+  Server endpoints exist for most of them; wiring them is a later web-only release (no database change).
+- Not yet wired to a screen at all: maintenance PM schedules and cost roll-up, loyalty earn rules, billing dunning and proration preview,
+  country packs, MoMo refund and provider status, billing payments list.
 - Access-review "REVOKED" records a flag in the audit trail; it does not disable the account automatically.
 - GitHub Actions is blocked by an account spending limit ("Actions budget is preventing further use"). Fix under GitHub
   Settings, Billing, Budgets. Until then CI does not run.

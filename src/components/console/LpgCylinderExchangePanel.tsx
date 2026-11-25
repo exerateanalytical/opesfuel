@@ -1,4 +1,4 @@
-import { useLiveApi } from '../../api/liveApi';
+import { useLiveApi, useLiveList } from '../../api/liveApi';
 import React, { useMemo, useState } from 'react';
 import { ArrowLeftRight, Flame, PackagePlus, Plus, Printer, RefreshCw, ShieldAlert } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
@@ -58,7 +58,22 @@ export const LpgCylinderExchangePanel: React.FC<LpgCylinderExchangePanelProps> =
     { id: 'lpg_sctm_6', brand: 'SCTM', sizeKg: 6, skuCode: 'SCTM-6KG', gasRefillPriceFcfa: 3500, depositFcfa: 12000, crossBrandSwapFeeFcfa: 1000, fullQty: 35, emptyQty: 9, damagedQty: 0 },
     { id: 'lpg_cam_35', brand: 'CAMGAZ', sizeKg: 35, skuCode: 'CMG-35KG', gasRefillPriceFcfa: 19500, depositFcfa: 45000, crossBrandSwapFeeFcfa: 3000, fullQty: 10, emptyQty: 4, damagedQty: 0 },
   ];
-  const [skus, setSkus] = useState<LpgSku[]>(liveData ? [] : seed_skus);
+  const [skusLocal, setSkusLocal] = useState<LpgSku[]>(liveData ? [] : seed_skus);
+  // Connected customers read everything from the server (SKU catalogue + this station's stock + transactions).
+  const skuCatalog = useLiveList<any, Omit<LpgSku, 'fullQty' | 'emptyQty' | 'damagedQty'>>('/lpg/skus', [], (r) => ({
+    id: r.id, brand: r.brand, sizeKg: Number(r.size_kg), skuCode: r.sku_code, gasRefillPriceFcfa: Number(r.gas_refill_price_fcfa),
+    depositFcfa: Number(r.deposit_fcfa), crossBrandSwapFeeFcfa: Number(r.cross_brand_swap_fee_fcfa),
+  }));
+  const stockRows = useLiveList<any, { skuId: string; full: number; empty: number; damaged: number }>(`/lpg/stock?stationId=${encodeURIComponent(stationId)}`, [], (r) => ({
+    skuId: r.sku_id, full: Number(r.full_qty), empty: Number(r.empty_qty), damaged: Number(r.damaged_qty),
+  }));
+  const liveSkus: LpgSku[] = skuCatalog.items.map((k) => {
+    const st = stockRows.items.find((x) => x.skuId === k.id);
+    return { ...k, fullQty: st?.full ?? 0, emptyQty: st?.empty ?? 0, damagedQty: st?.damaged ?? 0 };
+  });
+  const skus = liveData ? liveSkus : skusLocal;
+  const noop = () => {};
+  const setSkus = (liveData ? noop : setSkusLocal) as typeof setSkusLocal;
 
   const seed_txs: LpgTx[] = [
     {
@@ -75,26 +90,38 @@ export const LpgCylinderExchangePanel: React.FC<LpgCylinderExchangePanelProps> =
       createdAt: new Date(Date.now() - 3600_000).toISOString(),
     },
   ];
-  const [txs, setTxs] = useState<LpgTx[]>(liveData ? [] : seed_txs);
+  const txList = useLiveList<any, LpgTx>(`/lpg/transactions?stationId=${encodeURIComponent(stationId)}`, seed_txs, (r) => ({
+    id: r.id, receiptNo: r.receipt_no, skuCode: skuCatalog.items.find((k) => k.id === r.sku_id)?.skuCode ?? '', txType: r.tx_type, quantity: Number(r.quantity),
+    customerName: r.customer_name ?? '', gasAmountFcfa: Number(r.gas_amount_fcfa), depositDeltaFcfa: Number(r.deposit_delta_fcfa),
+    swapFeeFcfa: Number(r.swap_fee_fcfa), totalFcfa: Number(r.total_fcfa), createdAt: String(r.created_at),
+  }));
+  const txs = txList.items;
+  const setTxs = (liveData ? noop : txList.setItems) as typeof txList.setItems;
+  const post: typeof onPostBackend = async (path, method, body) => {
+    const r = await onPostBackend(path, method, body);
+    if (liveData) await Promise.all([skuCatalog.reload(), stockRows.reload(), txList.reload()]);
+    return r;
+  };
 
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [skuModalOpen, setSkuModalOpen] = useState(false);
 
   // Transaction form
   const [txType, setTxType] = useState('REFILL_EXCHANGE');
-  const [skuId, setSkuId] = useState('lpg_tdx_12');
-  const [swapFromSkuId, setSwapFromSkuId] = useState('lpg_tot_12');
+  const [skuId, setSkuId] = useState(liveData ? '' : 'lpg_tdx_12');
+  const [swapFromSkuId, setSwapFromSkuId] = useState(liveData ? '' : 'lpg_tot_12');
+  React.useEffect(() => { if (liveData && !skuId && liveSkus.length > 0) setSkuId(liveSkus[0].id); }, [liveData, skuId, liveSkus.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const [qty, setQty] = useState(1);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('CASH');
 
   // New SKU form
-  const [newBrand, setNewBrand] = useState('TRADEX');
+  const [newBrand, setNewBrand] = useState(liveData ? '' : 'TRADEX');
   const [newSizeKg, setNewSizeKg] = useState('12.5');
   const [newCode, setNewCode] = useState('');
-  const [newRefillPrice, setNewRefillPrice] = useState('6500');
-  const [newDeposit, setNewDeposit] = useState('18000');
+  const [newRefillPrice, setNewRefillPrice] = useState(liveData ? '' : '6500');
+  const [newDeposit, setNewDeposit] = useState(liveData ? '' : '18000');
 
   const totals = useMemo(() => {
     const full = skus.reduce((s, k) => s + k.fullQty, 0);
@@ -122,7 +149,7 @@ export const LpgCylinderExchangePanel: React.FC<LpgCylinderExchangePanelProps> =
       return;
     }
 
-    const remote = await onPostBackend('/api/v1/lpg/transactions', 'POST', {
+    const remote = await post('/api/v1/lpg/transactions', 'POST', {
       stationId,
       skuId: target.id,
       swapFromSkuId: txType === 'CROSS_BRAND_SWAP' ? swapFromSkuId : undefined,
@@ -204,7 +231,7 @@ export const LpgCylinderExchangePanel: React.FC<LpgCylinderExchangePanelProps> =
       depositFcfa: Number(newDeposit),
       crossBrandSwapFeeFcfa: 1500,
     };
-    const remote = await onPostBackend('/api/v1/lpg/skus', 'POST', payload);
+    const remote = await post('/api/v1/lpg/skus', 'POST', payload);
     setSkus((prev) => [
       ...prev,
       { id: String(remote?.id ?? `lpg_${Date.now()}`), ...payload, fullQty: 0, emptyQty: 0, damagedQty: 0 },

@@ -1,4 +1,4 @@
-import { useLiveApi } from '../../api/liveApi';
+import { useLiveApi, useLiveList } from '../../api/liveApi';
 import React, { useMemo, useState } from 'react';
 import { CalendarClock, CheckCircle2, Cog, Plus, Wrench, Zap } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
@@ -71,39 +71,57 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
     { id: 'wo_01', assetName: 'Perkins 250kVA Standby Generator', orderType: 'PREVENTIVE', priority: 'HIGH', title: '250-Hour Oil, Fuel Filter & Belt Service', status: 'IN_PROGRESS', assignedTechnician: 'Tech Jean-Luc', laborCostFcfa: 45000, partsCostFcfa: 68000 },
     { id: 'wo_02', assetName: 'Tokheim Dispenser Bay 2', orderType: 'CORRECTIVE', priority: 'MEDIUM', title: 'Replace Super Nozzle Breakaway Coupling', status: 'OPEN', assignedTechnician: 'Unassigned', laborCostFcfa: 0, partsCostFcfa: 0 },
   ];
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(liveData ? [] : seed_workOrders);
+  const { items: workOrders, setItems: setWorkOrdersRaw, reload: reloadWo } = useLiveList<any, WorkOrder>(`/cmms/work-orders?stationId=${encodeURIComponent(stationId)}`, seed_workOrders, (r) => ({
+    id: r.id, assetName: r.asset_name, orderType: r.order_type, priority: r.priority, title: r.title, status: r.status,
+    assignedTechnician: r.assigned_technician ?? 'Unassigned', laborCostFcfa: Number(r.labor_cost_fcfa ?? 0), partsCostFcfa: Number(r.parts_cost_fcfa ?? 0),
+  }));
 
   const seed_genLogs: GeneratorLog[] = [
     { id: 'gen_01', generatorName: 'Perkins 250kVA Standby Generator', hoursStart: 1240.5, hoursEnd: 1246.5, runtimeHours: 6.0, fuelLitres: 48, fuelCostFcfa: 39744, powerOutageReason: 'ENEO feeder maintenance outage', loggedAt: new Date(Date.now() - 7200_000).toISOString() },
   ];
-  const [genLogs, setGenLogs] = useState<GeneratorLog[]>(liveData ? [] : seed_genLogs);
+  const { items: genLogs, setItems: setGenLogsRaw, reload: reloadGen } = useLiveList<any, GeneratorLog>(`/cmms/generator-logs?stationId=${encodeURIComponent(stationId)}`, seed_genLogs, (r) => ({
+    id: r.id, generatorName: r.generator_name, hoursStart: Number(r.hours_start), hoursEnd: Number(r.hours_end), runtimeHours: Number(r.runtime_hours),
+    fuelLitres: Number(r.fuel_litres), fuelCostFcfa: Number(r.fuel_cost_fcfa ?? 0), powerOutageReason: r.power_outage_reason ?? '', loggedAt: String(r.logged_at),
+  }));
 
   const seed_parts: SparePart[] = [
     { id: 'prt_01', partCode: 'AVR-SX460', partName: 'Generator AVR Module SX460', category: 'GENERATOR', stockQty: 2, reorderLevel: 1, unitCostFcfa: 45000 },
     { id: 'prt_02', partCode: 'NOZ-ZVA25', partName: 'ZVA Automatic Fuel Nozzle 3/4"', category: 'DISPENSER', stockQty: 4, reorderLevel: 2, unitCostFcfa: 62000 },
     { id: 'prt_03', partCode: 'FLT-PRK250', partName: 'Perkins Fuel/Water Separator Filter', category: 'GENERATOR', stockQty: 1, reorderLevel: 2, unitCostFcfa: 18500 },
   ];
-  const [parts, setParts] = useState<SparePart[]>(liveData ? [] : seed_parts);
+  const { items: parts, setItems: setPartsRaw, reload: reloadParts } = useLiveList<any, SparePart>(`/cmms/spare-parts?stationId=${encodeURIComponent(stationId)}`, seed_parts, (r) => ({
+    id: r.id, partCode: r.part_code, partName: r.part_name, category: r.category, stockQty: Number(r.stock_qty), reorderLevel: Number(r.reorder_level), unitCostFcfa: Number(r.unit_cost_fcfa ?? 0),
+  }));
+  // Connected customers: the server is the only source of truth (lists reload after every save); sample mode keeps local state.
+  const noop = () => {};
+  const setWorkOrders = (liveData ? noop : setWorkOrdersRaw) as typeof setWorkOrdersRaw;
+  const setGenLogs = (liveData ? noop : setGenLogsRaw) as typeof setGenLogsRaw;
+  const setParts = (liveData ? noop : setPartsRaw) as typeof setPartsRaw;
+  const post: typeof onPostBackend = async (path, method, body) => {
+    const r = await onPostBackend(path, method, body);
+    if (liveData) await Promise.all([reloadWo(), reloadGen(), reloadParts()]);
+    return r;
+  };
 
   // Modals
   const [woModalOpen, setWoModalOpen] = useState(false);
   const [genModalOpen, setGenModalOpen] = useState(false);
   const [issuePart, setIssuePart] = useState<SparePart | null>(null);
 
-  const [woAsset, setWoAsset] = useState('Perkins 250kVA Standby Generator');
+  const [woAsset, setWoAsset] = useState(liveData ? '' : 'Perkins 250kVA Standby Generator');
   const [woType, setWoType] = useState<'CORRECTIVE' | 'PREVENTIVE'>('CORRECTIVE');
   const [woPriority, setWoPriority] = useState('HIGH');
   const [woTitle, setWoTitle] = useState('');
   const [woTech, setWoTech] = useState('');
 
-  const [genName, setGenName] = useState('Perkins 250kVA Standby Generator');
-  const [hoursStart, setHoursStart] = useState('1246.5');
-  const [hoursEnd, setHoursEnd] = useState('1251.0');
-  const [fuelLitres, setFuelLitres] = useState('36');
+  const [genName, setGenName] = useState(liveData ? '' : 'Perkins 250kVA Standby Generator');
+  const [hoursStart, setHoursStart] = useState(liveData ? '' : '1246.5');
+  const [hoursEnd, setHoursEnd] = useState(liveData ? '' : '1251.0');
+  const [fuelLitres, setFuelLitres] = useState(liveData ? '' : '36');
   const [outageReason, setOutageReason] = useState('ENEO grid outage');
   const [deductDiesel, setDeductDiesel] = useState(true);
 
-  const [issueWoId, setIssueWoId] = useState('wo_01');
+  const [issueWoId, setIssueWoId] = useState(liveData ? '' : 'wo_01');
   const [issueQty, setIssueQty] = useState(1);
 
   const totalMaintenanceFcfa = useMemo(
@@ -116,7 +134,7 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
   const handleCreateWo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!woTitle.trim()) return;
-    const remote = await onPostBackend('/api/v1/cmms/work-orders', 'POST', {
+    const remote = await post('/api/v1/cmms/work-orders', 'POST', {
       stationId,
       assetName: woAsset,
       orderType: woType,
@@ -147,9 +165,9 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
   const advanceWorkOrder = async (wo: WorkOrder) => {
     const next = NEXT_STATE[wo.status];
     if (!next) return;
-    await onPostBackend(`/api/v1/cmms/work-orders/${encodeURIComponent(wo.id)}/transition`, 'PATCH', {
+    await post(`/api/v1/cmms/work-orders/${encodeURIComponent(wo.id)}/transition`, 'PATCH', {
       nextStatus: next,
-      laborCostFcfa: next === 'DONE' && wo.laborCostFcfa === 0 ? 25000 : wo.laborCostFcfa,
+      laborCostFcfa: next === 'DONE' && wo.laborCostFcfa === 0 && !liveData ? 25000 : wo.laborCostFcfa,
     });
     setWorkOrders((prev) =>
       prev.map((w) =>
@@ -172,7 +190,7 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
     }
     const runtime = Math.round((he - hs) * 100) / 100;
     const cost = Math.round(fl * 828);
-    const remote = await onPostBackend('/api/v1/cmms/generator-logs', 'POST', {
+    const remote = await post('/api/v1/cmms/generator-logs', 'POST', {
       stationId,
       generatorName: genName,
       hoursStart: hs,
@@ -209,7 +227,7 @@ export const MaintenanceCmmsPanel: React.FC<MaintenanceCmmsPanelProps> = ({
       onNotify('error', 'Insufficient spare part stock.');
       return;
     }
-    await onPostBackend(`/api/v1/cmms/spare-parts/${encodeURIComponent(issuePart.id)}/issue`, 'POST', {
+    await post(`/api/v1/cmms/spare-parts/${encodeURIComponent(issuePart.id)}/issue`, 'POST', {
       workOrderId: issueWoId,
       quantity: issueQty,
     });

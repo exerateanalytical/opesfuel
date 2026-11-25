@@ -1,4 +1,4 @@
-import { useLiveApi } from '../../api/liveApi';
+import { useLiveApi, useLiveList } from '../../api/liveApi';
 import React, { useState } from 'react';
 import { Award, ExternalLink, Gift, MessageCircle, Plus, Sparkles } from 'lucide-react';
 import { formatFcfa } from '../../domain/formatters';
@@ -45,22 +45,29 @@ export const LoyaltyCampaignsPanel: React.FC<LoyaltyCampaignsPanelProps> = ({
     { id: 'loy_01', phone: '+237677998877', fullName: 'Jean-Marie Kamga', passToken: 'pass_cameroon01demo', pointsBalance: 640, lifetimePoints: 1850, tier: 'GOLD' },
     { id: 'loy_02', phone: '+237699443322', fullName: 'Nadine Tchatchoua', passToken: 'pass_cameroon02demo', pointsBalance: 210, lifetimePoints: 490, tier: 'SILVER' },
   ];
-  const [members, setMembers] = useState<LoyaltyMember[]>(liveData ? [] : seed_members);
+  const { items: members, setItems: setMembers, reload: reloadMembers } = useLiveList<any, LoyaltyMember>('/loyalty/members', seed_members, (r) => ({
+    id: r.id, phone: r.phone, fullName: r.full_name ?? '', passToken: r.pass_token,
+    pointsBalance: Number(r.points_balance), lifetimePoints: Number(r.lifetime_points), tier: r.tier,
+  }));
 
   const seed_campaigns: LoyaltyCampaign[] = [
     { id: 'cmp_01', name: 'Early Bird Happy Hour', campaignType: 'HAPPY_HOUR', discountPct: 3, fuelGrade: 'SUPER', windowLabel: '06:00–09:00 UTC', active: true },
     { id: 'cmp_02', name: 'Transport Fleet Gasoil Rebate', campaignType: 'FLEET_REBATE', discountPct: 2.5, fuelGrade: 'GASOIL', windowLabel: 'All Day', active: true },
   ];
-  const [campaigns, setCampaigns] = useState<LoyaltyCampaign[]>(liveData ? [] : seed_campaigns);
+  const { items: campaigns, setItems: setCampaigns, reload: reloadCampaigns } = useLiveList<any, LoyaltyCampaign>('/loyalty/campaigns', seed_campaigns, (r) => ({
+    id: r.id, name: r.name, campaignType: r.campaign_type, discountPct: Number(r.discount_pct), fuelGrade: r.fuel_grade ?? '',
+    windowLabel: r.start_hour != null && r.end_hour != null ? `${String(r.start_hour).padStart(2, '0')}:00–${String(r.end_hour).padStart(2, '0')}:00 UTC` : 'All Day',
+    active: Boolean(r.active),
+  }));
 
   const [earnModalOpen, setEarnModalOpen] = useState(false);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [campaignModalOpen, setCampaignModalOpen] = useState(false);
 
-  const [phone, setPhone] = useState('+237677998877');
+  const [phone, setPhone] = useState(liveData ? '' : '+237677998877');
   const [grade, setGrade] = useState('SUPER');
-  const [litres, setLitres] = useState('45');
-  const [amountXaf, setAmountXaf] = useState('37800');
+  const [litres, setLitres] = useState(liveData ? '' : '45');
+  const [amountXaf, setAmountXaf] = useState(liveData ? '' : '37800');
   const [receiptChannel, setReceiptChannel] = useState<'WHATSAPP' | 'SMS'>('WHATSAPP');
 
   const [cmpName, setCmpName] = useState('');
@@ -106,6 +113,7 @@ export const LoyaltyCampaignsPanel: React.FC<LoyaltyCampaignsPanelProps> = ({
         ...prev,
       ];
     });
+    if (liveData) await reloadMembers(); // show the server's balances, not our estimate
     setEarnModalOpen(false);
     onNotify('success', `Awarded +${earned} loyalty points to ${phone}.`);
   };
@@ -150,6 +158,7 @@ export const LoyaltyCampaignsPanel: React.FC<LoyaltyCampaignsPanelProps> = ({
       },
       ...prev,
     ]);
+    if (liveData) await reloadCampaigns();
     setCmpName('');
     setCampaignModalOpen(false);
     onNotify('success', `Activated loyalty promotion "${cmpName.trim()}".`);
