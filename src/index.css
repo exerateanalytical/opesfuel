@@ -157,8 +157,11 @@ img, svg, video, canvas { max-width: 100%; }
   .text-5xl, .text-6xl { font-size: 2.1rem; line-height: 1.1; }
 }
 
-/* Touch screens of any size (phones and tablets): finger-sized controls */
-@media (pointer: coarse) {
-  button, [role="button"], select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { min-height: 40px; }
-  input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
+/* Touch screens of any size (phones and tablets): finger-sized controls.
+   Base layer on purpose: a component that asks for a taller control (min-h-[44px] ...) still wins. */
+@layer base {
+  @media (pointer: coarse) {
+    button, [role="button"], select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { min-height: 40px; }
+    input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
+  }
 }
