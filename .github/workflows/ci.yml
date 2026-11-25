@@ -73,6 +73,10 @@ jobs:
           bash -n deploy/backup-postgres.sh
           bash -n deploy/restore-postgres.sh
           bash -n deploy/smoke-test.sh
+          bash -n deploy/preflight.sh
+          bash -n deploy/deploy.sh
+          bash -n deploy/verify-public.sh
+          bash -n deploy/rollback.sh
 
       - name: Validate docker-compose.prod.yml syntax
         env:

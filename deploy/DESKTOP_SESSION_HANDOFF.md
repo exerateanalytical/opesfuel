@@ -79,6 +79,7 @@ Roll back code: `deploy/rollback.sh` (database is not restored; for data problem
 - Real Auth0/Keycloak sign-in and the mobile app on a real phone have not been tested by the developer.
 - Some enterprise modules do not yet load their existing lists from the server (listed in `DEPLOY_OPESFUEL_COM.md`, Known limits).
 - Email sending needs a provider configured and SPF/DKIM DNS records.
+- Auth0 is the supported identity provider for this deploy. The code also contains self-hosted Keycloak support (`VITE_OIDC_ISSUER`, `VITE_OIDC_CLIENT_ID`), but `docker-compose.prod.yml` and the env template do not pass those yet; do not choose Keycloak without wiring them first.
 
 ## 8. Report back
 Give the owner: the deployed commit, the `verify-public` summary, the results of the 8 manual checks, and the open items above.
