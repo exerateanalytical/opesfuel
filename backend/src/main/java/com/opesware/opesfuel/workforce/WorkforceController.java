@@ -510,7 +510,7 @@ public class WorkforceController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','ATTENDANT','ACCOUNTANT')")
     public java.util.Map<String, Object> myEmployeeProfile() {
         return service.getMyProfile();
     }

@@ -778,11 +778,19 @@ class OpesFuelBackendIntegrationTests {
     }
 
     @Test
-    void authenticatedFirstTimeUserCanSelfOnboardButExistingAttendantIsBlocked() throws Exception {
+    void onlyOwnersMayProvisionACompanyAndStaffAreRefused() throws Exception {
         String brandNewSub = "auth0|brandnew_" + UUID.randomUUID().toString().substring(0, 6);
         String code = "SELF-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+        // A default-role (attendant) or accountant login can never create a company (self-service signup is the public endpoint)
+        for (String staffRole : new String[]{"ATTENDANT", "ACCOUNTANT", "MANAGER"}) {
+            mockMvc.perform(post("/api/v1/tenants/onboard")
+                    .with(user(brandNewSub).roles(staffRole))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"organizationName\":\"Rogue Co\",\"ownerName\":\"X\",\"ownerEmail\":\"x@rogue.cm\",\"stationCode\":\"ROG-1\",\"stationName\":\"S\",\"city\":\"Douala\",\"planName\":\"Starter Station\",\"monthlyFeeFcfa\":25000}"))
+                .andExpect(status().isForbidden());
+        }
         mockMvc.perform(post("/api/v1/tenants/onboard")
-                .with(user(brandNewSub).roles("ATTENDANT"))
+                .with(user(brandNewSub).roles("OWNER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {

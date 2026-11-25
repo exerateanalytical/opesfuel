@@ -270,7 +270,8 @@ public class TenantController {
 
     @PostMapping("/onboard")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("isAuthenticated() and !hasRole('FLEET_CLIENT')")
+    // Creating a company is an owner/platform action; staff, accountants and fleet clients may not provision tenants.
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN','OWNER') or hasAuthority('SCOPE_platform:admin')")
     public OnboardTenantResponse onboardTenant(@Valid @RequestBody OnboardTenantCommand cmd) {
         return service.onboardTenantWorkspace(cmd);
     }

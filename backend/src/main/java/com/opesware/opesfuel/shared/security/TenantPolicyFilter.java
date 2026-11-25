@@ -86,9 +86,7 @@ public class TenantPolicyFilter extends OncePerRequestFilter {
                         "This workspace is suspended. Contact OpesFuel support or settle your subscription.");
                     return;
                 }
-                boolean locked = LOCKED_BILLING.contains(String.valueOf(st.billingStatus()).toUpperCase())
-                    || ("TRIAL".equalsIgnoreCase(st.billingStatus())
-                        && st.trialEndsAt() != null && st.trialEndsAt().isBefore(Instant.now()));
+                boolean locked = isWriteLocked(st.billingStatus(), st.trialEndsAt(), Instant.now());
                 if (locked && write) {
                     deny(response, 402, "SUBSCRIPTION_REQUIRED",
                         "Your trial or subscription has ended. Your data is safe and read-only; subscribe to resume editing.");
@@ -97,6 +95,12 @@ public class TenantPolicyFilter extends OncePerRequestFilter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    /** Single definition of "this company can only read": used by the filter and by the subscription-status endpoint. */
+    public static boolean isWriteLocked(String billingStatus, Instant trialEndsAt, Instant now) {
+        String b = String.valueOf(billingStatus).toUpperCase();
+        return LOCKED_BILLING.contains(b) || ("TRIAL".equals(b) && trialEndsAt != null && trialEndsAt.isBefore(now));
     }
 
     private TenantState load(String tenantId) {
@@ -125,6 +129,8 @@ public class TenantPolicyFilter extends OncePerRequestFilter {
     private static void deny(HttpServletResponse response, int status, String code, String message) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json");
-        response.getWriter().write("{\"error\":\"" + code + "\",\"message\":\"" + message.replace("\"", "'") + "\"}");
+        String safe = message.replace("\"", "'");
+        // ProblemDetail-compatible (detail/title/status) so the website and mobile app show it like any other API error
+        response.getWriter().write("{\"error\":\"" + code + "\",\"title\":\"" + code + "\",\"status\":" + status + ",\"detail\":\"" + safe + "\",\"message\":\"" + safe + "\"}");
     }
 }

@@ -277,7 +277,8 @@ public class PlatformAdminGovernanceController {
     }
 
     @PostMapping("/directory/resolve")
-    @PreAuthorize("isAuthenticated() and !hasRole('FLEET_CLIENT')")
+    // Cross-company staff directory: platform operators only (any other role could enumerate other companies' staff).
+    @PreAuthorize("hasRole('PLATFORM_ADMIN') or hasAuthority('SCOPE_platform:admin')")
     public Map<String, Object> resolveOperatorIdentifier(@Valid @RequestBody ResolveOperatorIdentifierCmd cmd) {
         String raw = cmd.identifier().trim();
         String normLower = raw.toLowerCase();

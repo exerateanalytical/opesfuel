@@ -20,6 +20,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -44,6 +45,7 @@ class TenantPolicyEnforcementTests {
     void fixtures() {
         jdbc.execute("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP WITH TIME ZONE");
         jdbc.execute("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_status VARCHAR(24) NOT NULL DEFAULT 'CURRENT'");
+        try { jdbc.execute("ALTER TABLE billing_invoices ADD COLUMN IF NOT EXISTS due_at TIMESTAMP"); } catch (Exception ignored) {} // exists in production via V9
         tenant("ten_pol_demo", "ACTIVE", "CURRENT", "NULL");
         tenant("ten_pol_expired", "ACTIVE", "TRIAL", "DATEADD('DAY', -2, CURRENT_TIMESTAMP)");
         tenant("ten_pol_live_trial", "ACTIVE", "TRIAL", "DATEADD('DAY', 10, CURRENT_TIMESTAMP)");
@@ -106,5 +108,32 @@ class TenantPolicyEnforcementTests {
         mvc.perform(get("/api/v1/stations").with(as("ten_pol_suspended", "OWNER")))
             .andExpect(status().isForbidden())
             .andExpect(content().string(containsString("TENANT_SUSPENDED")));
+    }
+
+    @Test
+    void subscriptionStatusReportsTheSameLockRulesTheServerEnforces() throws Exception {
+        mvc.perform(get("/api/v1/billing/subscription-status").with(as("ten_pol_live_trial", "OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.trialActive").value(true))
+            .andExpect(jsonPath("$.readOnly").value(false))
+            .andExpect(jsonPath("$.billingStatus").value("TRIAL"))
+            .andExpect(jsonPath("$.trialDaysRemaining").value(org.hamcrest.Matchers.greaterThanOrEqualTo(9)));
+        mvc.perform(get("/api/v1/billing/subscription-status").with(as("ten_pol_expired", "OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.trialActive").value(false))
+            .andExpect(jsonPath("$.readOnly").value(true))
+            .andExpect(jsonPath("$.trialDaysRemaining").value(0));
+        mvc.perform(get("/api/v1/billing/subscription-status").with(as("ten_pol_paid", "OWNER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.readOnly").value(false))
+            .andExpect(jsonPath("$.billingStatus").value("CURRENT"));
+    }
+
+    @Test
+    void lockMessagesUseTheStandardErrorShapeSoEveryAppCanShowThem() throws Exception {
+        mvc.perform(post("/api/v1/stations").with(as("ten_pol_expired", "OWNER")).contentType("application/json").content("{}"))
+            .andExpect(status().isPaymentRequired())
+            .andExpect(jsonPath("$.status").value(402))
+            .andExpect(jsonPath("$.detail").value(containsString("read-only")));
     }
 }

@@ -68,7 +68,7 @@ public class SelfSignupController {
         // until the verified email holder logs in, so re-submitting simply refreshes its details. This neutralises
         // email squatting without exposing anything: access is still gated by a verified-email login.
         List<Map<String, Object>> pending = jdbc.queryForList(
-            "SELECT id, tenant_id, assigned_station_id FROM user_accounts WHERE LOWER(email) = ? AND auth0_sub LIKE 'pending|%'", email);
+            "SELECT id, tenant_id, assigned_station_id FROM user_accounts WHERE LOWER(email) = ? AND auth0_sub LIKE 'pending|%' AND role = 'OWNER'", email);
         if (!pending.isEmpty()) {
             Map<String, Object> row = pending.get(0);
             String tid = String.valueOf(row.get("tenant_id"));
@@ -157,6 +157,14 @@ public class SelfSignupController {
         Map<String, Object> row = rows.get(0);
         if (req.sub() != null && !req.sub().isBlank() && String.valueOf(row.get("auth0_sub")).startsWith("pending|")) {
             jdbc.update("UPDATE user_accounts SET auth0_sub = ? WHERE id = ?", req.sub(), row.get("id"));
+            // Invited staff: tie the login to their employee record (so the mobile app finds "me") and close the invitation.
+            jdbc.update("""
+                UPDATE employees SET auth0_sub = ?
+                WHERE id IN (SELECT employee_id FROM user_invites
+                             WHERE LOWER(email) = ? AND tenant_id = ? AND employee_id IS NOT NULL AND status = 'PENDING')
+                """, req.sub(), email, row.get("tenant_id"));
+            jdbc.update("UPDATE user_invites SET status = 'ACCEPTED', accepted_at = CURRENT_TIMESTAMP WHERE LOWER(email) = ? AND tenant_id = ? AND status = 'PENDING'",
+                email, row.get("tenant_id"));
         }
         Object station = row.get("assigned_station_id");
         String role = String.valueOf(row.get("role")).toUpperCase();

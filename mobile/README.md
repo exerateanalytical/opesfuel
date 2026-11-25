@@ -21,8 +21,8 @@ cd mobile && cp .env.example .env     # fill in Auth0 + API URL
 npm install && npx expo start
 ```
 Auth0: create a **Native** application, allowed callback `opesfuel://callback`, enable Refresh Token Rotation, and use the
-same API audience and claims Action as the web app (`deploy/auth0_setup.py`). Staff need an employee record linked to their
-login (`employees.auth0_sub`) so the backend `GET /api/v1/workforce/me` can find them.
+same API audience and claims Action as the web app (`deploy/auth0_setup.py`). Staff are added with **Invite staff** (web console): the invitation creates their login record, and when they first sign in
+with that verified email the system links them to their employee record, so `GET /api/v1/workforce/me` finds them.
 
 ## Tests
 ```bash

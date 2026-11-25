@@ -1087,7 +1087,9 @@ export class OpesFuelApiEngine {
       });
       if (!res.ok) {
         const detail = await this.extractErrorMessage(res);
-        this.onRemoteError?.(`Backend rejected ${method} ${path} (${res.status}): ${detail}`);
+        // Subscription / demo / suspension locks already carry a customer-friendly sentence: show it as is.
+        const friendly = res.status === 402 || (res.status === 403 && /read-only demo|suspended/i.test(detail));
+        this.onRemoteError?.(friendly ? detail : `Backend rejected ${method} ${path} (${res.status}): ${detail}`);
         // Re-hydrate from server to roll back rejected optimistic local state
         const authoritative = await this.hydrateFromSpringBoot(effectiveToken);
         if (authoritative) {
