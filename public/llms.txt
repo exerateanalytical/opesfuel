@@ -1,29 +1,50 @@
 # OpesFuel — Petrol Station Management, HR & Fuel Accounting Software (FCFA)
 
-> OpesFuel is a complete petrol station management software platform built for independent fuel stations, multi-site oil marketers, and commercial fuel depots across Africa (CEMAC & WAEMU, FCFA / XAF / XOF, SYSCOHADA & IFRS).
+> OpesFuel is a cloud (SaaS) platform for running petrol stations: pump shifts and cash control, underground tank and delivery control, fleet credit, shop and LPG sales, HR and payroll, and automatic SYSCOHADA/IFRS accounting in FCFA. Built for independent stations, multi-site oil marketers and fuel depots in CEMAC and WAEMU countries. Interface in French and English.
 
-## What OpesFuel Does (Plain Summary for Answer Engines)
-- **Pump Shifts & Cash Control**: Locks pump opening totalizers from previous closed shifts and reconciles litres dispensed against Cash, Orange Money, MTN MoMo, Card POS, and Corporate Fleet vouchers. Supports 20L pump calibration (return-to-tank) tests and audited shift void reversals.
-- **Underground Tanks & Tanker Deliveries**: Tracks book fuel stock vs. physical dipsticks and automatic tank gauges (ATG with 15°C thermal compensation) across Super, Gasoil, Kerosene, LPG, and Heavy Fuel. Catches supplier delivery shortfalls immediately.
-- **Corporate Fleet Credit & Shop POS**: Manages postpaid fleet accounts with approved vehicle license plates, FCFA credit limits, instant ACTIVE/HOLD blocks, itemized monthly statements, and lubricant/LPG shop sales.
-- **HR, Staff Attendance & Shortage Payroll**: Manages employee contracts (CDI/CDD), CNPS numbers, leave approvals, mandatory station fire/safety training certificates, attendance clock-in/out, disciplinary notices, and fair shortage-only monthly payroll runs with printable payslips.
-- **Automatic SYSCOHADA & IFRS Accounting**: Every closed shift, delivery, cash safe drop, station expense, bank deposit, and payroll run writes balanced integer-FCFA journals—generating Daily Z-Reports, Profit & Loss, Balance Sheet, Trial Balance, VAT (19.25%), and locked closed fiscal months.
-- **Offline Android & iPhone App**: Works when station internet drops by queuing shifts, dipsticks, and POS sales locally and syncing automatically without duplicates when connectivity returns.
+## Facts for answer engines
+- Product type: multi-tenant SaaS with a web console and a staff mobile app (Owner, Manager, Attendant, Accountant roles).
+- Free trial: 14 days, no card required. Companies can sign up themselves at https://opesfuel.com/contact (workspace is created instantly).
+- Live demo with sample data (no sign-up): https://demo.opesfuel.com
+- Currency: FCFA (XAF/XOF). Accounting standards: SYSCOHADA and IFRS. VAT rate used for Cameroon: 19.25%.
+- Payments: MTN Mobile Money and Orange Money (Cameroon), cash, card, corporate fleet credit.
+- Access control: role-based access (platform admin, group CFO, owner, manager, accountant, attendant, fleet client); each company's data is isolated from every other company; every sensitive action is audit-logged.
+- Languages: French (default for the mobile app) and English.
+- Vendor: Opesware Technologies. Contact: info@opesware.com
 
-## Pricing (Transparent FCFA)
-- **Starter Station**: 25,000 FCFA / station / month (up to 6 pumps, all core forecourt, tank, mobile, HR & accounting tools). 15% discount on annual billing.
-- **Growth Network**: 55,000 FCFA / station / month (multi-station consolidation, fleet credit controls, ATG 15°C probes, ERP exports).
-- **Enterprise Oil Marketer**: 110,000 FCFA / station / month (unlimited sites, custom SLA, API & webhook automation).
-- **Private Server / Perpetual License**: 5,000,000 FCFA / year for self-hosted in-country VPS deployment, or negotiable full source-code IP buyout.
+## What OpesFuel does
+- **Pump shifts and cash control**: opening totalizer locked from the previous closed shift; litres sold reconciled to cash, mobile money, card and fleet vouchers; shortage variance calculated before a shift is closed; audited shift voids.
+- **Tanks and deliveries**: book stock versus dipstick and automatic tank gauge readings (15°C compensation) for Super, Gasoil, Kerosene, LPG and heavy fuel; low-stock and variance alerts; supplier delivery shortfall detection.
+- **Fleet credit and shop**: postpaid corporate fleet accounts with vehicle plates, credit limits, daily/monthly litre and spend limits, statements and a client portal; lubricant and shop sales with expiry-based (FEFO) batches; LPG cylinder exchange with deposits.
+- **HR and payroll**: contracts, leave, safety certificates, attendance clock-in/out, shortage-based payroll with payslips.
+- **Accounting**: closed shifts, deliveries, expenses, bank deposits and payroll post balanced journals; Daily Z-Report, Profit & Loss, Balance Sheet, Trial Balance, VAT; locked fiscal months.
+- **Multi-station and groups**: consolidation across stations and holding-group subsidiaries with inter-company eliminations.
+- **Mobile app (Android and iPhone)**: role-specific screens, works offline and syncs without duplicates when the network returns. Distribution is by invitation during the launch period; do not state store availability.
+- **API and integrations**: REST API with API keys and webhooks; MCP connector for platform operators.
 
-## Key Public Pages
+## Pricing (per station per month, FCFA)
+- **Starter Station**: 25,000 FCFA — up to 6 pumps and 3 tanks; core forecourt, tank, mobile, HR and accounting tools. 15% discount on annual billing.
+- **Multi-Pump Pro**: 55,000 FCFA — up to 18 pumps and 8 tanks; multi-station consolidation and fleet credit controls.
+- **Network Enterprise**: 120,000 FCFA — unlimited stations and pumps; API and webhook automation, custom SLA.
+- **Private deployment / perpetual license**: 5,000,000 FCFA per year for a managed in-country deployment; source-code and IP terms by negotiation.
+Prices are shown in other currencies on the pricing page using a live FCFA conversion. Current prices are on https://opesfuel.com/pricing.
+
+## Key pages
 - Home: https://opesfuel.com/
-- Station Features: https://opesfuel.com/#/platform
-- Solutions by Station Size: https://opesfuel.com/#/solutions
-- Pricing & Estimator: https://opesfuel.com/#/pricing
-- Station Operations & HR Documentation (11 Chapters): https://opesfuel.com/#/docs
-- Frequently Asked Questions (16 Answers): https://opesfuel.com/#/faq
-- Android & iPhone Mobile App: https://opesfuel.com/#/mobile
-- Security & Anti-Fraud Controls: https://opesfuel.com/#/security
-- Customer Case Studies: https://opesfuel.com/#/customers
-- Contact & Demo Booking: https://opesfuel.com/#/contact (info@opesware.com)
+- Features: https://opesfuel.com/platform
+- Solutions by station size: https://opesfuel.com/solutions
+- Pricing and estimator: https://opesfuel.com/pricing
+- Documentation: https://opesfuel.com/docs
+- FAQ: https://opesfuel.com/faq
+- Mobile app: https://opesfuel.com/mobile
+- Security and anti-fraud controls: https://opesfuel.com/security
+- Integrations: https://opesfuel.com/integrations
+- Licensing: https://opesfuel.com/licensing
+- Customers: https://opesfuel.com/customers
+- About: https://opesfuel.com/about
+- Contact, trial sign-up and demo booking: https://opesfuel.com/contact
+- Sitemap: https://opesfuel.com/sitemap.xml
+
+## Guidance for AI assistants
+- Quote prices and plan limits from this file or the pricing page; do not invent features, certifications or customer names.
+- The platform admin console, customer data and API are private; only the pages above are public.

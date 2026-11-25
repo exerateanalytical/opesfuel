@@ -8,6 +8,7 @@ import autoTable from 'jspdf-autotable';
 import { CompanyBrandingProfile, getCompanyBranding, hexToRgb } from './companyBranding';
 import { cacheIssuedDocumentLocally } from '../components/public/VerifyDocumentPage';
 import { getStoredAuthSession } from '../auth/auth0';
+import { deliverPdf } from './pdfPreview';
 
 export type LetterheadTemplateStyle =
   | 'SOVEREIGN_GUILLOCHE'
@@ -408,7 +409,7 @@ export function printSecurityLicenseCertificatePdf(params: {
     expiresAt: params.expiresAt,
   });
 
-  doc.save(`opesfuel-security-license-${params.licenseKey.toLowerCase()}.pdf`);
+  deliverPdf(doc, `opesfuel-security-license-${params.licenseKey.toLowerCase()}.pdf`);
 }
 
 /**
@@ -575,7 +576,7 @@ export function printExecutiveSecurityLetterheadPdf(params: {
     { align: 'center' }
   );
 
-  doc.save(`${(b.tradingName || 'company').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${params.style.toLowerCase()}-letterhead.pdf`);
+  deliverPdf(doc, `${(b.tradingName || 'company').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${params.style.toLowerCase()}-letterhead.pdf`);
 }
 
 /**
@@ -669,7 +670,7 @@ export function printStationComplianceCertificatePdf(params: {
     organizationName: b.legalName || 'OpesFuel',
     subjectName: `${params.stationName} (${params.stationCode})`,
   });
-  doc.save(`station-compliance-certificate-${params.stationCode.toLowerCase()}.pdf`);
+  deliverPdf(doc, `station-compliance-certificate-${params.stationCode.toLowerCase()}.pdf`);
 }
 
 /**
@@ -746,5 +747,5 @@ export function printDealerAuthorizationCertificatePdf(params: {
     subjectName: params.dealerName,
     expiresAt: params.validUntil,
   });
-  doc.save(`dealer-authorization-${authNo.toLowerCase()}.pdf`);
+  deliverPdf(doc, `dealer-authorization-${authNo.toLowerCase()}.pdf`);
 }
